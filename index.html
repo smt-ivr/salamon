@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מערכת סלומון - אזור אישי</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="app.js" defer></script>
+    <link rel="stylesheet" href="/salamon/style.css">
+    <script src="/salamon/frontend.js" defer></script>
 </head>
 <body>
 
@@ -89,6 +89,7 @@
 
         <section id="user-dash-view" class="view-section">
             <div class="card large profile-card fade-in">
+                
                 <div id="profile-display">
                     <div class="profile-header">
                         <div class="avatar">👤</div>
@@ -132,7 +133,7 @@
                             </div>
                             <div class="form-group">
                                 <label>סיסמה חדשה (השאר ריק אם אין שינוי)</label>
-                                <input type="password" id="update_new_pass">
+                                <input type="password" id="update_new_pass" placeholder="****">
                             </div>
                         </div>
                         <div class="form-group verification-box">
@@ -141,7 +142,7 @@
                         </div>
                         <div class="form-actions">
                             <button type="button" class="btn-text" onclick="toggleEditMode(false)">ביטול וחזרה</button>
-                            <button type="submit" id="btn-update" class="btn-primary">שמור שינויים</button>
+                            <button type="submit" id="btn-update" class="btn-primary" style="max-width: 200px;">שמור שינויים</button>
                         </div>
                     </form>
                 </div>
