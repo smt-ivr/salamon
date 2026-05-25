@@ -225,6 +225,6 @@ const htmlContent = `<!DOCTYPE html>
         </div>
     </div>
 </body>
-</html>\`;
+</html>`;
 
 export default htmlContent;
