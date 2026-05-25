@@ -1,4 +1,4 @@
-:root {
+const cssContent = `:root {
     --primary: #4f46e5;
     --primary-hover: #4338ca;
     --secondary: #0f172a;
@@ -113,3 +113,6 @@ tr:hover { background-color: #f1f5f9; }
     .status-grid { grid-template-columns: 1fr; }
     .card { padding: 30px 20px; }
 }
+\`;
+
+export default cssContent;
