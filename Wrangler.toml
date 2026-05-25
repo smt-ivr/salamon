@@ -1,8 +1,0 @@
-name = "salamon"
-main = "worker.js"
-compatibility_date = "2024-05-24"
-
-# אנחנו מנחים את Wrangler להתייחס לקבצי העיצוב, הלוגיקה וה-HTML כקבצי טקסט נטענים
-[[rules]]
-type = "Text"
-globs = ["index.html", "style.css", "frontend.js"]
