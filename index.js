@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+const htmlContent = `<!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -225,4 +225,6 @@
         </div>
     </div>
 </body>
-</html>
+</html>\`;
+
+export default htmlContent;
