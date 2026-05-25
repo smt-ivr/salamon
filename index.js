@@ -3,7 +3,7 @@ const htmlContent = `<!DOCTYPE html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>מערכת סלומון</title>
+    <title>עכשיו סלומון</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/salamon/style.css">
     <script src="/salamon/frontend.js" defer></script>
@@ -12,7 +12,7 @@ const htmlContent = `<!DOCTYPE html>
 
     <header id="main-header">
         <div class="logo">
-            <i class="fa-solid fa-layer-group logo-icon"></i> סלומון
+            <i class="fa-solid fa-layer-group logo-icon"></i>עכשיו סלומון
         </div>
         <nav class="nav-links" id="navLinks">
             <button id="nav-auth" class="active" onclick="goBackToInit()"><i class="fa-solid fa-right-to-bracket"></i> התחברות</button>
@@ -24,7 +24,7 @@ const htmlContent = `<!DOCTYPE html>
         <section id="init-view" class="view-section auth-section active">
             <div class="clean-card fade-in">
                 <h2>ברוכים הבאים</h2>
-                <p class="subtitle">הזן מזהה להתחברות או הרשמה למערכת</p>
+                <p class="subtitle">הזן טלפון או אימייל להתחברות</p>
                 <div id="alert-init" class="alert-box"></div>
                 <form onsubmit="checkIdentifier(event)">
                     <div class="form-group">
@@ -62,11 +62,11 @@ const htmlContent = `<!DOCTYPE html>
                 </div>
                 <form onsubmit="userRegister(event)">
                     <div class="form-group">
-                        <label>שם מלא (מתוך ימות המשיח)</label>
+                        <label>שם מלא</label>
                         <input type="text" id="reg_name" readonly class="readonly-input input-modern">
                     </div>
                     <div class="form-group">
-                        <label>אימייל לגיבוי</label>
+                        <label>אימייל</label>
                         <input type="email" id="reg_email" placeholder="name@domain.com" class="ltr-input input-modern">
                     </div>
                     <div class="form-group">
