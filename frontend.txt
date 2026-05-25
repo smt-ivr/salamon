@@ -4,14 +4,38 @@ const API_BASE_URL = 'https://smti.uk/salamon/api';
 let state = { userToken: null, currentUser: null, adminToken: null, tempIdentifier: null };
 let activeAlertId = null;
 
-// רואטר (Router) בצד לקוח לניתוב לניהול
+// רואטר (Router) בצד לקוח וניהול שמירת התחברות
 document.addEventListener('DOMContentLoaded', () => {
     const path = window.location.pathname;
+    
+    // משיכת נתונים שמורים מ-LocalStorage (זיכרון הדפדפן)
+    const savedUserToken = localStorage.getItem('userToken');
+    const savedCurrentUser = localStorage.getItem('currentUser');
+    const savedAdminToken = localStorage.getItem('adminToken');
+
     if (path.includes('/admin')) {
-        showView('admin-login-view');
-        document.getElementById('navLinks').style.display = 'none'; // הסתרת תפריט למנהל
+        document.getElementById('navLinks').style.display = 'none';
+        if (savedAdminToken) {
+            // התחברות מנהל אוטומטית אם קיים טוקן
+            state.adminToken = savedAdminToken;
+            showView('admin-dash-view');
+            document.getElementById('navLinks').style.display = 'flex';
+            document.getElementById('nav-auth').style.display = 'none';
+            document.getElementById('nav-logout').style.display = 'inline-block';
+            loadAdminUsers();
+        } else {
+            showView('admin-login-view');
+        }
     } else {
-        showView('init-view');
+        if (savedUserToken && savedCurrentUser) {
+            // התחברות משתמש אוטומטית אם קיים טוקן
+            state.userToken = savedUserToken;
+            state.currentUser = JSON.parse(savedCurrentUser);
+            updateDashboardUI();
+            showView('user-dash-view');
+        } else {
+            showView('init-view');
+        }
     }
 });
 
@@ -30,7 +54,7 @@ function showMessage(containerId, msg, type = 'info') {
     const box = document.getElementById(containerId);
     if (!box) return;
     box.className = `alert-box ${type}`;
-    box.innerText = msg;
+    box.innerHTML = msg; // innerHTML מאפשר להכניס אייקונים להודעות
     box.style.display = 'block';
     activeAlertId = containerId;
 }
@@ -49,10 +73,9 @@ function showView(viewId) {
     document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
     document.getElementById(viewId).classList.add('active');
 
-    // ניהול תצוגת הכפתורים בהדר
     const path = window.location.pathname;
     if (!path.includes('/admin')) {
-        if(['init-view', 'login-view', 'register-view'].includes(viewId)) {
+        if(viewId.includes('auth-section') || ['init-view', 'login-view', 'register-view'].includes(viewId)) {
             document.getElementById('nav-auth').style.display = 'inline-block';
             document.getElementById('nav-logout').style.display = 'none';
         } else {
@@ -68,10 +91,10 @@ function setLoading(btnId, isLoading, originalText = '') {
     if (!btn) return;
     if (isLoading) {
         btn.disabled = true;
-        btn.innerText = 'טוען...';
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> טוען...';
     } else {
         btn.disabled = false;
-        btn.innerText = originalText;
+        btn.innerHTML = originalText;
     }
 }
 
@@ -99,13 +122,13 @@ async function checkIdentifier(e) {
             body: JSON.stringify({ identifier })
         });
         const data = await res.json();
-        setLoading('btn-init', false, 'המשך ➔');
+        setLoading('btn-init', false, 'המשך <i class="fa-solid fa-arrow-left" style="margin-right: 8px;"></i>');
 
         if (data.isRegistered) {
             state.tempIdentifier = data.identifier;
             document.getElementById('login_display_id').innerText = data.identifier;
             showView('login-view');
-            showMessage('alert-login', 'חשבונך זוהה. אנא הזן סיסמה להתחברות.', 'success');
+            showMessage('alert-login', '<i class="fa-solid fa-check"></i> חשבונך זוהה. אנא הזן סיסמה להתחברות.', 'success');
             document.getElementById('login_pass').focus();
         } 
         else if (data.authorized) {
@@ -113,14 +136,14 @@ async function checkIdentifier(e) {
             document.getElementById('reg_display_phone').innerText = data.phone;
             document.getElementById('reg_name').value = data.name || 'לא רשום שם במערכת (ניתן להמשיך)';
             showView('register-view');
-            showMessage('alert-register', 'המספר אומת מול ימות המשיח! הגדר סיסמה לפתיחת החשבון.', 'success');
+            showMessage('alert-register', '<i class="fa-solid fa-check"></i> המספר אומת מול ימות המשיח! הגדר סיסמה לפתיחת החשבון.', 'success');
             document.getElementById('reg_password').focus();
         } 
         else {
             showMessage('alert-init', data.error || 'אירעה שגיאה בבדיקה', 'error');
         }
     } catch (err) {
-        setLoading('btn-init', false, 'המשך ➔');
+        setLoading('btn-init', false, 'המשך <i class="fa-solid fa-arrow-left" style="margin-right: 8px;"></i>');
         showMessage('alert-init', 'שגיאת תקשורת עם השרת, נסה שוב', 'error');
     }
 }
@@ -137,22 +160,25 @@ async function userLogin(e) {
             body: JSON.stringify({ identifier: state.tempIdentifier, password })
         });
         const data = await res.json();
-        setLoading('btn-login', false, 'כניסה');
+        setLoading('btn-login', false, 'היכנס למערכת');
         
         if (!res.ok) {
             showMessage('alert-login', data.error || 'שגיאת התחברות', 'error');
             return;
         }
 
+        // שמירת הנתונים בזיכרון המקומי
         state.userToken = data.token;
         state.currentUser = data.user;
+        localStorage.setItem('userToken', data.token);
+        localStorage.setItem('currentUser', JSON.stringify(data.user));
+
         updateDashboardUI();
-        
         showView('user-dash-view');
         showMessage('alert-dash', 'התחברת בהצלחה!', 'success');
 
     } catch (err) {
-        setLoading('btn-login', false, 'כניסה');
+        setLoading('btn-login', false, 'היכנס למערכת');
         showMessage('alert-login', 'שגיאת תקשורת עם השרת', 'error');
     }
 }
@@ -172,7 +198,7 @@ async function userRegister(e) {
             body: JSON.stringify({ phone, email, password, passwordConfirm })
         });
         const data = await res.json();
-        setLoading('btn-register', false, 'הרשמה ➔');
+        setLoading('btn-register', false, 'סיום הרשמה <i class="fa-solid fa-check" style="margin-right: 5px;"></i>');
 
         if (!res.ok) {
             showMessage('alert-register', data.error || 'שגיאה בביצוע הרישום', 'error');
@@ -184,7 +210,7 @@ async function userRegister(e) {
         showMessage('alert-login', 'החשבון נפתח בהצלחה! התחבר כעת.', 'success');
 
     } catch (err) {
-        setLoading('btn-register', false, 'הרשמה ➔');
+        setLoading('btn-register', false, 'סיום הרשמה <i class="fa-solid fa-check" style="margin-right: 5px;"></i>');
         showMessage('alert-register', 'שגיאת רשת במהלך הרישום', 'error');
     }
 }
@@ -197,15 +223,14 @@ function updateDashboardUI() {
     document.getElementById('sidebar-name').innerText = user.name || 'אורח';
     document.getElementById('dash-phone').innerText = user.phone;
     
-    // הכנת טופס העריכה
     document.getElementById('update_email').value = user.email || '';
     document.getElementById('update_new_pass').value = '';
     document.getElementById('update_old_pass').value = '';
     
     const isConnected = (user.connectedToTzintukim === 'yes' || user.connectedToTzintukim === true || user.connectedToTzintukim === '1');
     document.getElementById('dash-tzintukim').innerHTML = isConnected 
-        ? '<span class="badge success">✓ פעיל ומחובר</span>' 
-        : '<span class="badge error">✗ אינו מחובר</span>';
+        ? '<span class="badge success">פעיל ומחובר</span>' 
+        : '<span class="badge error">אינו מחובר</span>';
 }
 
 async function updateUserProfile(e) {
@@ -224,20 +249,27 @@ async function updateUserProfile(e) {
             })
         });
         const data = await res.json();
-        setLoading('btn-update', false, 'שמור שינויים');
+        setLoading('btn-update', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
 
         if (!res.ok) {
+            // העפה אוטומטית אם הטוקן נפסל בשרת (לדוגמה סיסמה שונתה ממקום אחר)
+            if(res.status === 401 || res.status === 403) {
+                logout();
+                showMessage('alert-login', 'תוקף החיבור פג, אנא התחבר מחדש.', 'error');
+                return;
+            }
             alert(data.error || 'שגיאה בעדכון הפרטים');
             return;
         }
 
         state.currentUser.email = newEmail; 
+        localStorage.setItem('currentUser', JSON.stringify(state.currentUser)); // עדכון הזיכרון
         document.getElementById('update_old_pass').value = '';
         document.getElementById('update_new_pass').value = '';
         alert('הגדרות החשבון עודכנו בהצלחה!');
 
     } catch (err) {
-        setLoading('btn-update', false, 'שמור שינויים');
+        setLoading('btn-update', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
         alert('שגיאה בשליחת העדכון לשרת');
     }
 }
@@ -257,25 +289,27 @@ async function adminLogin(e) {
             body: JSON.stringify({ username, password })
         });
         const data = await res.json();
-        setLoading('btn-admin-login', false, 'התחבר למערכת');
+        setLoading('btn-admin-login', false, 'התחברות מאובטחת');
 
         if (!res.ok) {
             showMessage('alert-admin-login', data.error || 'פרטי מנהל שגויים', 'error');
             return;
         }
 
+        // שמירת טוקן מנהל בזיכרון
         state.adminToken = data.adminToken;
+        localStorage.setItem('adminToken', data.adminToken);
         
         document.getElementById('navLinks').style.display = 'flex';
         document.getElementById('nav-auth').style.display = 'none';
         document.getElementById('nav-logout').style.display = 'inline-block';
 
         showView('admin-dash-view');
-        showMessage('alert-admin-dash', `מחובר כמנהל: ${data.admin.username}`, 'success');
+        showMessage('alert-admin-dash', `מחובר כמנהל בהצלחה`, 'success');
         loadAdminUsers();
 
     } catch (err) {
-        setLoading('btn-admin-login', false, 'התחבר למערכת');
+        setLoading('btn-admin-login', false, 'התחברות מאובטחת');
         showMessage('alert-admin-login', 'שגיאת תקשורת. השרת לא זמין.', 'error');
     }
 }
@@ -283,7 +317,7 @@ async function adminLogin(e) {
 async function loadAdminUsers() {
     if (!state.adminToken) return;
     const tbody = document.getElementById('admin-users-table-body');
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">טוען נתונים מהמסד ומימות המשיח...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען נתונים מהמסד...</td></tr>';
     setLoading('btn-refresh-users', true);
 
     try {
@@ -293,9 +327,15 @@ async function loadAdminUsers() {
             body: JSON.stringify({ adminToken: state.adminToken })
         });
         const data = await res.json();
-        setLoading('btn-refresh-users', false, 'רענן נתונים ↻');
+        setLoading('btn-refresh-users', false, '<i class="fa-solid fa-rotate-right"></i> רענן נתונים');
 
         if (!res.ok) {
+            // מנגנון העפה: אם הטוקן של המנהל שגוי או פג תוקף, זרוק אותו מיד לדף ההתחברות
+            if (res.status === 401 || res.status === 403 || (data.error && data.error.includes('טוקן'))) {
+                logout();
+                showMessage('alert-admin-login', 'פג תוקף החיבור שלך. אנא התחבר כמנהל מחדש.', 'error');
+                return;
+            }
             showMessage('alert-admin-dash', data.error || 'שגיאה בשליפת המשתמשים', 'error');
             tbody.innerHTML = '<tr><td colspan="6" class="empty-state" style="color:red;">שגיאה בטעינה</td></tr>';
             return;
@@ -315,18 +355,18 @@ async function loadAdminUsers() {
             tr.innerHTML = `
                 <td style="font-weight:700; direction:ltr; text-align:right;">${user.phone}</td>
                 <td>${user.name}</td>
-                <td dir="ltr" style="text-align:right;">${user.email || '<span style="color:#94a3b8;">-</span>'}</td>
-                <td style="font-family:monospace; color:#475569;">${user.password}</td>
+                <td dir="ltr" style="text-align:right;">${user.email || '<span style="color:#a1a1aa;">-</span>'}</td>
+                <td style="font-family:monospace; color:#71717a;">${user.password}</td>
                 <td>${badgeHtml}</td>
                 <td>
-                    <button class="actions-btn" onclick="openAdminModal('${user.phone}', '${user.email || ''}')">עריכה</button>
+                    <button class="actions-btn" onclick="openAdminModal('${user.phone}', '${user.email || ''}')"><i class="fa-solid fa-pen"></i> עריכה</button>
                 </td>
             `;
             tbody.appendChild(tr);
         });
 
     } catch (err) {
-        setLoading('btn-refresh-users', false, 'רענן נתונים ↻');
+        setLoading('btn-refresh-users', false, '<i class="fa-solid fa-rotate-right"></i> רענן נתונים');
         showMessage('alert-admin-dash', 'שגיאת שרת בשליפת נתונים', 'error');
     }
 }
@@ -357,9 +397,15 @@ async function submitAdminUpdate(e) {
             body: JSON.stringify({ adminToken: state.adminToken, phone, newEmail, newPassword })
         });
         const data = await res.json();
-        setLoading('btn-modal-save', false, 'שמור שינויים');
+        setLoading('btn-modal-save', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
 
         if (!res.ok) {
+            // העפת מנהל אם הטוקן שלו נפסל
+            if (res.status === 401 || res.status === 403) {
+                logout();
+                showMessage('alert-admin-login', 'פג תוקף החיבור שלך. התחבר מחדש.', 'error');
+                return;
+            }
             showMessage('alert-modal', data.error || 'עדכון נכשל', 'error');
             return;
         }
@@ -369,13 +415,19 @@ async function submitAdminUpdate(e) {
         loadAdminUsers();
 
     } catch (err) {
-        setLoading('btn-modal-save', false, 'שמור שינויים');
+        setLoading('btn-modal-save', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
         showMessage('alert-modal', 'שגיאת רשת בשמירה', 'error');
     }
 }
 
 function logout() {
     state = { userToken: null, currentUser: null, adminToken: null, tempIdentifier: null };
+    
+    // מחיקת נתונים מזיכרון הדפדפן
+    localStorage.removeItem('userToken');
+    localStorage.removeItem('currentUser');
+    localStorage.removeItem('adminToken');
+    
     document.querySelectorAll('input').forEach(input => input.value = ''); 
     
     const path = window.location.pathname;
