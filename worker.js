@@ -1,5 +1,5 @@
-import htmlContent from './index.html';
-import cssContent from './style.css';
+import htmlContent from './index.js';
+import cssContent from './style.js';
 import jsContent from './frontend.js';
 
 export default {
@@ -28,7 +28,7 @@ export default {
             });
         }
 
-        // אם הנתיב לא תואם (ה-API יטופל אוטומטית ע"י הוורקר השני של ה-API)
+        // אם הנתיב לא תואם
         return new Response('Not Found', { status: 404 });
     }
 };
