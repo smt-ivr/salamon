@@ -1,34 +1,31 @@
 import htmlContent from './index.js';
 import cssContent from './style.js';
-import jsContent from './frontend.txt';
+import jsContent from './frontend.txt'; // זכור ששינינו ל-txt
 
 export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
         const path = url.pathname;
 
-        // טעינת עמוד הבית (HTML)
-        if (path === '/salamon' || path === '/salamon/') {
+        // טעינת האפליקציה גם בנתיב הרגיל וגם בנתיב הניהול
+        if (path === '/salamon' || path === '/salamon/' || path === '/salamon/admin' || path === '/salamon/admin/') {
             return new Response(htmlContent, {
                 headers: { 'Content-Type': 'text/html; charset=utf-8' }
             });
         }
         
-        // טעינת קובץ העיצוב (CSS)
         if (path === '/salamon/style.css') {
             return new Response(cssContent, {
                 headers: { 'Content-Type': 'text/css; charset=utf-8' }
             });
         }
         
-        // טעינת קובץ הלוגיקה (JavaScript)
         if (path === '/salamon/frontend.js') {
             return new Response(jsContent, {
                 headers: { 'Content-Type': 'application/javascript; charset=utf-8' }
             });
         }
 
-        // אם הנתיב לא תואם
         return new Response('Not Found', { status: 404 });
     }
 };
