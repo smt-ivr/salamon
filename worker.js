@@ -1,6 +1,6 @@
 import htmlContent from './index.js';
 import cssContent from './style.js';
-import jsContent from './frontend.js';
+import jsContent from './frontend.txt';
 
 export default {
     async fetch(request, env, ctx) {
