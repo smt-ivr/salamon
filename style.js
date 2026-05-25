@@ -129,6 +129,6 @@ h1, h2 { color: var(--text-dark); margin-bottom: 8px; font-weight: 800; letter-s
     .sidebar { width: 100%; }
     header { padding: 15px 20px; }
 }
-\`;
+`;
 
 export default cssContent;
