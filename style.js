@@ -261,18 +261,53 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
     .app-sidebar { width: 100%; height: auto; border-left: none; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
     
     .nav-menu { 
-        position: fixed; bottom: 0; left: 0; right: 0; flex-direction: row; justify-content: space-around; 
+        position: fixed; bottom: 0; left: 0; right: 0; flex-direction: row; justify-content: space-around; align-items: center;
         background: var(--header-bg); padding: 0; border-top: 1px solid var(--border-color); z-index: 100;
+        height: calc(65px + env(safe-area-inset-bottom));
         padding-bottom: env(safe-area-inset-bottom);
     }
-    .nav-item { flex: 1; justify-content: center; border-right: none; border-top: 3px solid transparent; flex-direction: column; gap: 4px; font-size: 0.8rem; padding: 10px 0;}
+    .nav-item { flex: 1; justify-content: center; border-right: none; border-top: 3px solid transparent; flex-direction: column; gap: 4px; font-size: 0.8rem; padding: 5px 0;}
     .nav-item.active { border-top-color: var(--play-out); background: none; }
     .admin-sidebar-menu .nav-item.active { border-top-color: var(--secondary); }
     
-    .app-main-area { height: calc(100vh - 65px - 60px); }
-    .scrollable-tab { padding: 20px 15px 80px 15px; } 
-    #messages-container { padding-bottom: 10px; } 
-    .bubble { max-width: 90%; }
+    .app-main-area { 
+        /* גובה המסך פחות ההדר העליון (65px) */
+        height: calc(100vh - 65px); 
+        height: calc(100dvh - 65px); 
+        /* ריווח תחתון בגובה התפריט המקובע כדי שהתוכן לא יוסתר תחתיו */
+        padding-bottom: calc(65px + env(safe-area-inset-bottom)); 
+    }
+    
+    .scrollable-tab { padding: 20px 15px; } 
+    #messages-container { padding: 15px 10px; } 
+    .bubble { max-width: 90%; min-width: 240px; }
+    
+    /* התאמות ספציפיות לאזור ההקלטה במסכים קטנים */
+    .chat-upload-area {
+        padding: 8px 10px;
+        gap: 8px;
+        min-height: 60px;
+    }
+    .chat-input-wrapper {
+        padding: 4px 10px;
+        gap: 6px;
+    }
+    .upload-status {
+        font-size: 0.8rem; /* טקסט קטן יותר שיכנס בשורה אחת */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .upload-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 1.1rem;
+    }
+    .record-btn {
+        width: 44px;
+        height: 44px;
+        font-size: 1.1rem;
+    }
 }
 `;
 
