@@ -60,8 +60,8 @@ const htmlContent = `<!DOCTYPE html>
                 <div style="background-color: #fffbeb; color: #b45309; border: 1px solid #fde68a; padding: 15px; border-radius: 6px; margin-bottom: 20px; font-size: 0.9rem; line-height: 1.5;">
                     <i class="fa-solid fa-triangle-exclamation" style="margin-bottom: 8px; font-size: 1.2rem; display: block; text-align: center;"></i>
                     כדי לפתוח חשבון, חובה לאמת את המספר תחילה.<br>
-                    המערכת תוציא כעת שיחת צינתוק קצרה לטלפון שלך.<br><br>
-                    <strong>שימו לב:</strong> המערכת מנטרת בקשות. שליחת בקשות סרק מרובות תוביל לחסימה אוטומטית של המספר על ידי מערכת האבטחה.
+                    המערכת תשלח כעת שיחת אימות צינתוק לטלפון שלך.<br><br>
+                    <strong>שימו לב:</strong> המערכת מנטרת בקשות. שליחת בקשות סרק מרובות תוביל לחסימה אוטומטית של השולח על ידי מערכת האבטחה.
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 10px;">
                     <button type="button" id="btn-approve-tzintuk" class="btn-primary" onclick="approveVerification()">שלח לי צינתוק עכשיו <i class="fa-solid fa-phone-volume"></i></button>
