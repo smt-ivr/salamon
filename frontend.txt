@@ -1,7 +1,6 @@
 // הכתובת של ה-API שלך - לא משתנה!
 const API_BASE_URL = 'https://smti.uk/salamon/api';
 
-// הוספנו את sessionId למערך הסטייט כדי לשמור את טוקן האימות לרישום
 let state = { userToken: null, currentUser: null, adminToken: null, tempIdentifier: null, sessionId: null };
 let activeAlertId = null;
 
@@ -88,7 +87,7 @@ function showView(viewId) {
     const path = window.location.pathname;
     
     if (!path.includes('/admin')) {
-        if(viewId.includes('auth-section') || ['init-view', 'login-view', 'verify-view', 'register-view'].includes(viewId)) {
+        if(viewId.includes('auth-section') || ['init-view', 'login-view', 'pre-verify-view', 'verify-view', 'register-view'].includes(viewId)) {
             document.getElementById('nav-auth').style.display = 'inline-block';
             document.getElementById('nav-logout').style.display = 'none';
         } else {
@@ -148,9 +147,9 @@ async function checkIdentifier(e) {
             state.tempIdentifier = data.phone;
             document.getElementById('reg_name').value = data.name || 'לא רשום שם במערכת (ניתן להמשיך)';
             
-            // המשתמש מורשה אבל עדיין לא רשום - נשלח אותו למסך הצינתוק לפני הרישום!
-            document.getElementById('verify_display_phone').innerText = data.phone;
-            await initiateVerification(data.phone);
+            // המשתמש מורשה אך לא רשום - נעביר אותו למסך ההסכמה והאזהרה!
+            document.getElementById('pre_verify_phone').innerText = data.phone;
+            showView('pre-verify-view');
         } 
         else {
             showMessage('alert-init', data.error || 'אירעה שגיאה בבדיקה', 'error');
@@ -161,9 +160,14 @@ async function checkIdentifier(e) {
     }
 }
 
-// פונקציה חדשה: פנייה לשרת לשלוח צינתוק
+// המשתמש לחץ "שלח לי צינתוק" לאחר שהבין את האזהרה
+async function approveVerification() {
+    setLoading('btn-approve-tzintuk', true);
+    await initiateVerification(state.tempIdentifier);
+    setLoading('btn-approve-tzintuk', false, 'שלח לי צינתוק עכשיו <i class="fa-solid fa-phone-volume"></i>');
+}
+
 async function initiateVerification(phone) {
-    setLoading('btn-init', true); 
     try {
         const res = await fetch(`${API_BASE_URL}/verify/send`, {
             method: 'POST',
@@ -171,23 +175,21 @@ async function initiateVerification(phone) {
             body: JSON.stringify({ phone: phone, intent: 'register' })
         });
         const data = await res.json();
-        setLoading('btn-init', false, 'המשך <i class="fa-solid fa-arrow-left" style="margin-right: 8px;"></i>');
 
         if (res.ok && data.success) {
-            state.sessionId = data.sessionId; // שומרים את מזהה השיחה
+            state.sessionId = data.sessionId; // שומרים את מזהה האימות
+            document.getElementById('verify_display_phone').innerText = phone;
             showView('verify-view');
             showMessage('alert-verify', 'שיחה ממתינה לך כעת במכשיר, נא להזין את הקוד שיושמע.', 'info');
             setTimeout(() => document.getElementById('verify_code').focus(), 100);
         } else {
-            showMessage('alert-init', data.error || 'שגיאה בהוצאת שיחת אימות', 'error');
+            showMessage('alert-pre-verify', data.error || data.message || 'שגיאה בהוצאת שיחת אימות', 'error');
         }
     } catch (err) {
-        setLoading('btn-init', false, 'המשך');
-        showMessage('alert-init', 'שגיאת תקשורת בנסיון שליחת אימות', 'error');
+        showMessage('alert-pre-verify', 'שגיאת תקשורת בנסיון שליחת אימות', 'error');
     }
 }
 
-// פונקציה חדשה: בדיקת הקוד מול השרת
 async function verifyPhoneCode(e) {
     e.preventDefault();
     const code = document.getElementById('verify_code').value.trim();
@@ -203,13 +205,13 @@ async function verifyPhoneCode(e) {
         setLoading('btn-verify', false, 'אמת והמשך <i class="fa-solid fa-shield-check" style="margin-right: 5px;"></i>');
 
         if (res.ok && data.success) {
-            // המספר אומת! נעבור עכשיו למסך הגדרת הסיסמה (ההרשמה)
+            // הטלפון אומת - עוברים למסך ההרשמה
             document.getElementById('reg_display_phone').innerText = state.tempIdentifier;
             showView('register-view');
             showMessage('alert-register', 'המספר אומת בהצלחה! הגדר סיסמה לפתיחת החשבון.', 'success');
             document.getElementById('reg_password').focus();
         } else {
-            showMessage('alert-verify', data.error || 'קוד שגוי, נסה שוב', 'error');
+            showMessage('alert-verify', data.error || data.message || 'קוד שגוי, נסה שוב', 'error');
             document.getElementById('verify_code').value = '';
         }
     } catch (err) {
@@ -218,7 +220,6 @@ async function verifyPhoneCode(e) {
     }
 }
 
-// פונקציה חדשה: בקשת צינתוק חוזר
 async function resendVerification() {
     if (!state.tempIdentifier) return;
     showMessage('alert-verify', '<i class="fa-solid fa-circle-notch fa-spin"></i> שולח שיחה שוב...', 'info');
@@ -233,7 +234,7 @@ async function resendVerification() {
             state.sessionId = data.sessionId;
             showMessage('alert-verify', 'קוד חדש נשלח אליך כעת.', 'success');
         } else {
-            showMessage('alert-verify', data.error || 'שגיאה בשליחה', 'error');
+            showMessage('alert-verify', data.error || data.message || 'שגיאה בשליחה', 'error');
         }
     } catch (e) {
         showMessage('alert-verify', 'שגיאת רשת', 'error');
@@ -250,7 +251,7 @@ async function userRegister(e) {
 
     setLoading('btn-register', true);
     try {
-        // הוספנו את ה-sessionId לבקשה, השרת יוכל לבדוק אם הוא מאומת!
+        // שולחים לשרת את כל הפרטים + ה-sessionId המאומת
         const res = await fetch(`${API_BASE_URL}/register`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
