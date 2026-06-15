@@ -180,7 +180,7 @@ async function initiateVerification(phone) {
             state.sessionId = data.sessionId; // שומרים את מזהה האימות
             document.getElementById('verify_display_phone').innerText = phone;
             showView('verify-view');
-            showMessage('alert-verify', 'שיחה ממתינה לך כעת במכשיר, נא להזין את הקוד שיושמע.', 'info');
+            showMessage('alert-verify', 'השיחה נשלחה, נא להזין את 4 ספרות אחרונות של המספר.', 'info');
             setTimeout(() => document.getElementById('verify_code').focus(), 100);
         } else {
             showMessage('alert-pre-verify', data.error || data.message || 'שגיאה בהוצאת שיחת אימות', 'error');
@@ -378,7 +378,7 @@ async function loadMessages() {
     }
 
     const tbody = document.getElementById('messages-table-body');
-    tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> מושך הודעות מהשרת... (ייתכן עיכוב קל בעקבות טעינת שמות)</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען הודעות מהמערכת...</td></tr>';
     setLoading('btn-refresh-messages', true, '<i class="fa-solid fa-rotate-right"></i>');
 
     try {
