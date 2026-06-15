@@ -28,14 +28,11 @@ body {
     background-color: var(--border-color); color: var(--text-main); 
 }
 
-.app-wrapper {
-    display: flex; width: 100%; height: 100%; background: var(--surface);
-}
-
+.app-wrapper { display: flex; width: 100%; height: 100%; background: var(--surface); }
 .view-section { display: none; width: 100%; height: 100%; }
 .view-section.active { display: flex; }
 
-/* ================== מסכי התחברות (Auth) ================== */
+/* ================== מסכי התחברות ================== */
 #auth-layout { background: var(--header-bg); justify-content: center; align-items: center; }
 .auth-container { width: 100%; max-width: 420px; padding: 20px; }
 
@@ -69,7 +66,7 @@ body {
 .alert-box.error { background-color: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
 .alert-box.success { background-color: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
 
-/* ================== אזור האפליקציה (משתמש + מנהל) ================== */
+/* ================== אזור האפליקציה ================== */
 .app-layout { flex-direction: row; }
 .app-sidebar { width: 320px; background: var(--surface); display: flex; flex-direction: column; border-left: 1px solid var(--border-color); z-index: 20; flex-shrink: 0; }
 .sidebar-header { height: 65px; padding: 0 15px; background: var(--header-bg); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); }
@@ -95,7 +92,6 @@ body {
 .admin-sidebar-menu .nav-item.active { border-right-color: var(--secondary); color: var(--secondary); }
 .nav-item i { font-size: 1.2rem; width: 25px; text-align: center; }
 
-/* אזור תוכן מרכזי */
 .app-main-area { flex: 1; display: flex; flex-direction: column; position: relative; overflow: hidden; }
 .app-tab { display: none; flex: 1; flex-direction: column; overflow: hidden; }
 .app-tab.active { display: flex; }
@@ -139,22 +135,36 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
 
 .player-times { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-light); font-weight: 600; }
 .msg-bottom-time { display: flex; justify-content: flex-end; align-items: center; gap: 5px; font-size: 0.75rem; color: #667781; padding: 0 4px; margin-top: 2px; }
-
 .date-divider { text-align: center; margin: 15px 0; }
 .date-divider span { background: var(--header-bg); padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; color: var(--text-light); box-shadow: 0 1px 1px rgba(0,0,0,0.06); font-weight: 600; }
 .loading-state { text-align: center; padding: 40px; color: var(--text-light); font-weight: 600; font-size: 1.1rem; width: 100%;}
 
-/* ================== אזור העלאת קבצים ================== */
+/* ================== אזור העלאת קבצים מופרד ================== */
 .chat-upload-area { height: auto; min-height: 70px; background: var(--chat-bg); padding: 10px 15px; display: flex; align-items: flex-end; gap: 10px; flex-shrink: 0; transition: 0.3s ease; }
+
+/* כאשר כל האזור חסום (גם העלאה וגם הקלטה) */
 .chat-upload-area.disabled { background: #9ca3af; pointer-events: none; filter: grayscale(100%); opacity: 0.8; }
 .chat-upload-area.disabled .chat-input-wrapper { background: #e5e7eb; }
 .chat-upload-area.disabled .upload-status { color: #374151; font-weight: 700; }
+
 .chat-input-wrapper { flex: 1; background: #ffffff; border-radius: 24px; min-height: 48px; padding: 5px 10px 5px 15px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.08); transition: 0.3s ease; }
 .upload-status { flex: 1; font-size: 0.95rem; color: var(--text-light); padding-right: 10px; user-select: none; }
+
+/* כפתורים צדדיים */
 .upload-btn { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; transition: 0.2s; flex-shrink: 0; border: none; background: transparent; color: var(--text-light); }
-.upload-btn:hover { color: var(--text-dark); }
+.upload-btn:hover:not(.disabled) { color: var(--text-dark); }
+
 .record-btn { background: var(--play-out); color: white; width: 48px; height: 48px; font-size: 1.3rem; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
-.record-btn:hover { background: #15803d; color: white; transform: scale(1.05); }
+.record-btn:hover:not(.disabled) { background: #15803d; color: white; transform: scale(1.05); }
+
+/* מצב חסום ספציפית לכפתור בודד (אפור) */
+.upload-btn.disabled, .record-btn.disabled {
+    background: #e2e8f0;
+    color: #94a3b8;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none !important;
+}
 
 /* ================== מסך הגדרות וניהול ================== */
 .settings-wrapper { display: flex; flex-direction: column; align-items: center; width: 100%; }
@@ -174,8 +184,9 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
 .modal-overlay.active { display: flex; }
 .modal-content { background: var(--surface); padding: 30px; border-radius: 12px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+.text-center { text-align: center; }
 
-/* ================== מודל הקלטה והעלאה - עיצוב מקצועי ================== */
+/* ================== מודל הקלטה מקצועי ================== */
 .professional-modal { max-width: 420px; padding: 0; overflow: hidden; background: #ffffff; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
 .modal-header { padding: 20px 24px; background: #f8fafc; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
 .modal-header h2 { margin: 0; font-size: 1.15rem; color: var(--text-dark); display: flex; align-items: center; gap: 10px; font-weight: 700; }
@@ -183,8 +194,6 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
 .close-modal-btn:hover { color: var(--danger); background: #fee2e2; }
 
 #recording-ui, #preview-ui { padding: 30px 24px; text-align: center; }
-
-/* אנימציית ויזואלייזר גלי קול */
 .recording-visualizer { display: flex; align-items: center; justify-content: center; gap: 4px; height: 60px; margin: 10px 0 20px; }
 .recording-visualizer .bar { width: 6px; background: var(--danger); border-radius: 3px; animation: bounceBar 0.5s infinite alternate; }
 .recording-visualizer .bar:nth-child(1) { height: 20%; animation-delay: 0.1s; }
@@ -202,24 +211,17 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
 
 .recording-timer-pro { font-size: 3rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text-dark); margin-bottom: 30px; letter-spacing: 2px; }
 
-/* כפתורי פעולה מקצועיים */
 .recording-actions-pro, .preview-actions-pro { display: flex; gap: 12px; justify-content: center; }
-
 .btn-pro-secondary, .btn-pro-danger, .btn-pro-outline, .btn-pro-primary { flex: 1; padding: 12px; border-radius: 10px; font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 8px; border: none; }
-
 .btn-pro-secondary { background: #f1f5f9; color: var(--text-dark); }
 .btn-pro-secondary:hover { background: #e2e8f0; }
-
 .btn-pro-danger { background: #fee2e2; color: var(--danger); }
 .btn-pro-danger:hover { background: var(--danger); color: white; }
-
 .btn-pro-outline { background: white; border: 1px solid #ef4444; color: #ef4444; }
 .btn-pro-outline:hover { background: #fef2f2; }
-
 .btn-pro-primary { background: var(--play-out); color: white; box-shadow: 0 4px 6px -1px rgba(22, 163, 74, 0.2); }
 .btn-pro-primary:hover { background: #15803d; transform: translateY(-1px); box-shadow: 0 6px 8px -1px rgba(22, 163, 74, 0.3); }
 
-/* אזור תצוגה מקדימה (Preview) */
 .preview-card { background: #f8fafc; border: 1px dashed var(--border-color); border-radius: 12px; padding: 20px; margin-bottom: 25px; }
 .file-icon-large { font-size: 2.5rem; color: var(--secondary); margin-bottom: 10px; }
 .file-info-text { font-size: 0.9rem; font-weight: 600; color: var(--text-light); margin-bottom: 15px; direction: ltr; word-break: break-all; }
