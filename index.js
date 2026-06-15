@@ -139,10 +139,7 @@ const htmlContent = `<!DOCTYPE html>
 
                 <nav class="nav-menu">
                     <div class="nav-item active" id="tab-btn-messages" onclick="switchUserTab('messages')">
-                        <i class="fa-solid fa-comments"></i> <span>הודעות</span>
-                    </div>
-                    <div class="nav-item" id="tab-btn-settings" onclick="switchUserTab('settings')">
-                        <i class="fa-solid fa-sliders"></i> <span>הגדרות</span>
+                        <i class="fa-solid fa-comments"></i> <span style="margin-right: 5px;">הודעות</span>
                     </div>
                 </nav>
             </aside>
@@ -160,6 +157,18 @@ const htmlContent = `<!DOCTYPE html>
                         <button class="icon-btn" onclick="loadMessages()" title="רענן"><i class="fa-solid fa-rotate-right"></i></button>
                     </div>
                     <div id="messages-container"></div>
+                    
+                    <!-- אזור העלאה / הקלטה (נמצא בתחתית הצ'אט) -->
+                    <div id="chat-upload-area" class="chat-upload-area">
+                        <input type="file" id="chat-file-input" accept="audio/*" style="display: none;" onchange="handleFileUpload(event)">
+                        <button class="upload-btn" onclick="document.getElementById('chat-file-input').click()" title="בחר קובץ מהמכשיר">
+                            <i class="fa-solid fa-paperclip"></i>
+                        </button>
+                        <div class="upload-status" id="chat-upload-status">הקלט או בחר קובץ</div>
+                        <button class="upload-btn record-btn" id="chat-record-btn" onclick="toggleChatRecording()" title="הקלט הודעה">
+                            <i class="fa-solid fa-microphone"></i>
+                        </button>
+                    </div>
                 </div>
 
                 <div id="tab-settings" class="app-tab scrollable-tab">
