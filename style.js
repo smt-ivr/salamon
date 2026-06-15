@@ -145,6 +145,61 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
 .date-divider span { background: var(--header-bg); padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; color: var(--text-light); box-shadow: 0 1px 1px rgba(0,0,0,0.06); font-weight: 600; }
 .loading-state { text-align: center; padding: 40px; color: var(--text-light); font-weight: 600; font-size: 1.1rem; width: 100%;}
 
+/* ================== אזור העלאת קבצים (פס תחתון בצ'אט) ================== */
+.chat-upload-area {
+    height: 65px;
+    background: var(--header-bg);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    border-top: 1px solid var(--border-color);
+    flex-shrink: 0;
+    transition: 0.3s ease;
+}
+.chat-upload-area.disabled {
+    background: #e2e8f0;
+    pointer-events: none;
+}
+.chat-upload-area.disabled .upload-status {
+    color: var(--danger);
+    font-weight: 700;
+}
+.upload-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    color: var(--text-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: 0.2s;
+    flex-shrink: 0;
+}
+.upload-btn:hover { background: #e0e0e0; color: var(--text-main); }
+.record-btn {
+    background: var(--play-out);
+    color: white;
+    border: none;
+    font-size: 1.3rem;
+}
+.record-btn:hover { background: #15803d; color: white; }
+.record-btn.recording-active {
+    background: var(--danger);
+    animation: pulse 1s infinite;
+}
+.upload-status {
+    flex: 1;
+    font-size: 0.95rem;
+    color: var(--text-light);
+    text-align: right;
+}
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+
 /* ================== מסך הגדרות וניהול ================== */
 .settings-wrapper { display: flex; flex-direction: column; align-items: center; width: 100%; }
 .settings-wrapper h2 { margin-bottom: 25px; color: var(--text-main); }
@@ -181,7 +236,7 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
     
     .app-main-area { height: calc(100vh - 65px - 60px); /* גובה המסך פחות האדר ותפריט תחתון */ }
     .scrollable-tab { padding: 20px 15px 80px 15px; } /* רווח למטה כדי שהתפריט לא יסתיר */
-    #messages-container { padding-bottom: 80px; }
+    #messages-container { padding-bottom: 10px; } /* הפס תחתון תופס מקום אז אין צורך בpadding מוגזם פה */
     .bubble { max-width: 90%; }
 }
 `;
