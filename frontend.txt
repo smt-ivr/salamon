@@ -317,7 +317,7 @@ function updateDashboardUI() {
     const isConnected = (user.connectedToTzintukim === 'yes' || user.connectedToTzintukim === true || user.connectedToTzintukim === '1');
     if(badge) {
         if (isConnected) {
-            badge.innerHTML = '<span class="status-ok"><i class="fa-solid fa-shield-check"></i> צינתוקים פעילים</span>';
+            badge.innerHTML = '<span class="status-ok"><i class="fa-solid fa-shield-check"></i> מחובר לצינתוקים</span>';
         } else {
             badge.innerHTML = '<span class="status-bad"><i class="fa-solid fa-triangle-exclamation"></i> מנותק מצינתוקים</span>';
         }
