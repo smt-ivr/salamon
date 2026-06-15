@@ -158,13 +158,14 @@ const htmlContent = `<!DOCTYPE html>
                     </div>
                     <div id="messages-container"></div>
                     
-                    <!-- אזור העלאה / הקלטה (נמצא בתחתית הצ'אט) -->
                     <div id="chat-upload-area" class="chat-upload-area">
-                        <input type="file" id="chat-file-input" accept="audio/*" style="display: none;" onchange="handleFileUpload(event)">
-                        <button class="upload-btn" onclick="document.getElementById('chat-file-input').click()" title="בחר קובץ מהמכשיר">
-                            <i class="fa-solid fa-paperclip"></i>
-                        </button>
-                        <div class="upload-status" id="chat-upload-status">הקלט או בחר קובץ</div>
+                        <div class="chat-input-wrapper">
+                            <div class="upload-status" id="chat-upload-status">הקלט או בחר קובץ להעלאה</div>
+                            <button class="upload-btn attach-btn" onclick="document.getElementById('chat-file-input').click()" title="בחר קובץ מהמכשיר">
+                                <i class="fa-solid fa-paperclip"></i>
+                            </button>
+                            <input type="file" id="chat-file-input" accept="audio/*" style="display: none;" onchange="handleFileUpload(event)">
+                        </div>
                         <button class="upload-btn record-btn" id="chat-record-btn" onclick="toggleChatRecording()" title="הקלט הודעה">
                             <i class="fa-solid fa-microphone"></i>
                         </button>
