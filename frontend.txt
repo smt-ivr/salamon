@@ -6,7 +6,7 @@ let activeAlertId = null;
 
 let globalAudio = document.createElement('audio');
 let currentPlayingId = null;
-let pollingInterval = null; 
+let pollingInterval = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     const path = window.location.pathname;
@@ -98,7 +98,6 @@ document.addEventListener('input', clearMessage);
 function showView(viewId) {
     clearMessage();
     document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
-    
     if(viewId.includes('view') && !viewId.includes('dash')) {
         document.getElementById('auth-layout').classList.add('active');
         document.querySelectorAll('.auth-card').forEach(card => card.classList.remove('active'));
@@ -167,7 +166,7 @@ async function checkIdentifier(e) {
         });
         const data = await res.json();
         setLoading('btn-init', false, 'המשך <i class="fa-solid fa-arrow-left"></i>');
-        
+
         if (data.isRegistered) {
             state.tempIdentifier = data.identifier;
             document.getElementById('login_display_id').innerText = data.identifier;
@@ -219,7 +218,7 @@ async function verifyPhoneCode(e) {
     if (e) e.preventDefault();
     const code = document.getElementById('verify_code').value.trim();
     setLoading('btn-verify', true);
-    
+
     try {
         const res = await fetch(`${API_BASE_URL}/verify/check`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -227,7 +226,7 @@ async function verifyPhoneCode(e) {
         });
         const data = await res.json();
         setLoading('btn-verify', false, 'אמת והמשך <i class="fa-solid fa-shield-check"></i>');
-        
+
         if (res.ok && data.success) {
             document.getElementById('reg_display_phone').innerText = state.tempIdentifier;
             showView('register-view');
@@ -278,7 +277,7 @@ async function userRegister(e) {
         });
         const data = await res.json();
         setLoading('btn-register', false, 'סיום הרשמה <i class="fa-solid fa-check"></i>');
-        
+
         if (!res.ok) {
             showMessage('alert-register', data.error || 'שגיאה ברישום', 'error');
             return;
@@ -354,7 +353,7 @@ function updateDashboardUI() {
     if (uploadArea && statusText && fileInput && recordBtn) {
         if (user.canUpload) {
             uploadArea.classList.remove('disabled');
-            if(!isRecording && statusText.innerText.includes('אין לך הרשאה')) statusText.innerText = 'הקלט או בחר קובץ להעלאה';
+            if(statusText.innerText.includes('אין לך הרשאה')) statusText.innerText = 'הקלט או בחר קובץ להעלאה';
             fileInput.disabled = false;
             recordBtn.disabled = false;
         } else {
@@ -362,7 +361,6 @@ function updateDashboardUI() {
             statusText.innerText = 'אין לך הרשאה להעלות הודעות';
             fileInput.disabled = true;
             recordBtn.disabled = true;
-            if (isRecording) toggleChatRecording(); 
         }
     }
 }
@@ -374,7 +372,7 @@ async function updateUserProfile(e) {
     const newPassword = document.getElementById('update_new_pass').value;
     const newEmail = document.getElementById('update_email').value;
     setLoading('btn-update', true);
-    
+
     try {
         const res = await fetch(`${API_BASE_URL}/update-profile`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -382,10 +380,11 @@ async function updateUserProfile(e) {
         });
         const data = await res.json();
         setLoading('btn-update', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
-        
+
         if (!res.ok) {
             if(res.status === 401 || res.status === 403) {
-                logout(); return;
+                logout();
+                return;
             }
             showMessage('alert-dash', data.error || 'שגיאה בעדכון', 'error');
             return;
@@ -397,8 +396,7 @@ async function updateUserProfile(e) {
             localStorage.setItem('userToken', newToken);
         }
 
-        state.currentUser.email = newEmail; 
-        
+        state.currentUser.email = newEmail;
         showMessage('alert-dash', 'הגדרות החשבון עודכנו בהצלחה!', 'success');
     } catch (err) {
         setLoading('btn-update', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
@@ -406,67 +404,170 @@ async function updateUserProfile(e) {
     }
 }
 
-// ================= העלאת קבצים והקלטה מהצ'אט =================
+// ================= העלאת קבצים והקלטה מהצ'אט (עם מודל חכם) =================
 let mediaRecorder;
 let audioChunks = [];
-let recordedBlob = null;
-let isRecording = false;
+let pendingBlob = null;
+let pendingFileName = "";
+let recordingTimerInterval = null;
+let recordingSeconds = 0;
 
 async function toggleChatRecording() {
     if (!state.currentUser?.canUpload) return;
     
-    const btn = document.getElementById('chat-record-btn');
-    const statusText = document.getElementById('chat-upload-status');
+    // עצירת ההודעה שמתנגנת כרגע ברקע כדי שלא תכנס להקלטה
+    if (globalAudio && !globalAudio.paused) globalAudio.pause();
 
-    if (!isRecording) {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
 
-            mediaRecorder.ondataavailable = event => {
-                if (event.data.size > 0) audioChunks.push(event.data);
-            };
+        mediaRecorder.ondataavailable = event => {
+            if (event.data.size > 0) audioChunks.push(event.data);
+        };
 
-            mediaRecorder.onstop = () => {
-                recordedBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                sendChatUpload(recordedBlob, 'recording.webm');
-            };
+        mediaRecorder.onstop = () => {
+            pendingBlob = new Blob(audioChunks);
+            // בחירת סיומת נכונה במיוחד עבור תאימות לאייפון
+            const extension = pendingBlob.type.includes('mp4') ? 'mp4' : (pendingBlob.type.includes('webm') ? 'webm' : 'ogg');
+            pendingFileName = `recording.${extension}`;
+            showPreviewUI();
+        };
 
-            mediaRecorder.start();
-            isRecording = true;
-            btn.innerHTML = '<i class="fa-solid fa-stop"></i>';
-            btn.classList.add('recording-active');
-            statusText.innerText = 'מקליט... (לחץ לסיום ושליחה)';
-        } catch (err) {
-            alert("שגיאה בגישה למיקרופון: " + err.message);
-        }
-    } else {
+        mediaRecorder.start();
+        
+        // מעבר למצב מודל ההקלטה
+        document.getElementById('review-title').innerHTML = '<i class="fa-solid fa-microphone"></i> מקליט כעת...';
+        document.getElementById('recording-ui').style.display = 'block';
+        document.getElementById('preview-ui').style.display = 'none';
+        document.getElementById('uploadReviewModal').classList.add('active');
+        
+        startRecordingTimer();
+        
+    } catch (err) {
+        alert("שגיאה בגישה למיקרופון: יש לאשר הרשאת מיקרופון לדפדפן בהגדרות המכשיר.");
+    }
+}
+
+function togglePauseResumeRecording() {
+    const btn = document.getElementById('btn-pause-resume');
+    if (!mediaRecorder) return;
+    
+    if (mediaRecorder.state === 'recording') {
+        mediaRecorder.pause();
+        stopRecordingTimer();
+        btn.innerHTML = '<i class="fa-solid fa-play"></i> המשך הקלטה';
+        document.querySelector('.recording-pulse').style.animationPlayState = 'paused';
+    } else if (mediaRecorder.state === 'paused') {
+        mediaRecorder.resume();
+        startRecordingTimer(false); // ממשיכים מאותו זמן
+        btn.innerHTML = '<i class="fa-solid fa-pause"></i> השהה';
+        document.querySelector('.recording-pulse').style.animationPlayState = 'running';
+    }
+}
+
+function stopRecordingForReview() {
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
         mediaRecorder.stop();
-        isRecording = false;
-        btn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
-        btn.classList.remove('recording-active');
-        statusText.innerText = 'מעבד ושולח...';
+        stopRecordingTimer();
         mediaRecorder.stream.getTracks().forEach(track => track.stop());
     }
 }
 
-async function handleFileUpload(event) {
+function startRecordingTimer(reset = true) {
+    if (reset) recordingSeconds = 0;
+    updateTimerDisplay();
+    recordingTimerInterval = setInterval(() => {
+        recordingSeconds++;
+        updateTimerDisplay();
+    }, 1000);
+}
+
+function stopRecordingTimer() {
+    if (recordingTimerInterval) clearInterval(recordingTimerInterval);
+}
+
+function updateTimerDisplay() {
+    const m = Math.floor(recordingSeconds / 60).toString().padStart(2, '0');
+    const s = (recordingSeconds % 60).toString().padStart(2, '0');
+    document.getElementById('recording-timer').innerText = `${m}:${s}`;
+}
+
+// בחירת קובץ מוכן מתוך המחשב/טלפון
+function handleFileUpload(event) {
     if (!state.currentUser?.canUpload) return;
     const file = event.target.files[0];
     if (!file) return;
-    sendChatUpload(file, file.name);
-    event.target.value = ''; 
+    
+    if (globalAudio && !globalAudio.paused) globalAudio.pause();
+    
+    pendingBlob = file;
+    pendingFileName = file.name;
+    
+    document.getElementById('review-title').innerHTML = '<i class="fa-solid fa-file-audio"></i> אישור שליחת קובץ';
+    showPreviewUI();
+    document.getElementById('uploadReviewModal').classList.add('active');
+    
+    event.target.value = ''; // איפוס כדי שיהיה אפשר לבחור שוב את אותו קובץ במידת הצורך
+}
+
+// הצגת התצוגה המקדימה להאזנה לפני השליחה (הן להקלטה והן לקובץ)
+function showPreviewUI() {
+    document.getElementById('recording-ui').style.display = 'none';
+    document.getElementById('preview-ui').style.display = 'block';
+    
+    if (document.getElementById('review-title').innerText.includes('מקליט')) {
+        document.getElementById('review-title').innerHTML = '<i class="fa-solid fa-headphones"></i> האזנה להקלטה לפני שליחה';
+    }
+    
+    const audioEl = document.getElementById('preview-audio');
+    audioEl.src = URL.createObjectURL(pendingBlob);
+    
+    const sizeKb = (pendingBlob.size / 1024).toFixed(1);
+    document.getElementById('file-info').innerText = `${pendingFileName} (${sizeKb} KB)`;
+}
+
+// ביטול וסגירה מוחלטת
+function cancelUpload() {
+    document.getElementById('uploadReviewModal').classList.remove('active');
+    
+    const audioEl = document.getElementById('preview-audio');
+    audioEl.pause();
+    audioEl.src = '';
+    
+    pendingBlob = null;
+    pendingFileName = "";
+    
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+    }
+    stopRecordingTimer();
+}
+
+// אישור ושליחת הנתונים לשרת (הפונקציה הישנה, קורית עכשיו מתוך המודל)
+function confirmUpload() {
+    if (!pendingBlob) return;
+    
+    document.getElementById('uploadReviewModal').classList.remove('active');
+    
+    const audioEl = document.getElementById('preview-audio');
+    audioEl.pause();
+    audioEl.src = '';
+    
+    sendChatUpload(pendingBlob, pendingFileName);
+    pendingBlob = null;
 }
 
 async function sendChatUpload(fileBlob, fileName) {
     const statusText = document.getElementById('chat-upload-status');
-    statusText.innerText = 'מעלה הודעה לשרת...';
+    statusText.innerText = 'מעלה הודעה לשרת... (נא להמתין)';
     
     const formData = new FormData();
     formData.append('userToken', state.userToken);
     formData.append('file', fileBlob, fileName);
-
+    
     try {
         const res = await fetch(`${API_BASE_URL}/messages/upload`, {
             method: 'POST',
@@ -475,15 +576,15 @@ async function sendChatUpload(fileBlob, fileName) {
         const result = await res.json();
         
         if (res.ok && result.success) {
-            statusText.innerText = 'ההודעה הועלתה בהצלחה!';
+            statusText.innerHTML = '<span style="color:var(--play-out);"><i class="fa-solid fa-check"></i> ההודעה נשלחה והועלתה בהצלחה!</span>';
             setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ להעלאה'; }, 3000);
-            loadMessages(); 
+            loadMessages();
         } else {
-            statusText.innerText = 'שגיאה: ' + (result.error || 'נכשל');
+            statusText.innerHTML = `<span style="color:var(--danger);"><i class="fa-solid fa-xmark"></i> שגיאה: ${result.error || 'נכשל'}</span>`;
             setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ להעלאה'; }, 4000);
         }
     } catch (err) {
-        statusText.innerText = 'שגיאת תקשורת מול השרת';
+        statusText.innerHTML = '<span style="color:var(--danger);"><i class="fa-solid fa-xmark"></i> שגיאת תקשורת מול השרת בשליחה</span>';
         setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ להעלאה'; }, 4000);
     }
 }
@@ -578,7 +679,6 @@ function renderMessages(messages) {
                 ${isOut ? '<i class="fa-solid fa-check-double" style="color:#16a34a; font-size:0.8rem; margin-right:4px;"></i>' : ''}
             </div>
         `;
-
         container.appendChild(bubble);
 
         if (index === messages.length - 1) {
@@ -609,7 +709,7 @@ function setupAudioListeners() {
             timeLabel.innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
         }
     });
-
+    
     globalAudio.addEventListener('ended', () => {
         if (!currentPlayingId) return;
         const btn = document.getElementById(`btn-${currentPlayingId}`);
@@ -627,7 +727,7 @@ function setupAudioListeners() {
 function togglePlay(fileId) {
     const btn = document.getElementById(`btn-${fileId}`);
     const icon = btn.querySelector('i');
-
+    
     if (currentPlayingId === fileId) {
         if (globalAudio.paused) {
             globalAudio.play();
@@ -646,7 +746,6 @@ function togglePlay(fileId) {
 
     currentPlayingId = fileId;
     icon.className = 'fa-solid fa-circle-notch fa-spin';
-
     const token = state.userToken || localStorage.getItem('userToken');
     const streamUrl = `${API_BASE_URL}/messages/stream?fileId=${encodeURIComponent(fileId)}&userToken=${encodeURIComponent(token)}`;
     
@@ -702,6 +801,7 @@ async function loadAdminUsers() {
     const tbody = document.getElementById('admin-users-table-body');
     tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען נתונים...</td></tr>';
     setLoading('btn-refresh-users', true);
+    
     try {
         const res = await fetch(`${API_BASE_URL}/admin/users`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -712,7 +812,8 @@ async function loadAdminUsers() {
         
         if (!res.ok) {
             if (res.status === 401 || res.status === 403) {
-                logout(); return;
+                logout();
+                return;
             }
             showMessage('alert-admin-dash', data.error || 'שגיאה', 'error');
             tbody.innerHTML = '<tr><td colspan="7" class="empty-state" style="color:var(--danger);">שגיאה בטעינה</td></tr>';
@@ -753,7 +854,6 @@ function openAdminModal(phone, email, canUpload) {
     document.getElementById('modal_email').value = email;
     document.getElementById('modal_password').value = '';
     
-    // קביעת מצב הצ'ק-בוקס לפי ההרשאה הנוכחית של המשתמש
     const checkbox = document.getElementById('modal_can_upload');
     if(checkbox) checkbox.checked = canUpload;
     
@@ -771,12 +871,10 @@ async function submitAdminUpdate(e) {
     const newEmail = document.getElementById('modal_email').value;
     const newPassword = document.getElementById('modal_password').value;
     
-    // שליפת הסטטוס החדש של תיבת הסימון
     const checkbox = document.getElementById('modal_can_upload');
     const canUpload = checkbox ? checkbox.checked : false;
 
     setLoading('btn-modal-save', true);
-    
     try {
         const res = await fetch(`${API_BASE_URL}/admin/update-user`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
