@@ -52,6 +52,24 @@ const htmlContent = `<!DOCTYPE html>
             </div>
         </section>
 
+        <section id="pre-verify-view" class="view-section auth-section">
+            <div class="clean-card fade-in">
+                <h2>רישום למערכת</h2>
+                <p class="subtitle">המספר <span id="pre_verify_phone" dir="ltr" style="font-weight:bold; color:var(--primary);"></span> מורשה אך טרם נרשם.</p>
+                <div id="alert-pre-verify" class="alert-box"></div>
+                <div style="background-color: #fffbeb; color: #b45309; border: 1px solid #fde68a; padding: 15px; border-radius: 6px; margin-bottom: 20px; font-size: 0.9rem; line-height: 1.5;">
+                    <i class="fa-solid fa-triangle-exclamation" style="margin-bottom: 8px; font-size: 1.2rem; display: block; text-align: center;"></i>
+                    כדי לפתוח חשבון, חובה לאמת את המספר תחילה.<br>
+                    המערכת תוציא כעת שיחת צינתוק קצרה לטלפון שלך.<br><br>
+                    <strong>שימו לב:</strong> המערכת מנטרת בקשות. שליחת בקשות סרק מרובות תוביל לחסימה אוטומטית של המספר על ידי מערכת האבטחה.
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button type="button" id="btn-approve-tzintuk" class="btn-primary" onclick="approveVerification()">שלח לי צינתוק עכשיו <i class="fa-solid fa-phone-volume"></i></button>
+                    <button type="button" class="btn-text" onclick="goBackToInit()">ביטול וחזרה</button>
+                </div>
+            </div>
+        </section>
+
         <section id="verify-view" class="view-section auth-section">
             <div class="clean-card fade-in">
                 <h2>אימות מספר טלפון</h2>
