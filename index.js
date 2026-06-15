@@ -7,6 +7,7 @@ const htmlContent = `<!DOCTYPE html>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/salamon/style.css">
     <script src="/salamon/frontend.js" defer></script>
+    <script src="/salamon/admin-tzintuk.txt" defer></script>
 </head>
 <body>
 
@@ -60,8 +61,8 @@ const htmlContent = `<!DOCTYPE html>
                 <div style="background-color: #fffbeb; color: #b45309; border: 1px solid #fde68a; padding: 15px; border-radius: 6px; margin-bottom: 20px; font-size: 0.9rem; line-height: 1.5;">
                     <i class="fa-solid fa-triangle-exclamation" style="margin-bottom: 8px; font-size: 1.2rem; display: block; text-align: center;"></i>
                     כדי לפתוח חשבון, חובה לאמת את המספר תחילה.<br>
-                    המערכת תשלח כעת שיחת אימות צינתוק לטלפון שלך.<br><br>
-                    <strong>שימו לב:</strong> המערכת מנטרת בקשות. שליחת בקשות סרק מרובות תוביל לחסימה אוטומטית של השולח על ידי מערכת האבטחה.
+                    המערכת תוציא כעת שיחת צינתוק קצרה לטלפון שלך.<br><br>
+                    <strong>שימו לב:</strong> המערכת מנטרת בקשות. שליחת בקשות סרק מרובות תוביל לחסימה אוטומטית של המספר על ידי מערכת האבטחה.
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 10px;">
                     <button type="button" id="btn-approve-tzintuk" class="btn-primary" onclick="approveVerification()">שלח לי צינתוק עכשיו <i class="fa-solid fa-phone-volume"></i></button>
@@ -228,33 +229,132 @@ const htmlContent = `<!DOCTYPE html>
         </section>
 
         <section id="admin-dash-view" class="view-section dashboard-layout fade-in">
-            <div class="dashboard-content" style="width: 100%;">
-                <div class="admin-header">
-                    <div>
-                        <h1 style="margin-bottom: 5px;">פאנל ניהול משתמשים</h1>
-                        <p class="subtitle" style="text-align:right;">שליטה ופיקוח בזמן אמת</p>
-                    </div>
-                    <button onclick="loadAdminUsers()" class="btn-primary small-btn" id="btn-refresh-users"><i class="fa-solid fa-rotate-right"></i> רענן נתונים</button>
+            <aside class="sidebar" style="border-top: 4px solid var(--secondary);">
+                <div class="user-info-mini">
+                    <div class="avatar-mini" style="background: var(--secondary); color: white;"><i class="fa-solid fa-shield-halved"></i></div>
+                    <span style="font-weight: 700; color: var(--text-dark); font-size: 1.1rem;">פאנל הנהלה</span>
                 </div>
-                
-                <div id="alert-admin-dash" class="alert-box"></div>
+                <ul class="sidebar-menu admin-sidebar-menu">
+                    <li class="active" onclick="switchAdminTab('users', this)"><i class="fa-solid fa-users"></i> ניהול משתמשים</li>
+                    <li onclick="switchAdminTab('tzintuk', this)"><i class="fa-solid fa-phone-shield"></i> אבטחה וצינתוקים</li>
+                </ul>
+            </aside>
 
-                <div class="table-wrapper">
-                    <table class="modern-table">
-                        <thead>
-                            <tr>
-                                <th>טלפון</th>
-                                <th>שם משתמש</th>
-                                <th>אימייל</th>
-                                <th>סיסמה</th>
-                                <th>צינתוקים</th>
-                                <th>פעולות</th>
-                            </tr>
-                        </thead>
-                        <tbody id="admin-users-table-body">
-                            <tr><td colspan="6" class="empty-state">יש ללחוץ על "רענן נתונים"</td></tr>
-                        </tbody>
-                    </table>
+            <div class="dashboard-content">
+                <div id="alert-admin-dash" class="alert-box"></div>
+                
+                <div id="tab-admin-users" class="admin-dash-tab active">
+                    <div class="admin-header">
+                        <div>
+                            <h1 style="margin-bottom: 5px;">רשימת משתמשים</h1>
+                            <p class="subtitle" style="text-align:right;">צפייה ועריכת משתמשים רשומים</p>
+                        </div>
+                        <button onclick="loadAdminUsers()" class="btn-primary small-btn" id="btn-refresh-users" style="width: auto;"><i class="fa-solid fa-rotate-right"></i> רענן נתונים</button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>טלפון</th>
+                                    <th>שם משתמש</th>
+                                    <th>אימייל</th>
+                                    <th>סיסמה</th>
+                                    <th>צינתוקים</th>
+                                    <th>פעולות</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-users-table-body">
+                                <tr><td colspan="6" class="empty-state">יש ללחוץ על "רענן נתונים"</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="tab-admin-tzintuk" class="admin-dash-tab" style="display:none;">
+                    <div class="admin-header" style="border-bottom:none; padding-bottom:0;">
+                        <div>
+                            <h1 style="margin-bottom: 5px;">מערכת אימות וחסימות</h1>
+                            <p class="subtitle" style="text-align:right;">שליטה על צינתוקים וניטור התקפות</p>
+                        </div>
+                        <button onclick="switchAdminTab('tzintuk', document.querySelector('.admin-sidebar-menu li:nth-child(2)'))" class="btn-primary small-btn" style="width: auto; background: var(--text-main);"><i class="fa-solid fa-rotate-right"></i> רענן הכל</button>
+                    </div>
+
+                    <div class="clean-card" style="max-width: 100%; margin-bottom: 30px; border: 1px solid var(--danger);">
+                        <h3 style="color: var(--danger); margin-bottom: 15px;"><i class="fa-solid fa-ban"></i> חסימה ידנית חדשה</h3>
+                        <form id="manual-block-form" onsubmit="submitManualBlock(event)" style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
+                            <div class="form-group" style="flex: 1; min-width: 120px;">
+                                <label>סוג חסימה</label>
+                                <select id="block_type" class="input-modern" style="padding: 10px;">
+                                    <option value="phone">מספר טלפון</option>
+                                    <option value="ip">כתובת IP</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex: 2; min-width: 200px;">
+                                <label>טלפון / IP לחסימה</label>
+                                <input type="text" id="block_value" required class="ltr-input input-modern" style="padding: 10px;" placeholder="לדוגמה: 0501234567">
+                            </div>
+                            <div class="form-group" style="flex: 2; min-width: 200px;">
+                                <label>סיבת חסימה</label>
+                                <input type="text" id="block_reason" class="input-modern" style="padding: 10px;" placeholder="ספאם, נסיון פריצה...">
+                            </div>
+                            <div class="form-group" style="flex: 1; min-width: 100px;">
+                                <label>זמן</label>
+                                <input type="number" id="block_duration" value="24" required class="input-modern center-text" style="padding: 10px;">
+                            </div>
+                            <div class="form-group" style="flex: 1; min-width: 120px;">
+                                <label>יחידת זמן</label>
+                                <select id="block_unit" class="input-modern" style="padding: 10px;">
+                                    <option value="hours">שעות</option>
+                                    <option value="minutes">דקות</option>
+                                    <option value="days">ימים</option>
+                                    <option value="permanent">לצמיתות</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex: 1; min-width: 150px;">
+                                <button type="submit" id="btn-submit-block" class="btn-primary" style="background: var(--danger); padding: 10px;">החל חסימה <i class="fa-solid fa-lock"></i></button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <h3 style="margin-bottom: 10px; color: var(--text-dark);"><i class="fa-solid fa-shield-virus"></i> חסימות פעילות ברשת</h3>
+                    <div class="table-wrapper" style="margin-bottom: 40px;">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>סוג</th>
+                                    <th>ערך (טלפון/IP)</th>
+                                    <th>סיבה</th>
+                                    <th>תאריך חסימה</th>
+                                    <th>תפוגה</th>
+                                    <th>פעולות</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-blocks-table-body">
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px;">
+                        <h3 style="color: var(--text-dark); margin: 0;"><i class="fa-solid fa-list-ol"></i> היסטוריית בקשות אימות אחרונות</h3>
+                        <button onclick="cleanOldLogs()" id="btn-clean-logs" class="btn-text" style="font-size: 0.85rem;"><i class="fa-solid fa-broom"></i> נקה לוגים ישנים</button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>תאריך ושעה</th>
+                                    <th>טלפון</th>
+                                    <th>כתובת IP</th>
+                                    <th>מטרה</th>
+                                    <th>קוד סודי</th>
+                                    <th>סטטוס אימות</th>
+                                    <th>נסיונות שגויים</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-logs-table-body">
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </section>
