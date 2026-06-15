@@ -4,24 +4,18 @@ const API_BASE_URL = 'https://smti.uk/salamon/api';
 let state = { userToken: null, currentUser: null, adminToken: null, tempIdentifier: null, sessionId: null };
 let activeAlertId = null;
 
-// נגן שמע גלובלי לצ'אט החדש
 let globalAudio = document.createElement('audio');
 let currentPlayingId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     const path = window.location.pathname;
-    
     const savedUserToken = localStorage.getItem('userToken');
     const savedAdminToken = localStorage.getItem('adminToken');
 
     if (path.includes('/admin')) {
-        document.getElementById('navLinks').style.display = 'none';
         if (savedAdminToken) {
             state.adminToken = savedAdminToken;
             showView('admin-dash-view');
-            document.getElementById('navLinks').style.display = 'flex';
-            document.getElementById('nav-auth').style.display = 'none';
-            document.getElementById('nav-logout').style.display = 'inline-block';
             loadAdminUsers();
         } else {
             showView('admin-login-view');
@@ -37,7 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const htmlAudio = document.getElementById('global-audio-player');
     if (htmlAudio) globalAudio = htmlAudio;
-    
     setupAudioListeners();
 });
 
@@ -64,17 +57,6 @@ async function silentLogin(token) {
     }
 }
 
-function switchUserTab(tabName, element) {
-    document.querySelectorAll('.dash-tab').forEach(tab => tab.style.display = 'none');
-    document.getElementById('tab-' + tabName).style.display = 'flex';
-    
-    if (element) {
-        document.querySelectorAll('.sidebar-menu .nav-item').forEach(li => li.classList.remove('active'));
-        element.classList.add('active');
-    }
-    clearMessage();
-}
-
 function showMessage(containerId, msg, type = 'info') {
     const box = document.getElementById(containerId);
     if (!box) return;
@@ -94,19 +76,39 @@ document.addEventListener('input', clearMessage);
 
 function showView(viewId) {
     clearMessage();
+    // מסתיר את שתי המעטפות הראשיות (Auth או App)
     document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
-    document.getElementById(viewId).classList.add('active');
-    const path = window.location.pathname;
     
-    if (!path.includes('/admin')) {
-        if(viewId.includes('auth-section') || ['init-view', 'login-view', 'pre-verify-view', 'verify-view', 'register-view'].includes(viewId)) {
-            document.getElementById('nav-auth').style.display = 'inline-block';
-            document.getElementById('nav-logout').style.display = 'none';
-        } else {
-            document.getElementById('nav-auth').style.display = 'none';
-            document.getElementById('nav-logout').style.display = 'inline-block';
-        }
+    // מציג כרטיסי התחברות
+    if(viewId.includes('view') && !viewId.includes('dash')) {
+        document.getElementById('auth-layout').classList.add('active');
+        document.querySelectorAll('.auth-card').forEach(card => card.classList.remove('active'));
+        document.getElementById(viewId).classList.add('active');
+    } else {
+        // מציג את המסך הראשי של המערכת
+        document.getElementById(viewId).classList.add('active');
     }
+}
+
+function switchUserTab(tabName) {
+    clearMessage();
+    document.querySelectorAll('#user-dash-view .app-tab').forEach(tab => tab.classList.remove('active'));
+    document.getElementById('tab-' + tabName).classList.add('active');
+    
+    document.querySelectorAll('#user-dash-view .nav-item').forEach(li => li.classList.remove('active'));
+    document.getElementById('tab-btn-' + tabName).classList.add('active');
+}
+
+function switchAdminTab(tabName) {
+    clearMessage();
+    document.querySelectorAll('#admin-dash-view .app-tab').forEach(tab => tab.classList.remove('active'));
+    document.getElementById('tab-admin-' + tabName).classList.add('active');
+    
+    document.querySelectorAll('#admin-dash-view .nav-item').forEach(li => li.classList.remove('active'));
+    document.getElementById('tab-btn-' + tabName).classList.add('active');
+
+    if (tabName === 'users') loadAdminUsers();
+    if (tabName === 'tzintuk') { loadVerifyBlocks(); loadVerifyLogs(); }
 }
 
 function setLoading(btnId, isLoading, originalText = '') {
@@ -114,7 +116,7 @@ function setLoading(btnId, isLoading, originalText = '') {
     if (!btn) return;
     if (isLoading) {
         btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מעבד...';
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> ממתין...';
     } else {
         btn.disabled = false;
         btn.innerHTML = originalText;
@@ -134,7 +136,6 @@ function goBackToInit() {
 // ================= תהליכי אימות והרשמה =================
 
 async function checkIdentifier(e) {
-    e.preventDefault();
     const identifier = document.getElementById('init_id').value.trim();
     if(!identifier) return;
     
@@ -145,25 +146,23 @@ async function checkIdentifier(e) {
             body: JSON.stringify({ identifier })
         });
         const data = await res.json();
-        setLoading('btn-init', false, 'המשך <i class="fa-solid fa-arrow-left" style="margin-right: 8px;"></i>');
+        setLoading('btn-init', false, 'המשך <i class="fa-solid fa-arrow-left"></i>');
         
         if (data.isRegistered) {
             state.tempIdentifier = data.identifier;
             document.getElementById('login_display_id').innerText = data.identifier;
             showView('login-view');
             document.getElementById('login_pass').focus();
-        } 
-        else if (data.authorized) {
+        } else if (data.authorized) {
             state.tempIdentifier = data.phone;
-            document.getElementById('reg_name').value = data.name || 'משתמש לא מזוהה במערכת';
+            document.getElementById('reg_name').value = data.name || 'משתמש לא מזוהה';
             document.getElementById('pre_verify_phone').innerText = data.phone;
             showView('pre-verify-view');
-        } 
-        else {
+        } else {
             showMessage('alert-init', data.error || 'אירעה שגיאה בבדיקה', 'error');
         }
     } catch (err) {
-        setLoading('btn-init', false, 'המשך <i class="fa-solid fa-arrow-left" style="margin-right: 8px;"></i>');
+        setLoading('btn-init', false, 'המשך <i class="fa-solid fa-arrow-left"></i>');
         showMessage('alert-init', 'שגיאת תקשורת עם השרת', 'error');
     }
 }
@@ -171,7 +170,7 @@ async function checkIdentifier(e) {
 async function approveVerification() {
     setLoading('btn-approve-tzintuk', true);
     await initiateVerification(state.tempIdentifier);
-    setLoading('btn-approve-tzintuk', false, 'שלח לי צינתוק עכשיו <i class="fa-solid fa-phone-volume"></i>');
+    setLoading('btn-approve-tzintuk', false, 'שלח צינתוק עכשיו <i class="fa-solid fa-phone-volume"></i>');
 }
 
 async function initiateVerification(phone) {
@@ -186,10 +185,10 @@ async function initiateVerification(phone) {
             state.sessionId = data.sessionId;
             document.getElementById('verify_display_phone').innerText = phone;
             showView('verify-view');
-            showMessage('alert-verify', 'השיחה נשלחה, נא להזין את 4 הספרות האחרונות.', 'info');
+            showMessage('alert-verify', 'השיחה נשלחה, נא להזין 4 ספרות אחרונות.', 'info');
             setTimeout(() => document.getElementById('verify_code').focus(), 100);
         } else {
-            showMessage('alert-pre-verify', data.error || data.message || 'שגיאה בהוצאת שיחה', 'error');
+            showMessage('alert-pre-verify', data.error || 'שגיאה בהוצאת שיחה', 'error');
         }
     } catch (err) {
         showMessage('alert-pre-verify', 'שגיאת תקשורת', 'error');
@@ -197,7 +196,6 @@ async function initiateVerification(phone) {
 }
 
 async function verifyPhoneCode(e) {
-    e.preventDefault();
     const code = document.getElementById('verify_code').value.trim();
     setLoading('btn-verify', true);
     
@@ -212,14 +210,14 @@ async function verifyPhoneCode(e) {
         if (res.ok && data.success) {
             document.getElementById('reg_display_phone').innerText = state.tempIdentifier;
             showView('register-view');
-            showMessage('alert-register', 'אומת בהצלחה! הגדר סיסמה לפתיחת החשבון.', 'success');
+            showMessage('alert-register', 'אומת בהצלחה! הגדר סיסמה.', 'success');
             document.getElementById('reg_password').focus();
         } else {
-            showMessage('alert-verify', data.error || data.message || 'קוד שגוי', 'error');
+            showMessage('alert-verify', data.error || 'קוד שגוי', 'error');
             document.getElementById('verify_code').value = '';
         }
     } catch (err) {
-        setLoading('btn-verify', false, 'אמת והמשך');
+        setLoading('btn-verify', false, 'אמת והמשך <i class="fa-solid fa-shield-check"></i>');
         showMessage('alert-verify', 'שגיאת תקשורת', 'error');
     }
 }
@@ -245,7 +243,6 @@ async function resendVerification() {
 }
 
 async function userRegister(e) {
-    e.preventDefault();
     const phone = state.tempIdentifier;
     const email = document.getElementById('reg_email').value;
     const password = document.getElementById('reg_password').value;
@@ -269,13 +266,12 @@ async function userRegister(e) {
         showView('login-view');
         showMessage('alert-login', 'החשבון נפתח בהצלחה! התחבר כעת.', 'success');
     } catch (err) {
-        setLoading('btn-register', false, 'סיום הרשמה');
+        setLoading('btn-register', false, 'סיום הרשמה <i class="fa-solid fa-check"></i>');
         showMessage('alert-register', 'שגיאת רשת במהלך הרישום', 'error');
     }
 }
 
 async function userLogin(e) {
-    e.preventDefault();
     const password = document.getElementById('login_pass').value;
     setLoading('btn-login', true);
     
@@ -305,26 +301,17 @@ async function userLogin(e) {
     }
 }
 
-// ================= ניהול האזור האישי החדש =================
+// ================= ניהול פרופיל והגדרות =================
 
 function updateDashboardUI() {
     const user = state.currentUser;
     if (!user) return;
     
-    const uiName = document.getElementById('ui-user-name');
-    if(uiName) uiName.innerText = user.name || 'אורח';
-    
-    const uiPhone = document.getElementById('ui-user-phone');
-    if(uiPhone) uiPhone.innerText = user.phone;
-    
-    const emailInput = document.getElementById('update_email');
-    if(emailInput) emailInput.value = user.email || '';
-    
-    const newPass = document.getElementById('update_new_pass');
-    if(newPass) newPass.value = '';
-    
-    const oldPass = document.getElementById('update_old_pass');
-    if(oldPass) oldPass.value = '';
+    document.getElementById('ui-user-name').innerText = user.name || 'אורח';
+    document.getElementById('ui-user-phone').innerText = user.phone;
+    document.getElementById('update_email').value = user.email || '';
+    document.getElementById('update_new_pass').value = '';
+    document.getElementById('update_old_pass').value = '';
     
     const badge = document.getElementById('ui-tzintuk-badge');
     const isConnected = (user.connectedToTzintukim === 'yes' || user.connectedToTzintukim === true || user.connectedToTzintukim === '1');
@@ -332,13 +319,12 @@ function updateDashboardUI() {
         if (isConnected) {
             badge.innerHTML = '<span class="status-ok"><i class="fa-solid fa-shield-check"></i> צינתוקים פעילים</span>';
         } else {
-            badge.innerHTML = '<span class="status-bad"><i class="fa-solid fa-triangle-exclamation"></i> צינתוקים מנותקים</span>';
+            badge.innerHTML = '<span class="status-bad"><i class="fa-solid fa-triangle-exclamation"></i> מנותק מצינתוקים</span>';
         }
     }
 }
 
 async function updateUserProfile(e) {
-    e.preventDefault();
     const oldPassword = document.getElementById('update_old_pass').value;
     const newPassword = document.getElementById('update_new_pass').value;
     const newEmail = document.getElementById('update_email').value;
@@ -356,7 +342,7 @@ async function updateUserProfile(e) {
             if(res.status === 401 || res.status === 403) {
                 logout(); return;
             }
-            showMessage('alert-dash', data.error || 'שגיאה בעדכון הפרטים', 'error');
+            showMessage('alert-dash', data.error || 'שגיאה בעדכון', 'error');
             return;
         }
 
@@ -370,25 +356,23 @@ async function updateUserProfile(e) {
         document.getElementById('update_old_pass').value = '';
         document.getElementById('update_new_pass').value = '';
         
-        // כאן תיקנתי את הבאג! - מראה את ההודעה הירוקה ונשאר במסך, בלי לזרוק אותך חזרה לצ'אט
         showMessage('alert-dash', 'הגדרות החשבון עודכנו בהצלחה!', 'success');
-        
     } catch (err) {
         setLoading('btn-update', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
         showMessage('alert-dash', 'שגיאה בשליחת העדכון לשרת', 'error');
     }
 }
 
-// ================= משיכת הודעות והשמעה (התצוגה ההפוכה) =================
+// ================= משיכת הודעות (column-reverse) =================
 
 async function loadMessages() {
     const token = state.userToken || localStorage.getItem('userToken');
     if (!token) return;
 
-    const container = document.getElementById('messages-table-body');
+    const container = document.getElementById('messages-container');
     if(!container) return;
     
-    container.innerHTML = '<div class="loading-state"><i class="fa-solid fa-circle-notch fa-spin"></i> מסנכרן...</div>';
+    container.innerHTML = '<div class="loading-state"><i class="fa-solid fa-circle-notch fa-spin"></i> מסנכרן הודעות...</div>';
     
     try {
         const res = await fetch(`${API_BASE_URL}/messages/list`, {
@@ -414,11 +398,10 @@ async function loadMessages() {
 }
 
 function renderMessages(messages) {
-    const container = document.getElementById('messages-table-body');
+    const container = document.getElementById('messages-container');
     container.innerHTML = ''; 
 
     if(messages.length === 0) return;
-    
     let currentDateGroup = messages[0].mtime ? messages[0].mtime.split(" ")[0] : "-";
 
     messages.forEach((msg, index) => {
@@ -441,7 +424,6 @@ function renderMessages(messages) {
 
         const isOut = msg.isOutgoing === true; 
         const bubbleClass = isOut ? 'bubble-out' : 'bubble-in';
-        
         const fileId = msg.name.replace('.wav', '').replace('.mp3', '');
         const senderName = msg.valName || 'מערכת';
         const durationText = msg.durationStr || '00:00';
@@ -454,12 +436,10 @@ function renderMessages(messages) {
                 <span class="sender-name">${senderName}</span>
                 <span class="file-id">ID: ${fileId}</span>
             </div>
-            
             <div class="audio-player">
                 <button class="play-btn-circle" id="btn-${fileId}" onclick="togglePlay('${fileId}')">
                     <i class="fa-solid fa-play"></i>
                 </button>
-                
                 <div class="player-track-container">
                     <input type="range" id="slider-${fileId}" min="0" max="100" value="0" oninput="seekAudio('${fileId}', this.value)">
                     <div class="track-fill" id="fill-${fileId}"></div>
@@ -469,7 +449,6 @@ function renderMessages(messages) {
                     </div>
                 </div>
             </div>
-
             <div class="msg-bottom-time">
                 <span dir="ltr">${fullDateTime}</span>
                 ${isOut ? '<i class="fa-solid fa-check-double" style="color:#16a34a; font-size:0.8rem; margin-right:4px;"></i>' : ''}
@@ -567,7 +546,6 @@ function seekAudio(fileId, percentValue) {
 // ================= תהליכי מנהל =================
 
 async function adminLogin(e) {
-    e.preventDefault();
     const username = document.getElementById('admin_user').value;
     const password = document.getElementById('admin_pass').value;
 
@@ -588,12 +566,7 @@ async function adminLogin(e) {
         state.adminToken = data.adminToken;
         localStorage.setItem('adminToken', data.adminToken);
         
-        document.getElementById('navLinks').style.display = 'flex';
-        document.getElementById('nav-auth').style.display = 'none';
-        document.getElementById('nav-logout').style.display = 'inline-block';
-
         showView('admin-dash-view');
-        showMessage('alert-admin-dash', 'מחובר כמנהל בהצלחה', 'success');
         loadAdminUsers();
     } catch (err) {
         setLoading('btn-admin-login', false, 'התחברות מאובטחת');
@@ -619,7 +592,7 @@ async function loadAdminUsers() {
                 logout(); return;
             }
             showMessage('alert-admin-dash', data.error || 'שגיאה', 'error');
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state" style="color:red;">שגיאה בטעינה</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state" style="color:var(--danger);">שגיאה בטעינה</td></tr>';
             return;
         }
 
@@ -631,7 +604,7 @@ async function loadAdminUsers() {
 
         data.users.forEach(user => {
             const isTz = (user.connectedToTzintukim === 'yes' || user.connectedToTzintukim === true || user.connectedToTzintukim === '1');
-            const badgeHtml = isTz ? '<span class="badge success">פעיל</span>' : '<span class="badge error">מנותק</span>';
+            const badgeHtml = isTz ? '<span class="status-ok">פעיל</span>' : '<span class="status-bad">מנותק</span>';
             
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -663,7 +636,6 @@ function closeAdminModal() {
 }
 
 async function submitAdminUpdate(e) {
-    e.preventDefault();
     const phone = document.getElementById('modal_phone').value;
     const newEmail = document.getElementById('modal_email').value;
     const newPassword = document.getElementById('modal_password').value;
@@ -683,7 +655,7 @@ async function submitAdminUpdate(e) {
         }
 
         closeAdminModal();
-        showMessage('alert-admin-dash', \`המשתמש עודכן בהצלחה!\`, 'success');
+        showMessage('alert-admin-dash', 'המשתמש עודכן בהצלחה!', 'success');
         loadAdminUsers();
     } catch (err) {
         setLoading('btn-modal-save', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
@@ -701,11 +673,8 @@ function logout() {
     
     const path = window.location.pathname;
     if (path.includes('/admin')) {
-        document.getElementById('navLinks').style.display = 'none';
         showView('admin-login-view');
     } else {
-        const mainHeader = document.getElementById('main-header');
-        if (mainHeader) mainHeader.style.display = 'flex';
         showView('init-view');
     }
 }
