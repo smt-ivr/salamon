@@ -1,10 +1,12 @@
 // הכתובת של ה-API שלך - לא משתנה!
 const API_BASE_URL = 'https://smti.uk/salamon/api';
+
 let state = { userToken: null, currentUser: null, adminToken: null, tempIdentifier: null, sessionId: null };
 let activeAlertId = null;
+
 let globalAudio = document.createElement('audio');
 let currentPlayingId = null;
-let pollingInterval = null;
+let pollingInterval = null; 
 
 document.addEventListener('DOMContentLoaded', () => {
     const path = window.location.pathname;
@@ -96,6 +98,7 @@ document.addEventListener('input', clearMessage);
 function showView(viewId) {
     clearMessage();
     document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
+    
     if(viewId.includes('view') && !viewId.includes('dash')) {
         document.getElementById('auth-layout').classList.add('active');
         document.querySelectorAll('.auth-card').forEach(card => card.classList.remove('active'));
@@ -125,8 +128,7 @@ function switchAdminTab(tabName) {
     if(btn) btn.classList.add('active');
 
     if (tabName === 'users') loadAdminUsers();
-    if (tabName === 'tzintuk') { loadVerifyBlocks(); loadVerifyLogs();
-    }
+    if (tabName === 'tzintuk') { loadVerifyBlocks(); loadVerifyLogs(); }
 }
 
 function setLoading(btnId, isLoading, originalText = '') {
@@ -165,6 +167,7 @@ async function checkIdentifier(e) {
         });
         const data = await res.json();
         setLoading('btn-init', false, 'המשך <i class="fa-solid fa-arrow-left"></i>');
+        
         if (data.isRegistered) {
             state.tempIdentifier = data.identifier;
             document.getElementById('login_display_id').innerText = data.identifier;
@@ -216,6 +219,7 @@ async function verifyPhoneCode(e) {
     if (e) e.preventDefault();
     const code = document.getElementById('verify_code').value.trim();
     setLoading('btn-verify', true);
+    
     try {
         const res = await fetch(`${API_BASE_URL}/verify/check`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -223,6 +227,7 @@ async function verifyPhoneCode(e) {
         });
         const data = await res.json();
         setLoading('btn-verify', false, 'אמת והמשך <i class="fa-solid fa-shield-check"></i>');
+        
         if (res.ok && data.success) {
             document.getElementById('reg_display_phone').innerText = state.tempIdentifier;
             showView('register-view');
@@ -273,6 +278,7 @@ async function userRegister(e) {
         });
         const data = await res.json();
         setLoading('btn-register', false, 'סיום הרשמה <i class="fa-solid fa-check"></i>');
+        
         if (!res.ok) {
             showMessage('alert-register', data.error || 'שגיאה ברישום', 'error');
             return;
@@ -356,7 +362,7 @@ function updateDashboardUI() {
             statusText.innerText = 'אין לך הרשאה להעלות הודעות';
             fileInput.disabled = true;
             recordBtn.disabled = true;
-            if (isRecording) toggleChatRecording();
+            if (isRecording) toggleChatRecording(); 
         }
     }
 }
@@ -368,6 +374,7 @@ async function updateUserProfile(e) {
     const newPassword = document.getElementById('update_new_pass').value;
     const newEmail = document.getElementById('update_email').value;
     setLoading('btn-update', true);
+    
     try {
         const res = await fetch(`${API_BASE_URL}/update-profile`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -375,10 +382,10 @@ async function updateUserProfile(e) {
         });
         const data = await res.json();
         setLoading('btn-update', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
+        
         if (!res.ok) {
             if(res.status === 401 || res.status === 403) {
-                logout();
-                return;
+                logout(); return;
             }
             showMessage('alert-dash', data.error || 'שגיאה בעדכון', 'error');
             return;
@@ -390,7 +397,8 @@ async function updateUserProfile(e) {
             localStorage.setItem('userToken', newToken);
         }
 
-        state.currentUser.email = newEmail;
+        state.currentUser.email = newEmail; 
+        
         showMessage('alert-dash', 'הגדרות החשבון עודכנו בהצלחה!', 'success');
     } catch (err) {
         setLoading('btn-update', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
@@ -406,6 +414,7 @@ let isRecording = false;
 
 async function toggleChatRecording() {
     if (!state.currentUser?.canUpload) return;
+    
     const btn = document.getElementById('chat-record-btn');
     const statusText = document.getElementById('chat-upload-status');
 
@@ -453,9 +462,11 @@ async function handleFileUpload(event) {
 async function sendChatUpload(fileBlob, fileName) {
     const statusText = document.getElementById('chat-upload-status');
     statusText.innerText = 'מעלה הודעה לשרת...';
+    
     const formData = new FormData();
     formData.append('userToken', state.userToken);
     formData.append('file', fileBlob, fileName);
+
     try {
         const res = await fetch(`${API_BASE_URL}/messages/upload`, {
             method: 'POST',
@@ -466,7 +477,7 @@ async function sendChatUpload(fileBlob, fileName) {
         if (res.ok && result.success) {
             statusText.innerText = 'ההודעה הועלתה בהצלחה!';
             setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ להעלאה'; }, 3000);
-            loadMessages();
+            loadMessages(); 
         } else {
             statusText.innerText = 'שגיאה: ' + (result.error || 'נכשל');
             setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ להעלאה'; }, 4000);
@@ -486,6 +497,7 @@ async function loadMessages() {
     if(!container) return;
     
     container.innerHTML = '<div class="loading-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען הודעות...</div>';
+    
     try {
         const res = await fetch(`${API_BASE_URL}/messages/list`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -525,7 +537,7 @@ function renderMessages(messages) {
         }
 
         if (datePart !== currentDateGroup) {
-             if (currentDateGroup !== "-") {
+            if (currentDateGroup !== "-") {
                 const divider = document.createElement('div');
                 divider.className = 'date-divider';
                 divider.innerHTML = `<span>${currentDateGroup}</span>`;
@@ -566,6 +578,7 @@ function renderMessages(messages) {
                 ${isOut ? '<i class="fa-solid fa-check-double" style="color:#16a34a; font-size:0.8rem; margin-right:4px;"></i>' : ''}
             </div>
         `;
+
         container.appendChild(bubble);
 
         if (index === messages.length - 1) {
@@ -596,6 +609,7 @@ function setupAudioListeners() {
             timeLabel.innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
         }
     });
+
     globalAudio.addEventListener('ended', () => {
         if (!currentPlayingId) return;
         const btn = document.getElementById(`btn-${currentPlayingId}`);
@@ -632,31 +646,16 @@ function togglePlay(fileId) {
 
     currentPlayingId = fileId;
     icon.className = 'fa-solid fa-circle-notch fa-spin';
+
     const token = state.userToken || localStorage.getItem('userToken');
     const streamUrl = `${API_BASE_URL}/messages/stream?fileId=${encodeURIComponent(fileId)}&userToken=${encodeURIComponent(token)}`;
     
-    // טריק לאייפון: משחררים את הנגן מיד בלחיצה הפיזית כדי לעקוף את חסימת ה-Autoplay האסינכרונית
-    globalAudio.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA'; 
-    globalAudio.play().catch(() => {});
-
-    // מורידים את הקובץ כ-Blob שלם ברקע ועוקפים את בעיית הגבלת ההזרמה (Streaming) של Safari iOS
-    fetch(streamUrl)
-        .then(res => {
-            if (!res.ok) throw new Error('שגיאה בהורדת הקובץ');
-            return res.blob();
-        })
-        .then(blob => {
-            const localUrl = URL.createObjectURL(blob);
-            globalAudio.src = localUrl;
-            return globalAudio.play();
-        })
-        .then(() => {
-            icon.className = 'fa-solid fa-pause';
-        })
-        .catch(err => {
-            console.error("Playback error:", err);
-            icon.className = 'fa-solid fa-triangle-exclamation';
-        });
+    globalAudio.src = streamUrl;
+    globalAudio.play().then(() => {
+        icon.className = 'fa-solid fa-pause';
+    }).catch(err => {
+        icon.className = 'fa-solid fa-triangle-exclamation';
+    });
 }
 
 function seekAudio(fileId, percentValue) {
@@ -667,6 +666,7 @@ function seekAudio(fileId, percentValue) {
     }
 }
 
+// ================= תהליכי מנהל =================
 async function adminLogin(e) {
     if (e) e.preventDefault();
     const username = document.getElementById('admin_user').value;
@@ -709,10 +709,10 @@ async function loadAdminUsers() {
         });
         const data = await res.json();
         setLoading('btn-refresh-users', false, '<i class="fa-solid fa-rotate-right"></i> רענן נתונים');
+        
         if (!res.ok) {
             if (res.status === 401 || res.status === 403) {
-                logout();
-                return;
+                logout(); return;
             }
             showMessage('alert-admin-dash', data.error || 'שגיאה', 'error');
             tbody.innerHTML = '<tr><td colspan="7" class="empty-state" style="color:var(--danger);">שגיאה בטעינה</td></tr>';
@@ -753,6 +753,7 @@ function openAdminModal(phone, email, canUpload) {
     document.getElementById('modal_email').value = email;
     document.getElementById('modal_password').value = '';
     
+    // קביעת מצב הצ'ק-בוקס לפי ההרשאה הנוכחית של המשתמש
     const checkbox = document.getElementById('modal_can_upload');
     if(checkbox) checkbox.checked = canUpload;
     
@@ -770,10 +771,12 @@ async function submitAdminUpdate(e) {
     const newEmail = document.getElementById('modal_email').value;
     const newPassword = document.getElementById('modal_password').value;
     
+    // שליפת הסטטוס החדש של תיבת הסימון
     const checkbox = document.getElementById('modal_can_upload');
     const canUpload = checkbox ? checkbox.checked : false;
 
     setLoading('btn-modal-save', true);
+    
     try {
         const res = await fetch(`${API_BASE_URL}/admin/update-user`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -781,6 +784,7 @@ async function submitAdminUpdate(e) {
         });
         const data = await res.json();
         setLoading('btn-modal-save', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
+        
         if (!res.ok) {
             showMessage('alert-modal', data.error || 'עדכון נכשל', 'error');
             return;
@@ -802,8 +806,7 @@ function logout() {
     if (pollingInterval) clearInterval(pollingInterval);
     
     document.querySelectorAll('input').forEach(input => input.value = ''); 
-    if(globalAudio) { globalAudio.pause(); globalAudio.src = '';
-    }
+    if(globalAudio) { globalAudio.pause(); globalAudio.src = ''; }
     
     const path = window.location.pathname;
     if (path.includes('/admin')) {
