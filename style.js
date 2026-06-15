@@ -37,7 +37,7 @@ main { flex: 1; display: flex; flex-direction: column; width: 100%; max-width: 1
 .fade-in { animation: fadeIn 0.4s ease forwards; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-/* Centered Auth Sections - Fixed from pushing down */
+/* Centered Auth Sections */
 .auth-section.active { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: calc(100vh - 180px); }
 
 /* Clean Sharp Cards */
@@ -47,7 +47,7 @@ h1, h2 { color: var(--text-dark); margin-bottom: 8px; font-weight: 800; letter-s
 .subtitle { color: var(--text-light); font-size: 0.95rem; line-height: 1.5; margin-bottom: 25px; }
 .clean-card .subtitle { text-align: center; }
 
-/* Dashboard Layout - Side by Side */
+/* Dashboard Layout */
 .dashboard-layout { display: flex !important; gap: 25px; align-items: stretch; }
 .dashboard-layout:not(.active) { display: none !important; }
 .sidebar { width: 250px; background: var(--surface); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow-sm); border: 1px solid var(--border); flex-shrink: 0; display: flex; flex-direction: column; }
@@ -123,6 +123,12 @@ h1, h2 { color: var(--text-dark); margin-bottom: 8px; font-weight: 800; letter-s
 .modal-overlay.active { display: flex; }
 .modal-content { max-width: 400px; animation: scaleIn 0.2s ease; }
 @keyframes scaleIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+
+/* === סגנונות חדשים לנגן והודעות הקוליות === */
+.audio-player-container { display: none; background: #f8fafc; border: 1px solid var(--border); padding: 15px 20px; border-radius: var(--radius-md); margin-bottom: 25px; box-shadow: var(--shadow-sm); position: sticky; top: 70px; z-index: 50; }
+.playing-title { font-size: 0.95rem; font-weight: 600; color: var(--secondary); margin-bottom: 12px; }
+.play-btn { background: #f4f4f5; color: var(--text-dark); border: 1px solid var(--border); padding: 8px 14px; border-radius: var(--radius-sm); cursor: pointer; font-size: 0.85rem; font-weight: 600; transition: 0.2s; }
+.play-btn:hover { background: var(--secondary); color: white; border-color: var(--secondary); }
 
 @media (max-width: 768px) {
     .dashboard-layout { flex-direction: column; }
