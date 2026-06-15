@@ -7,7 +7,7 @@ const htmlContent = `<!DOCTYPE html>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/salamon/style.css">
     <script src="/salamon/frontend.js" defer></script>
-</head>
+    <script src="/salamon/messages.js" defer></script> </head>
 <body>
 
     <header id="main-header">
@@ -107,8 +107,10 @@ const htmlContent = `<!DOCTYPE html>
                 </div>
                 <ul class="sidebar-menu">
                     <li class="active" onclick="switchUserTab('overview', this)"><i class="fa-solid fa-chart-pie"></i> סקירה כללית</li>
+                    
+                    <li onclick="switchUserTab('messages', this); loadMessages();"><i class="fa-solid fa-microphone-lines"></i> הודעות קוליות</li>
+                    
                     <li onclick="switchUserTab('settings', this)"><i class="fa-solid fa-gear"></i> הגדרות פרופיל</li>
-                    <li class="disabled"><i class="fa-solid fa-box-open"></i> שירותים נוספים (בקרוב)</li>
                 </ul>
             </aside>
             
@@ -130,6 +132,40 @@ const htmlContent = `<!DOCTYPE html>
                             <div class="label">סטטוס צינתוקים</div>
                             <div class="value" id="dash-tzintukim">-</div>
                         </div>
+                    </div>
+                </div>
+
+                <div id="tab-messages" class="dash-tab" style="display:none;">
+                    <div class="admin-header" style="margin-bottom: 20px;">
+                        <div>
+                            <h1 style="margin-bottom: 5px;">הודעות מהמערכת</h1>
+                            <p class="subtitle" style="text-align:right;">האזנה להודעות קוליות ישירות מהאתר</p>
+                        </div>
+                        <button onclick="loadMessages()" class="btn-primary small-btn" id="btn-refresh-messages" style="width: auto;"><i class="fa-solid fa-rotate-right"></i> רענן נתונים</button>
+                    </div>
+                    
+                    <div id="alert-messages" class="alert-box"></div>
+                    
+                    <div class="audio-player-container" id="audio-player-wrapper">
+                        <div class="playing-title" id="playing-title">מנגן כעת: המתן...</div>
+                        <audio id="main-audio-player" controls controlsList="nodownload" style="width: 100%; outline: none;"></audio>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>שם הקובץ</th>
+                                    <th>תאריך</th>
+                                    <th>גודל</th>
+                                    <th>אורך</th>
+                                    <th>פעולות</th>
+                                </tr>
+                            </thead>
+                            <tbody id="messages-table-body">
+                                <tr><td colspan="5" class="empty-state">טוען הודעות...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
