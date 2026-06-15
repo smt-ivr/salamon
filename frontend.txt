@@ -35,7 +35,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    // איתור אלמנט השמע אם הוא נמצא ב-HTML
     const htmlAudio = document.getElementById('global-audio-player');
     if (htmlAudio) globalAudio = htmlAudio;
     
@@ -55,11 +54,6 @@ async function silentLogin(token) {
         if (res.ok) {
             state.currentUser = data.user;
             updateDashboardUI();
-            
-            // במצב משתמש מחובר, נסתיר את ה-header הראשי אם רוצים מראה אפליקטיבי
-            const mainHeader = document.getElementById('main-header');
-            if (mainHeader && window.innerWidth <= 768) mainHeader.style.display = 'none';
-            
             showView('user-dash-view');
             loadMessages();
         } else {
@@ -72,7 +66,7 @@ async function silentLogin(token) {
 
 function switchUserTab(tabName, element) {
     document.querySelectorAll('.dash-tab').forEach(tab => tab.style.display = 'none');
-    document.getElementById('tab-' + tabName).style.display = 'flex'; // flex כדי לתמוך בצ'אט
+    document.getElementById('tab-' + tabName).style.display = 'flex';
     
     if (element) {
         document.querySelectorAll('.sidebar-menu .nav-item').forEach(li => li.classList.remove('active'));
@@ -108,8 +102,6 @@ function showView(viewId) {
         if(viewId.includes('auth-section') || ['init-view', 'login-view', 'pre-verify-view', 'verify-view', 'register-view'].includes(viewId)) {
             document.getElementById('nav-auth').style.display = 'inline-block';
             document.getElementById('nav-logout').style.display = 'none';
-            const mainHeader = document.getElementById('main-header');
-            if (mainHeader) mainHeader.style.display = 'flex';
         } else {
             document.getElementById('nav-auth').style.display = 'none';
             document.getElementById('nav-logout').style.display = 'inline-block';
@@ -305,10 +297,6 @@ async function userLogin(e) {
         localStorage.setItem('userToken', data.token);
 
         updateDashboardUI();
-        
-        const mainHeader = document.getElementById('main-header');
-        if (mainHeader && window.innerWidth <= 768) mainHeader.style.display = 'none';
-
         showView('user-dash-view');
         loadMessages();
     } catch (err) {
@@ -381,15 +369,17 @@ async function updateUserProfile(e) {
         state.currentUser.email = newEmail; 
         document.getElementById('update_old_pass').value = '';
         document.getElementById('update_new_pass').value = '';
+        
+        // כאן תיקנתי את הבאג! - מראה את ההודעה הירוקה ונשאר במסך, בלי לזרוק אותך חזרה לצ'אט
         showMessage('alert-dash', 'הגדרות החשבון עודכנו בהצלחה!', 'success');
-        switchUserTab('messages', document.getElementById('tab-btn-messages'));
+        
     } catch (err) {
         setLoading('btn-update', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
         showMessage('alert-dash', 'שגיאה בשליחת העדכון לשרת', 'error');
     }
 }
 
-// ================= משיכת הודעות והשמעה (התצוגה ההפוכה - column-reverse) =================
+// ================= משיכת הודעות והשמעה (התצוגה ההפוכה) =================
 
 async function loadMessages() {
     const token = state.userToken || localStorage.getItem('userToken');
@@ -427,13 +417,8 @@ function renderMessages(messages) {
     const container = document.getElementById('messages-table-body');
     container.innerHTML = ''; 
 
-    // הגדרנו ב-CSS flex-direction: column-reverse;
-    // זה אומר שהפריט הראשון שנכניס למסך, יופיע ויזואלית בתחתית!
-    // השרת שולח את החדשות ביותר בתחילת המערך (index 0).
-    
     if(messages.length === 0) return;
     
-    // שליפת התאריך מההודעה הראשונה (החדשה ביותר) בשביל החוצץ
     let currentDateGroup = messages[0].mtime ? messages[0].mtime.split(" ")[0] : "-";
 
     messages.forEach((msg, index) => {
@@ -444,8 +429,6 @@ function renderMessages(messages) {
             [datePart, timePart] = fullDateTime.split(" ");
         }
 
-        // בגלל ההיפוך, אם התאריך משתנה, זה אומר שסיימנו את היום הקודם.
-        // נדביק את כותרת היום הקודם כך שתופיע מעל ההודעות שלו.
         if (datePart !== currentDateGroup) {
             if (currentDateGroup !== "-") {
                 const divider = document.createElement('div');
@@ -456,7 +439,6 @@ function renderMessages(messages) {
             currentDateGroup = datePart;
         }
 
-        // isOutgoing מגיע מהשרת ומחליט איזה צד ואיזה צבע
         const isOut = msg.isOutgoing === true; 
         const bubbleClass = isOut ? 'bubble-out' : 'bubble-in';
         
@@ -496,7 +478,6 @@ function renderMessages(messages) {
 
         container.appendChild(bubble);
 
-        // בסיום המערך, נוסיף את התאריך האחרון (הישן ביותר)
         if (index === messages.length - 1) {
             const divider = document.createElement('div');
             divider.className = 'date-divider';
@@ -583,7 +564,7 @@ function seekAudio(fileId, percentValue) {
     }
 }
 
-// ================= תהליכי מנהל (נשארו כפי שהיו) =================
+// ================= תהליכי מנהל =================
 
 async function adminLogin(e) {
     e.preventDefault();
@@ -616,7 +597,7 @@ async function adminLogin(e) {
         loadAdminUsers();
     } catch (err) {
         setLoading('btn-admin-login', false, 'התחברות מאובטחת');
-        showMessage('alert-admin-login', 'שגיאת תקשורת', 'error');
+        showMessage('alert-admin-login', 'שגיאת תקשורת. השרת לא זמין.', 'error');
     }
 }
 
@@ -702,7 +683,7 @@ async function submitAdminUpdate(e) {
         }
 
         closeAdminModal();
-        showMessage('alert-admin-dash', `המשתמש עודכן בהצלחה!`, 'success');
+        showMessage('alert-admin-dash', \`המשתמש עודכן בהצלחה!\`, 'success');
         loadAdminUsers();
     } catch (err) {
         setLoading('btn-modal-save', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
