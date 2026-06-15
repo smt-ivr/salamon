@@ -1,302 +1,3 @@
-// הכתובת של ה-API שלך - לא משתנה!
-const API_BASE_URL = 'https://smti.uk/salamon/api';
-
-let state = { userToken: null, currentUser: null, adminToken: null, tempIdentifier: null };
-let activeAlertId = null;
-
-// רואטר (Router) בצד לקוח וניהול שמירת התחברות מאובטחת
-document.addEventListener('DOMContentLoaded', () => {
-    const path = window.location.pathname;
-    
-    // משיכת הטוקנים בלבד (ללא נתוני משתמש!)
-    const savedUserToken = localStorage.getItem('userToken');
-    const savedAdminToken = localStorage.getItem('adminToken');
-
-    if (path.includes('/admin')) {
-        document.getElementById('navLinks').style.display = 'none';
-        if (savedAdminToken) {
-            state.adminToken = savedAdminToken;
-            showView('admin-dash-view');
-            document.getElementById('navLinks').style.display = 'flex';
-            document.getElementById('nav-auth').style.display = 'none';
-            document.getElementById('nav-logout').style.display = 'inline-block';
-            loadAdminUsers();
-        } else {
-            showView('admin-login-view');
-        }
-    } else {
-        if (savedUserToken) {
-            // יש טוקן - נבצע התחברות שקטה מול השרת כדי למשוך את נתוני המשתמש העדכניים לזיכרון הזמני
-            state.userToken = savedUserToken;
-            silentLogin(savedUserToken);
-        } else {
-            showView('init-view');
-        }
-    }
-});
-
-// התחברות שקטה (מאחורי הקלעים) בעת רענון עמוד
-async function silentLogin(token) {
-    try {
-        const [identifier, password] = token.split(':');
-        const res = await fetch(`${API_BASE_URL}/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ identifier, password })
-        });
-        const data = await res.json();
-        
-        if (res.ok) {
-            state.currentUser = data.user;
-            updateDashboardUI();
-            showView('user-dash-view');
-        } else {
-            // הטוקן לא תקין (למשל הסיסמה שונתה) - מנתקים את המשתמש
-            logout();
-        }
-    } catch (err) {
-        // במקרה של שגיאת רשת, נציג שגיאה וננתק
-        logout();
-    }
-}
-
-// ניהול טאבים
-function switchUserTab(tabName, element) {
-    document.querySelectorAll('.dash-tab').forEach(tab => tab.style.display = 'none');
-    document.getElementById('tab-' + tabName).style.display = 'block';
-    
-    document.querySelectorAll('.sidebar-menu li').forEach(li => li.classList.remove('active'));
-    element.classList.add('active');
-    clearMessage();
-}
-
-// ניהול הודעות קטנות למסך
-function showMessage(containerId, msg, type = 'info') {
-    const box = document.getElementById(containerId);
-    if (!box) return;
-    box.className = `alert-box ${type}`;
-    box.innerHTML = msg;
-    box.style.display = 'block';
-    activeAlertId = containerId;
-}
-
-function clearMessage() {
-    if (activeAlertId) {
-        document.getElementById(activeAlertId).style.display = 'none';
-        activeAlertId = null;
-    }
-}
-document.addEventListener('input', clearMessage);
-
-// ניהול מסכים הראשיים
-function showView(viewId) {
-    clearMessage();
-    document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
-    document.getElementById(viewId).classList.add('active');
-    const path = window.location.pathname;
-    
-    if (!path.includes('/admin')) {
-        if(viewId.includes('auth-section') || ['init-view', 'login-view', 'register-view'].includes(viewId)) {
-            document.getElementById('nav-auth').style.display = 'inline-block';
-            document.getElementById('nav-logout').style.display = 'none';
-        } else {
-            document.getElementById('nav-auth').style.display = 'none';
-            document.getElementById('nav-logout').style.display = 'inline-block';
-        }
-    }
-}
-
-// כפתורי טעינה
-function setLoading(btnId, isLoading, originalText = '') {
-    const btn = document.getElementById(btnId);
-    if (!btn) return;
-    if (isLoading) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> טוען...';
-    } else {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-    }
-}
-
-function goBackToInit() {
-    if(state.userToken || state.adminToken) return;
-    document.getElementById('login_pass').value = '';
-    document.getElementById('reg_password').value = '';
-    document.getElementById('reg_password_confirm').value = '';
-    showView('init-view');
-    setTimeout(() => document.getElementById('init_id').focus(), 100);
-}
-
-// ================= תהליכי משתמש =================
-
-async function checkIdentifier(e) {
-    e.preventDefault();
-    const identifier = document.getElementById('init_id').value.trim();
-    if(!identifier) return;
-
-    setLoading('btn-init', true);
-    try {
-        const res = await fetch(`${API_BASE_URL}/check-identifier`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ identifier })
-        });
-        const data = await res.json();
-        setLoading('btn-init', false, 'המשך <i class="fa-solid fa-arrow-left" style="margin-right: 8px;"></i>');
-        
-        if (data.isRegistered) {
-            state.tempIdentifier = data.identifier;
-            document.getElementById('login_display_id').innerText = data.identifier;
-            showView('login-view');
-            showMessage('alert-login', '<i class="fa-solid fa-check"></i> חשבונך זוהה. אנא הזן סיסמה להתחברות.', 'success');
-            document.getElementById('login_pass').focus();
-        } 
-        else if (data.authorized) {
-            state.tempIdentifier = data.phone;
-            document.getElementById('reg_display_phone').innerText = data.phone;
-            document.getElementById('reg_name').value = data.name || 'לא רשום שם במערכת (ניתן להמשיך)';
-            showView('register-view');
-            showMessage('alert-register', '<i class="fa-solid fa-check"></i> המספר אומת מול ימות המשיח! הגדר סיסמה לפתיחת החשבון.', 'success');
-            document.getElementById('reg_password').focus();
-        } 
-        else {
-            showMessage('alert-init', data.error || 'אירעה שגיאה בבדיקה', 'error');
-        }
-    } catch (err) {
-        setLoading('btn-init', false, 'המשך <i class="fa-solid fa-arrow-left" style="margin-right: 8px;"></i>');
-        showMessage('alert-init', 'שגיאת תקשורת עם השרת, נסה שוב', 'error');
-    }
-}
-
-async function userLogin(e) {
-    e.preventDefault();
-    const password = document.getElementById('login_pass').value;
-    setLoading('btn-login', true);
-
-    try {
-        const res = await fetch(`${API_BASE_URL}/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ identifier: state.tempIdentifier, password })
-        });
-        const data = await res.json();
-        setLoading('btn-login', false, 'היכנס למערכת');
-        
-        if (!res.ok) {
-            showMessage('alert-login', data.error || 'שגיאת התחברות', 'error');
-            return;
-        }
-
-        // שמירת טוקן בלבד! נתוני משתמש נשארים בזיכרון הזמני בלבד
-        state.userToken = data.token;
-        state.currentUser = data.user;
-        localStorage.setItem('userToken', data.token);
-
-        updateDashboardUI();
-        showView('user-dash-view');
-        showMessage('alert-dash', 'התחברת בהצלחה!', 'success');
-    } catch (err) {
-        setLoading('btn-login', false, 'היכנס למערכת');
-        showMessage('alert-login', 'שגיאת תקשורת עם השרת', 'error');
-    }
-}
-
-async function userRegister(e) {
-    e.preventDefault();
-    const phone = state.tempIdentifier;
-    const email = document.getElementById('reg_email').value;
-    const password = document.getElementById('reg_password').value;
-    const passwordConfirm = document.getElementById('reg_password_confirm').value;
-
-    setLoading('btn-register', true);
-    try {
-        const res = await fetch(`${API_BASE_URL}/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, email, password, passwordConfirm })
-        });
-        const data = await res.json();
-        setLoading('btn-register', false, 'סיום הרשמה <i class="fa-solid fa-check" style="margin-right: 5px;"></i>');
-        
-        if (!res.ok) {
-            showMessage('alert-register', data.error || 'שגיאה בביצוע הרישום', 'error');
-            return;
-        }
-
-        document.getElementById('login_display_id').innerText = phone;
-        showView('login-view');
-        showMessage('alert-login', 'החשבון נפתח בהצלחה! התחבר כעת.', 'success');
-    } catch (err) {
-        setLoading('btn-register', false, 'סיום הרשמה <i class="fa-solid fa-check" style="margin-right: 5px;"></i>');
-        showMessage('alert-register', 'שגיאת רשת במהלך הרישום', 'error');
-    }
-}
-
-// ================= ניהול האזור האישי =================
-
-function updateDashboardUI() {
-    const user = state.currentUser;
-    if (!user) return;
-    
-    document.getElementById('dash-welcome-title').innerText = user.name || 'אורח';
-    document.getElementById('sidebar-name').innerText = user.name || 'אורח';
-    document.getElementById('dash-phone').innerText = user.phone;
-    
-    document.getElementById('update_email').value = user.email || '';
-    document.getElementById('update_new_pass').value = '';
-    document.getElementById('update_old_pass').value = '';
-    
-    const isConnected = (user.connectedToTzintukim === 'yes' || user.connectedToTzintukim === true || user.connectedToTzintukim === '1');
-    document.getElementById('dash-tzintukim').innerHTML = isConnected 
-        ? '<span class="badge success">פעיל ומחובר</span>' 
-        : '<span class="badge error">אינו מחובר</span>';
-}
-
-async function updateUserProfile(e) {
-    e.preventDefault();
-    const oldPassword = document.getElementById('update_old_pass').value;
-    const newPassword = document.getElementById('update_new_pass').value;
-    const newEmail = document.getElementById('update_email').value;
-    
-    setLoading('btn-update', true);
-    try {
-        const res = await fetch(`${API_BASE_URL}/update-profile`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                phone: state.currentUser.phone, oldPassword, newPassword, newEmail 
-            })
-        });
-        const data = await res.json();
-        setLoading('btn-update', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
-        
-        if (!res.ok) {
-            if(res.status === 401 || res.status === 403) {
-                logout();
-                showMessage('alert-login', 'תוקף החיבור פג, אנא התחבר מחדש.', 'error');
-                return;
-            }
-            alert(data.error || 'שגיאה בעדכון הפרטים');
-            return;
-        }
-
-        if (newPassword) {
-            const newToken = `${state.currentUser.phone}:${newPassword}`;
-            state.userToken = newToken;
-            localStorage.setItem('userToken', newToken);
-        }
-
-        state.currentUser.email = newEmail; 
-        document.getElementById('update_old_pass').value = '';
-        document.getElementById('update_new_pass').value = '';
-        alert('הגדרות החשבון עודכנו בהצלחה!');
-    } catch (err) {
-        setLoading('btn-update', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
-        alert('שגיאה בשליחת העדכון לשרת');
-    }
-}
-
 // ================= משיכת הודעות והשמעה =================
 
 async function loadMessages() {
@@ -314,7 +15,7 @@ async function loadMessages() {
         const res = await fetch(`${API_BASE_URL}/messages/list`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userToken: token })
+            body: JSON.stringify({ userToken: token }) // כבר לא שולחים נתיב לשרת!
         });
         
         const data = await res.json();
@@ -336,13 +37,16 @@ async function loadMessages() {
             const tr = document.createElement('tr');
             const sizeKb = msg.size ? (msg.size / 1024).toFixed(1) + ' KB' : '-';
             
+            // חילוץ המספר בלבד מתוך שם הקובץ (למשל: מ-"3653.wav" יישאר רק "3653")
+            const fileId = msg.name.replace('.wav', '').replace('.mp3', '');
+            
             tr.innerHTML = `
                 <td dir="ltr" style="text-align:right; font-weight:600; color:var(--text-dark);">${msg.name}</td>
                 <td dir="ltr" style="text-align:right;">${msg.mtime || '-'}</td>
                 <td dir="ltr" style="text-align:right; color:var(--text-light);">${sizeKb}</td>
                 <td>${msg.durationStr || '-'}</td>
                 <td>
-                    <button class="actions-btn" style="background:var(--secondary); color:white;" onclick="playAudio('${msg.path}', '${msg.name}')">
+                    <button class="actions-btn" style="background:var(--secondary); color:white;" onclick="playAudio('${fileId}', '${msg.name}')">
                         <i class="fa-solid fa-play"></i> האזן
                     </button>
                 </td>
@@ -357,7 +61,7 @@ async function loadMessages() {
     }
 }
 
-async function playAudio(path, fileName) {
+async function playAudio(fileId, fileName) {
     const token = state.userToken || localStorage.getItem('userToken');
     if (!token) return alert("החיבור נותק, אנא התחבר מחדש");
     
@@ -369,21 +73,18 @@ async function playAudio(path, fileName) {
     playerWrapper.classList.add('fade-in');
     title.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> מתחבר לשרת... (בודק סטטוס)`;
     
-    // זה הקישור, הטוקן נשלח כפרמטר GET.
-    const streamUrl = `${API_BASE_URL}/messages/stream?path=${encodeURIComponent(path)}&userToken=${encodeURIComponent(token)}`;
+    // הקישור מעודכן: שולחים רק fileId=3653 במקום path=ivr2...
+    const streamUrl = `${API_BASE_URL}/messages/stream?fileId=${encodeURIComponent(fileId)}&userToken=${encodeURIComponent(token)}`;
     
     try {
-        // שלב מקדים לזיהוי שגיאות: אנחנו שולחים קריאה מקדימה כדי לראות אם השרת מחזיר 404/500/403
         const checkRes = await fetch(streamUrl);
         
         if (!checkRes.ok) {
-            // אם יש שגיאה, נקרא אותה ונדפיס למסך כדי לראות בדיוק מה הבעיה
             const errorText = await checkRes.text();
             title.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger);"></i> שגיאת שרת (${checkRes.status}): <span style="font-weight:normal;">${errorText}</span>`;
             return;
         }
         
-        // הכל תקין והשרת אישר החזרת קובץ
         player.src = streamUrl;
         player.play().then(() => {
             title.innerHTML = `<i class="fa-solid fa-volume-high"></i> מנגן: <span dir="ltr">${fileName}</span>`;
@@ -393,171 +94,5 @@ async function playAudio(path, fileName) {
         
     } catch (err) {
         title.innerHTML = `<i class="fa-solid fa-wifi" style="color:var(--danger);"></i> תקלת רשת מול השרת: ${err.message}`;
-    }
-}
-
-// ================= תהליכי מנהל =================
-
-async function adminLogin(e) {
-    e.preventDefault();
-    const username = document.getElementById('admin_user').value;
-    const password = document.getElementById('admin_pass').value;
-
-    setLoading('btn-admin-login', true);
-    try {
-        const res = await fetch(`${API_BASE_URL}/admin/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-        const data = await res.json();
-        setLoading('btn-admin-login', false, 'התחברות מאובטחת');
-
-        if (!res.ok) {
-            showMessage('alert-admin-login', data.error || 'פרטי מנהל שגויים', 'error');
-            return;
-        }
-
-        state.adminToken = data.adminToken;
-        localStorage.setItem('adminToken', data.adminToken);
-        
-        document.getElementById('navLinks').style.display = 'flex';
-        document.getElementById('nav-auth').style.display = 'none';
-        document.getElementById('nav-logout').style.display = 'inline-block';
-
-        showView('admin-dash-view');
-        showMessage('alert-admin-dash', `מחובר כמנהל בהצלחה`, 'success');
-        loadAdminUsers();
-    } catch (err) {
-        setLoading('btn-admin-login', false, 'התחברות מאובטחת');
-        showMessage('alert-admin-login', 'שגיאת תקשורת. השרת לא זמין.', 'error');
-    }
-}
-
-async function loadAdminUsers() {
-    if (!state.adminToken) return;
-    const tbody = document.getElementById('admin-users-table-body');
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען נתונים מהמסד...</td></tr>';
-    setLoading('btn-refresh-users', true);
-    
-    try {
-        const res = await fetch(`${API_BASE_URL}/admin/users`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ adminToken: state.adminToken })
-        });
-        const data = await res.json();
-        setLoading('btn-refresh-users', false, '<i class="fa-solid fa-rotate-right"></i> רענן נתונים');
-        
-        if (!res.ok) {
-            if (res.status === 401 || res.status === 403 || (data.error && data.error.includes('טוקן'))) {
-                logout();
-                showMessage('alert-admin-login', 'פג תוקף החיבור שלך. אנא התחבר כמנהל מחדש.', 'error');
-                return;
-            }
-            showMessage('alert-admin-dash', data.error || 'שגיאה בשליפת המשתמשים', 'error');
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state" style="color:red;">שגיאה בטעינה</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = '';
-        if(data.users.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">אין משתמשים במערכת.</td></tr>';
-            return;
-        }
-
-        data.users.forEach(user => {
-            const isTz = (user.connectedToTzintukim === 'yes' || user.connectedToTzintukim === true || user.connectedToTzintukim === '1');
-            const badgeHtml = isTz ? '<span class="badge success">פעיל</span>' : '<span class="badge error">מנותק</span>';
-            
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td style="font-weight:700; direction:ltr; text-align:right;">${user.phone}</td>
-                <td>${user.name}</td>
-                <td dir="ltr" style="text-align:right;">${user.email || '<span style="color:#a1a1aa;">-</span>'}</td>
-                <td style="font-family:monospace; color:#71717a;">${user.password}</td>
-                <td>${badgeHtml}</td>
-                <td>
-                    <button class="actions-btn" onclick="openAdminModal('${user.phone}', '${user.email || ''}')"><i class="fa-solid fa-pen"></i> עריכה</button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
-
-    } catch (err) {
-        setLoading('btn-refresh-users', false, '<i class="fa-solid fa-rotate-right"></i> רענן נתונים');
-        showMessage('alert-admin-dash', 'שגיאת שרת בשליפת נתונים', 'error');
-    }
-}
-
-function openAdminModal(phone, email) {
-    document.getElementById('modal_phone').value = phone;
-    document.getElementById('modal_email').value = email;
-    document.getElementById('modal_password').value = '';
-    document.getElementById('alert-modal').style.display = 'none';
-    document.getElementById('adminEditModal').classList.add('active');
-}
-
-function closeAdminModal() {
-    document.getElementById('adminEditModal').classList.remove('active');
-}
-
-async function submitAdminUpdate(e) {
-    e.preventDefault();
-    const phone = document.getElementById('modal_phone').value;
-    const newEmail = document.getElementById('modal_email').value;
-    const newPassword = document.getElementById('modal_password').value;
-    
-    setLoading('btn-modal-save', true);
-    try {
-        const res = await fetch(`${API_BASE_URL}/admin/update-user`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ adminToken: state.adminToken, phone, newEmail, newPassword })
-        });
-        const data = await res.json();
-        setLoading('btn-modal-save', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
-        
-        if (!res.ok) {
-            if (res.status === 401 || res.status === 403) {
-                logout();
-                showMessage('alert-admin-login', 'פג תוקף החיבור שלך. התחבר מחדש.', 'error');
-                return;
-            }
-            showMessage('alert-modal', data.error || 'עדכון נכשל', 'error');
-            return;
-        }
-
-        closeAdminModal();
-        showMessage('alert-admin-dash', `המשתמש ${phone} עודכן בהצלחה!`, 'success');
-        loadAdminUsers();
-    } catch (err) {
-        setLoading('btn-modal-save', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
-        showMessage('alert-modal', 'שגיאת רשת בשמירה', 'error');
-    }
-}
-
-function logout() {
-    state = { userToken: null, currentUser: null, adminToken: null, tempIdentifier: null };
-    
-    // מחיקת טוקנים בלבד!
-    localStorage.removeItem('userToken');
-    localStorage.removeItem('adminToken');
-    
-    document.querySelectorAll('input').forEach(input => input.value = ''); 
-    
-    // הפסקת ניגון אודיו אם פועל
-    const player = document.getElementById('main-audio-player');
-    if(player) {
-        player.pause();
-        player.src = '';
-    }
-    
-    const path = window.location.pathname;
-    if (path.includes('/admin')) {
-        document.getElementById('navLinks').style.display = 'none';
-        showView('admin-login-view');
-    } else {
-        showView('init-view');
     }
 }
