@@ -8,7 +8,6 @@ let activeAlertId = null;
 document.addEventListener('DOMContentLoaded', () => {
     const path = window.location.pathname;
     
-    // משיכת הטוקנים בלבד (ללא נתוני משתמש!)
     const savedUserToken = localStorage.getItem('userToken');
     const savedAdminToken = localStorage.getItem('adminToken');
 
@@ -26,7 +25,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     } else {
         if (savedUserToken) {
-            // יש טוקן - נבצע התחברות שקטה מול השרת כדי למשוך את נתוני המשתמש העדכניים לזיכרון הזמני
             state.userToken = savedUserToken;
             silentLogin(savedUserToken);
         } else {
@@ -35,7 +33,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// התחברות שקטה (מאחורי הקלעים) בעת רענון עמוד
 async function silentLogin(token) {
     try {
         const [identifier, password] = token.split(':');
@@ -51,16 +48,13 @@ async function silentLogin(token) {
             updateDashboardUI();
             showView('user-dash-view');
         } else {
-            // הטוקן לא תקין (למשל הסיסמה שונתה) - מנתקים את המשתמש
             logout();
         }
     } catch (err) {
-        // במקרה של שגיאת רשת, נציג שגיאה וננתק
         logout();
     }
 }
 
-// ניהול טאבים
 function switchUserTab(tabName, element) {
     document.querySelectorAll('.dash-tab').forEach(tab => tab.style.display = 'none');
     document.getElementById('tab-' + tabName).style.display = 'block';
@@ -70,7 +64,6 @@ function switchUserTab(tabName, element) {
     clearMessage();
 }
 
-// ניהול הודעות קטנות למסך
 function showMessage(containerId, msg, type = 'info') {
     const box = document.getElementById(containerId);
     if (!box) return;
@@ -88,7 +81,6 @@ function clearMessage() {
 }
 document.addEventListener('input', clearMessage);
 
-// ניהול מסכים הראשיים
 function showView(viewId) {
     clearMessage();
     document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
@@ -106,7 +98,6 @@ function showView(viewId) {
     }
 }
 
-// כפתורי טעינה
 function setLoading(btnId, isLoading, originalText = '') {
     const btn = document.getElementById(btnId);
     if (!btn) return;
@@ -188,7 +179,6 @@ async function userLogin(e) {
             return;
         }
 
-        // שמירת טוקן בלבד! הנתונים נשארים אך ורק ב-RAM
         state.userToken = data.token;
         state.currentUser = data.user;
         localStorage.setItem('userToken', data.token);
@@ -232,8 +222,6 @@ async function userRegister(e) {
         showMessage('alert-register', 'שגיאת רשת במהלך הרישום', 'error');
     }
 }
-
-// ================= ניהול האזור האישי =================
 
 function updateDashboardUI() {
     const user = state.currentUser;
@@ -307,7 +295,7 @@ async function loadMessages() {
     }
 
     const tbody = document.getElementById('messages-table-body');
-    tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> מושך הודעות מהשרת...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> מושך הודעות מהשרת... (ייתכן עיכוב קל בעקבות טעינת שמות)</td></tr>';
     setLoading('btn-refresh-messages', true, '<i class="fa-solid fa-rotate-right"></i>');
 
     try {
@@ -335,12 +323,16 @@ async function loadMessages() {
         data.messages.forEach(msg => {
             const tr = document.createElement('tr');
             const sizeKb = msg.size ? (msg.size / 1024).toFixed(1) + ' KB' : '-';
-            
-            // חילוץ המספר בלבד מתוך שם הקובץ (למשל: מ-"3653.wav" יישאר רק "3653")
             const fileId = msg.name.replace('.wav', '').replace('.mp3', '');
             
+            // עיצוב שם המקליט מתחת לשם הקובץ
+            const recorderHtml = msg.valName ? `<br><span style="font-size: 0.85rem; color: var(--secondary);"><i class="fa-solid fa-user-pen"></i> ${msg.valName}</span>` : '';
+            
             tr.innerHTML = `
-                <td dir="ltr" style="text-align:right; font-weight:600; color:var(--text-dark);">${msg.name}</td>
+                <td dir="ltr" style="text-align:right; font-weight:600; color:var(--text-dark);">
+                    ${msg.name}
+                    ${recorderHtml}
+                </td>
                 <td dir="ltr" style="text-align:right;">${msg.mtime || '-'}</td>
                 <td dir="ltr" style="text-align:right; color:var(--text-light);">${sizeKb}</td>
                 <td>${msg.durationStr || '-'}</td>
@@ -372,7 +364,6 @@ async function playAudio(fileId, fileName) {
     playerWrapper.classList.add('fade-in');
     title.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> מתחבר לשרת... (בודק סטטוס)`;
     
-    // הקישור שולח אך ורק fileId 
     const streamUrl = `${API_BASE_URL}/messages/stream?fileId=${encodeURIComponent(fileId)}&userToken=${encodeURIComponent(token)}`;
     
     try {
