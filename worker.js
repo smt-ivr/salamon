@@ -1,21 +1,21 @@
 import htmlContent from './index.js';
 import cssContent from './style.js';
-import jsContent from './frontend.txt'; // הקובץ הקיים
-import messagesJsContent from './messages-client.js'; // הקובץ החדש שהוספנו!
-import tzintukJsContent from './admin-tzintuk.txt'; // הוספנו את הייבוא
+import jsContent from './frontend.txt';
+import tzintukJsContent from './admin-tzintuk.txt';
 
 export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
         const path = url.pathname;
 
-        // טעינת האפליקציה גם בנתיב הרגיל וגם בנתיב הניהול
+        // נתיבים לממשק הראשי
         if (path === '/salamon' || path === '/salamon/' || path === '/salamon/admin' || path === '/salamon/admin/') {
             return new Response(htmlContent, {
                 headers: { 'Content-Type': 'text/html; charset=utf-8' }
             });
         }
         
+        // הגשת קבצי העיצוב והסקריפטים
         if (path === '/salamon/style.css') {
             return new Response(cssContent, {
                 headers: { 'Content-Type': 'text/css; charset=utf-8' }
@@ -28,9 +28,9 @@ export default {
             });
         }
 
-        // הנתיב החדש עבור קובץ הלוגיקה של ההודעות
-        if (path === '/salamon/messages.js') {
-            return new Response(messagesJsContent, {
+        // הנתיב החדש עבור קובץ הניהול (מה שגרם ל-404)
+        if (path === '/salamon/admin-tzintuk.txt') {
+            return new Response(tzintukJsContent, {
                 headers: { 'Content-Type': 'application/javascript; charset=utf-8' }
             });
         }
