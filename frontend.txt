@@ -364,7 +364,7 @@ function updateDashboardUI() {
             recordBtn.disabled = false;
         } else {
             uploadArea.classList.add('disabled');
-            statusText.innerText = 'אין לך הרשאה להעלות הודעות';
+            statusText.innerText = 'אין לך הרשאה להעלות הודעות דרך האתר';
             fileInput.disabled = true;
             recordBtn.disabled = true;
             if (isRecording) toggleChatRecording(); 
