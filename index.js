@@ -7,7 +7,7 @@ const htmlContent = `<!DOCTYPE html>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/salamon/style.css">
     <script src="/salamon/frontend.js" defer></script>
-    <script src="/salamon/messages.js" defer></script> </head>
+</head>
 <body>
 
     <header id="main-header">
@@ -52,13 +52,32 @@ const htmlContent = `<!DOCTYPE html>
             </div>
         </section>
 
+        <section id="verify-view" class="view-section auth-section">
+            <div class="clean-card fade-in">
+                <h2>אימות מספר טלפון</h2>
+                <p class="subtitle">כדי להירשם, הזן את הקוד שקיבלת כעת בשיחה נכנסת</p>
+                <div id="alert-verify" class="alert-box"></div>
+                <div class="locked-input-container">
+                    <span id="verify_display_phone" dir="ltr" style="color: var(--primary);"></span>
+                    <button type="button" onclick="goBackToInit()"><i class="fa-solid fa-pen"></i> שנה</button>
+                </div>
+                <form onsubmit="verifyPhoneCode(event)">
+                    <div class="form-group">
+                        <input type="text" id="verify_code" required placeholder="הזן את הקוד שקיבלת" class="center-text ltr-input input-modern" autocomplete="one-time-code" maxlength="6">
+                    </div>
+                    <button type="submit" id="btn-verify" class="btn-primary">אמת והמשך <i class="fa-solid fa-shield-check" style="margin-right: 5px;"></i></button>
+                </form>
+                <button type="button" class="btn-text" onclick="resendVerification()" style="margin-top: 15px; width: 100%;"><i class="fa-solid fa-phone-volume"></i> לא קיבלת שיחה? נסה שוב</button>
+            </div>
+        </section>
+
         <section id="register-view" class="view-section auth-section">
             <div class="clean-card fade-in">
                 <h2>יצירת חשבון</h2>
                 <div id="alert-register" class="alert-box"></div>
                 <div class="locked-input-container">
                     <span id="reg_display_phone"></span>
-                    <button type="button" onclick="goBackToInit()"><i class="fa-solid fa-pen"></i> שנה</button>
+                    <span style="font-size: 0.8rem; color: var(--success);"><i class="fa-solid fa-circle-check"></i> מספר מאומת</span>
                 </div>
                 <form onsubmit="userRegister(event)">
                     <div class="form-group">
@@ -107,9 +126,7 @@ const htmlContent = `<!DOCTYPE html>
                 </div>
                 <ul class="sidebar-menu">
                     <li class="active" onclick="switchUserTab('overview', this)"><i class="fa-solid fa-chart-pie"></i> סקירה כללית</li>
-                    
                     <li onclick="switchUserTab('messages', this); loadMessages();"><i class="fa-solid fa-microphone-lines"></i> הודעות קוליות</li>
-                    
                     <li onclick="switchUserTab('settings', this)"><i class="fa-solid fa-gear"></i> הגדרות פרופיל</li>
                 </ul>
             </aside>
