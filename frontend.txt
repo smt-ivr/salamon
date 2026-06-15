@@ -70,7 +70,7 @@ function switchUserTab(tabName, element) {
     clearMessage();
 }
 
-// ניהול הודעות
+// ניהול הודעות קטנות למסך
 function showMessage(containerId, msg, type = 'info') {
     const box = document.getElementById(containerId);
     if (!box) return;
@@ -188,7 +188,7 @@ async function userLogin(e) {
             return;
         }
 
-        // שמירת טוקן בלבד! הנתונים נשארים אך ורק ב-RAM
+        // שמירת טוקן בלבד! נתוני משתמש נשארים בזיכרון הזמני בלבד
         state.userToken = data.token;
         state.currentUser = data.user;
         localStorage.setItem('userToken', data.token);
@@ -281,7 +281,6 @@ async function updateUserProfile(e) {
             return;
         }
 
-        // אם הסיסמה שונתה, נעדכן את הטוקן ב-LocalStorage
         if (newPassword) {
             const newToken = `${state.currentUser.phone}:${newPassword}`;
             state.userToken = newToken;
@@ -358,7 +357,7 @@ async function loadMessages() {
     }
 }
 
-function playAudio(path, fileName) {
+async function playAudio(path, fileName) {
     const token = state.userToken || localStorage.getItem('userToken');
     if (!token) return alert("החיבור נותק, אנא התחבר מחדש");
     
@@ -368,16 +367,33 @@ function playAudio(path, fileName) {
     
     playerWrapper.style.display = 'block';
     playerWrapper.classList.add('fade-in');
-    title.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> מתחבר לשרת התקשורת...`;
+    title.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> מתחבר לשרת... (בודק סטטוס)`;
     
+    // זה הקישור, הטוקן נשלח כפרמטר GET.
     const streamUrl = `${API_BASE_URL}/messages/stream?path=${encodeURIComponent(path)}&userToken=${encodeURIComponent(token)}`;
     
-    player.src = streamUrl;
-    player.play().then(() => {
-        title.innerHTML = `<i class="fa-solid fa-volume-high"></i> מנגן: <span dir="ltr">${fileName}</span>`;
-    }).catch(e => {
-        title.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger);"></i> שגיאה בהפעלת הקובץ`;
-    });
+    try {
+        // שלב מקדים לזיהוי שגיאות: אנחנו שולחים קריאה מקדימה כדי לראות אם השרת מחזיר 404/500/403
+        const checkRes = await fetch(streamUrl);
+        
+        if (!checkRes.ok) {
+            // אם יש שגיאה, נקרא אותה ונדפיס למסך כדי לראות בדיוק מה הבעיה
+            const errorText = await checkRes.text();
+            title.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger);"></i> שגיאת שרת (${checkRes.status}): <span style="font-weight:normal;">${errorText}</span>`;
+            return;
+        }
+        
+        // הכל תקין והשרת אישר החזרת קובץ
+        player.src = streamUrl;
+        player.play().then(() => {
+            title.innerHTML = `<i class="fa-solid fa-volume-high"></i> מנגן: <span dir="ltr">${fileName}</span>`;
+        }).catch(e => {
+            title.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger);"></i> שגיאת הפעלה בדפדפן: ${e.message}`;
+        });
+        
+    } catch (err) {
+        title.innerHTML = `<i class="fa-solid fa-wifi" style="color:var(--danger);"></i> תקלת רשת מול השרת: ${err.message}`;
+    }
 }
 
 // ================= תהליכי מנהל =================
