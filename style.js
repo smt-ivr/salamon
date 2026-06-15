@@ -225,17 +225,6 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
 }
 .record-btn:hover { background: #15803d; color: white; transform: scale(1.05); }
 
-.record-btn.recording-active {
-    background: var(--danger);
-    animation: pulseRecord 1.2s infinite;
-}
-
-@keyframes pulseRecord { 
-    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239,68,68,0.7); } 
-    70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(239,68,68,0); } 
-    100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239,68,68,0); } 
-}
-
 /* ================== מסך הגדרות וניהול ================== */
 .settings-wrapper { display: flex; flex-direction: column; align-items: center; width: 100%; }
 .settings-wrapper h2 { margin-bottom: 25px; color: var(--text-main); }
@@ -255,6 +244,24 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
 .modal-overlay.active { display: flex; }
 .modal-content { background: var(--surface); padding: 30px; border-radius: 12px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
 
+/* ================== מודל הקלטה והעלאה (חדש) ================== */
+.text-center { text-align: center; }
+.recording-pulse {
+    width: 75px; height: 75px; background: #fee2e2; color: var(--danger);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 2.2rem; margin: 10px auto;
+    animation: pulseBig 1.5s infinite;
+    box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2);
+}
+@keyframes pulseBig {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+    70% { transform: scale(1); box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+.preview-audio-modern { 
+    width: 100%; margin: 10px 0; height: 45px; border-radius: 25px; outline: none;
+}
+
 /* ================== התאמה למובייל (Bottom Nav) ================== */
 @media (max-width: 768px) {
     .app-layout { flex-direction: column; }
@@ -271,10 +278,8 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
     .admin-sidebar-menu .nav-item.active { border-top-color: var(--secondary); }
     
     .app-main-area { 
-        /* גובה המסך פחות ההדר העליון (65px) */
         height: calc(100vh - 65px); 
         height: calc(100dvh - 65px); 
-        /* ריווח תחתון בגובה התפריט המקובע כדי שהתוכן לא יוסתר תחתיו */
         padding-bottom: calc(65px + env(safe-area-inset-bottom)); 
     }
     
@@ -282,7 +287,6 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
     #messages-container { padding: 15px 10px; } 
     .bubble { max-width: 90%; min-width: 240px; }
     
-    /* התאמות ספציפיות לאזור ההקלטה במסכים קטנים */
     .chat-upload-area {
         padding: 8px 10px;
         gap: 8px;
@@ -293,7 +297,7 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
         gap: 6px;
     }
     .upload-status {
-        font-size: 0.8rem; /* טקסט קטן יותר שיכנס בשורה אחת */
+        font-size: 0.8rem;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
