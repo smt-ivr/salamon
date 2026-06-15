@@ -52,7 +52,7 @@ const htmlContent = `<!DOCTYPE html>
                     <div id="alert-pre-verify" class="alert-box"></div>
                     <div class="warning-box">
                         <i class="fa-solid fa-triangle-exclamation" style="display:block; text-align:center; font-size:1.5rem; margin-bottom:10px;"></i>
-                        חובה לאמת את המספר תחילה.<br>המערכת תוציא כעת שיחת צינתוק קצרה לטלפון שלך.
+                        חובה לאמת את המספר תחילה.<br>המערכת תשלח כעת שיחת אימות צינתוק לטלפון.
                     </div>
                     <button type="button" id="btn-approve-tzintuk" class="btn-primary" onclick="approveVerification()">שלח צינתוק עכשיו <i class="fa-solid fa-phone-volume"></i></button>
                     <button type="button" class="btn-text" onclick="goBackToInit()">ביטול וחזרה</button>
@@ -154,7 +154,7 @@ const htmlContent = `<!DOCTYPE html>
                             <div class="header-icon"><i class="fa-solid fa-headphones"></i></div>
                             <div class="header-title">
                                 <h3>עכשיו סלומון</h3>
-                                <p>מחובר ומסונכרן</p>
+                                <p>מחובר</p>
                             </div>
                         </div>
                         <button class="icon-btn" onclick="loadMessages()" title="רענן"><i class="fa-solid fa-rotate-right"></i></button>
@@ -164,7 +164,7 @@ const htmlContent = `<!DOCTYPE html>
 
                 <div id="tab-settings" class="app-tab scrollable-tab">
                     <div class="settings-wrapper">
-                        <h2>הגדרות פרופיל ואבטחה</h2>
+                        <h2>הגדרות פרופיל</h2>
                         <div class="settings-card">
                             <div id="alert-dash" class="alert-box"></div>
                             <form onsubmit="event.preventDefault(); updateUserProfile(event);">
