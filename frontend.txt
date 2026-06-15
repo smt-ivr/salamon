@@ -4,6 +4,10 @@ const API_BASE_URL = 'https://smti.uk/salamon/api';
 let state = { userToken: null, currentUser: null, adminToken: null, tempIdentifier: null, sessionId: null };
 let activeAlertId = null;
 
+// נגן שמע גלובלי לצ'אט החדש
+let globalAudio = document.createElement('audio');
+let currentPlayingId = null;
+
 document.addEventListener('DOMContentLoaded', () => {
     const path = window.location.pathname;
     
@@ -30,6 +34,12 @@ document.addEventListener('DOMContentLoaded', () => {
             showView('init-view');
         }
     }
+    
+    // איתור אלמנט השמע אם הוא נמצא ב-HTML
+    const htmlAudio = document.getElementById('global-audio-player');
+    if (htmlAudio) globalAudio = htmlAudio;
+    
+    setupAudioListeners();
 });
 
 async function silentLogin(token) {
@@ -45,7 +55,13 @@ async function silentLogin(token) {
         if (res.ok) {
             state.currentUser = data.user;
             updateDashboardUI();
+            
+            // במצב משתמש מחובר, נסתיר את ה-header הראשי אם רוצים מראה אפליקטיבי
+            const mainHeader = document.getElementById('main-header');
+            if (mainHeader && window.innerWidth <= 768) mainHeader.style.display = 'none';
+            
             showView('user-dash-view');
+            loadMessages();
         } else {
             logout();
         }
@@ -56,10 +72,12 @@ async function silentLogin(token) {
 
 function switchUserTab(tabName, element) {
     document.querySelectorAll('.dash-tab').forEach(tab => tab.style.display = 'none');
-    document.getElementById('tab-' + tabName).style.display = 'block';
+    document.getElementById('tab-' + tabName).style.display = 'flex'; // flex כדי לתמוך בצ'אט
     
-    document.querySelectorAll('.sidebar-menu li').forEach(li => li.classList.remove('active'));
-    element.classList.add('active');
+    if (element) {
+        document.querySelectorAll('.sidebar-menu .nav-item').forEach(li => li.classList.remove('active'));
+        element.classList.add('active');
+    }
     clearMessage();
 }
 
@@ -90,6 +108,8 @@ function showView(viewId) {
         if(viewId.includes('auth-section') || ['init-view', 'login-view', 'pre-verify-view', 'verify-view', 'register-view'].includes(viewId)) {
             document.getElementById('nav-auth').style.display = 'inline-block';
             document.getElementById('nav-logout').style.display = 'none';
+            const mainHeader = document.getElementById('main-header');
+            if (mainHeader) mainHeader.style.display = 'flex';
         } else {
             document.getElementById('nav-auth').style.display = 'none';
             document.getElementById('nav-logout').style.display = 'inline-block';
@@ -102,7 +122,7 @@ function setLoading(btnId, isLoading, originalText = '') {
     if (!btn) return;
     if (isLoading) {
         btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> טוען...';
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מעבד...';
     } else {
         btn.disabled = false;
         btn.innerHTML = originalText;
@@ -114,23 +134,22 @@ function goBackToInit() {
     document.getElementById('login_pass').value = '';
     document.getElementById('reg_password').value = '';
     document.getElementById('reg_password_confirm').value = '';
-    document.getElementById('verify_code').value = '';
+    if(document.getElementById('verify_code')) document.getElementById('verify_code').value = '';
     showView('init-view');
     setTimeout(() => document.getElementById('init_id').focus(), 100);
 }
 
-// ================= תהליכי אימות משתמש והרשמה =================
+// ================= תהליכי אימות והרשמה =================
 
 async function checkIdentifier(e) {
     e.preventDefault();
     const identifier = document.getElementById('init_id').value.trim();
     if(!identifier) return;
-
+    
     setLoading('btn-init', true);
     try {
         const res = await fetch(`${API_BASE_URL}/check-identifier`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ identifier })
         });
         const data = await res.json();
@@ -140,14 +159,11 @@ async function checkIdentifier(e) {
             state.tempIdentifier = data.identifier;
             document.getElementById('login_display_id').innerText = data.identifier;
             showView('login-view');
-            showMessage('alert-login', '<i class="fa-solid fa-check"></i> חשבונך זוהה. אנא הזן סיסמה להתחברות.', 'success');
             document.getElementById('login_pass').focus();
         } 
         else if (data.authorized) {
             state.tempIdentifier = data.phone;
-            document.getElementById('reg_name').value = data.name || 'לא רשום שם במערכת (ניתן להמשיך)';
-            
-            // המשתמש מורשה אך לא רשום - נעביר אותו למסך ההסכמה והאזהרה!
+            document.getElementById('reg_name').value = data.name || 'משתמש לא מזוהה במערכת';
             document.getElementById('pre_verify_phone').innerText = data.phone;
             showView('pre-verify-view');
         } 
@@ -156,11 +172,10 @@ async function checkIdentifier(e) {
         }
     } catch (err) {
         setLoading('btn-init', false, 'המשך <i class="fa-solid fa-arrow-left" style="margin-right: 8px;"></i>');
-        showMessage('alert-init', 'שגיאת תקשורת עם השרת, נסה שוב', 'error');
+        showMessage('alert-init', 'שגיאת תקשורת עם השרת', 'error');
     }
 }
 
-// המשתמש לחץ "שלח לי צינתוק" לאחר שהבין את האזהרה
 async function approveVerification() {
     setLoading('btn-approve-tzintuk', true);
     await initiateVerification(state.tempIdentifier);
@@ -170,23 +185,22 @@ async function approveVerification() {
 async function initiateVerification(phone) {
     try {
         const res = await fetch(`${API_BASE_URL}/verify/send`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone: phone, intent: 'register' })
         });
         const data = await res.json();
 
         if (res.ok && data.success) {
-            state.sessionId = data.sessionId; // שומרים את מזהה האימות
+            state.sessionId = data.sessionId;
             document.getElementById('verify_display_phone').innerText = phone;
             showView('verify-view');
-            showMessage('alert-verify', 'השיחה נשלחה, נא להזין את 4 ספרות אחרונות של המספר.', 'info');
+            showMessage('alert-verify', 'השיחה נשלחה, נא להזין את 4 הספרות האחרונות.', 'info');
             setTimeout(() => document.getElementById('verify_code').focus(), 100);
         } else {
-            showMessage('alert-pre-verify', data.error || data.message || 'שגיאה בהוצאת שיחת אימות', 'error');
+            showMessage('alert-pre-verify', data.error || data.message || 'שגיאה בהוצאת שיחה', 'error');
         }
     } catch (err) {
-        showMessage('alert-pre-verify', 'שגיאת תקשורת בנסיון שליחת אימות', 'error');
+        showMessage('alert-pre-verify', 'שגיאת תקשורת', 'error');
     }
 }
 
@@ -194,29 +208,27 @@ async function verifyPhoneCode(e) {
     e.preventDefault();
     const code = document.getElementById('verify_code').value.trim();
     setLoading('btn-verify', true);
-
+    
     try {
         const res = await fetch(`${API_BASE_URL}/verify/check`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sessionId: state.sessionId, phone: state.tempIdentifier, code: code })
         });
         const data = await res.json();
-        setLoading('btn-verify', false, 'אמת והמשך <i class="fa-solid fa-shield-check" style="margin-right: 5px;"></i>');
-
+        setLoading('btn-verify', false, 'אמת והמשך <i class="fa-solid fa-shield-check"></i>');
+        
         if (res.ok && data.success) {
-            // הטלפון אומת - עוברים למסך ההרשמה
             document.getElementById('reg_display_phone').innerText = state.tempIdentifier;
             showView('register-view');
-            showMessage('alert-register', 'המספר אומת בהצלחה! הגדר סיסמה לפתיחת החשבון.', 'success');
+            showMessage('alert-register', 'אומת בהצלחה! הגדר סיסמה לפתיחת החשבון.', 'success');
             document.getElementById('reg_password').focus();
         } else {
-            showMessage('alert-verify', data.error || data.message || 'קוד שגוי, נסה שוב', 'error');
+            showMessage('alert-verify', data.error || data.message || 'קוד שגוי', 'error');
             document.getElementById('verify_code').value = '';
         }
     } catch (err) {
         setLoading('btn-verify', false, 'אמת והמשך');
-        showMessage('alert-verify', 'שגיאת תקשורת בעת בדיקת הקוד', 'error');
+        showMessage('alert-verify', 'שגיאת תקשורת', 'error');
     }
 }
 
@@ -225,23 +237,21 @@ async function resendVerification() {
     showMessage('alert-verify', '<i class="fa-solid fa-circle-notch fa-spin"></i> שולח שיחה שוב...', 'info');
     try {
         const res = await fetch(`${API_BASE_URL}/verify/send`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone: state.tempIdentifier, intent: 'register' })
         });
         const data = await res.json();
         if (res.ok && data.success) {
             state.sessionId = data.sessionId;
-            showMessage('alert-verify', 'קוד חדש נשלח אליך כעת.', 'success');
+            showMessage('alert-verify', 'קוד חדש נשלח אליך.', 'success');
         } else {
-            showMessage('alert-verify', data.error || data.message || 'שגיאה בשליחה', 'error');
+            showMessage('alert-verify', data.error || 'שגיאה בשליחה', 'error');
         }
     } catch (e) {
         showMessage('alert-verify', 'שגיאת רשת', 'error');
     }
 }
 
-// שליחת נתוני הרישום הסופיים + טוקן האימות
 async function userRegister(e) {
     e.preventDefault();
     const phone = state.tempIdentifier;
@@ -251,25 +261,23 @@ async function userRegister(e) {
 
     setLoading('btn-register', true);
     try {
-        // שולחים לשרת את כל הפרטים + ה-sessionId המאומת
         const res = await fetch(`${API_BASE_URL}/register`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone, email, password, passwordConfirm, sessionId: state.sessionId })
         });
         const data = await res.json();
-        setLoading('btn-register', false, 'סיום הרשמה <i class="fa-solid fa-check" style="margin-right: 5px;"></i>');
+        setLoading('btn-register', false, 'סיום הרשמה <i class="fa-solid fa-check"></i>');
         
         if (!res.ok) {
-            showMessage('alert-register', data.error || 'שגיאה בביצוע הרישום', 'error');
+            showMessage('alert-register', data.error || 'שגיאה ברישום', 'error');
             return;
         }
 
         document.getElementById('login_display_id').innerText = phone;
         showView('login-view');
-        showMessage('alert-login', 'החשבון נפתח בהצלחה! התחבר כעת עם הסיסמה שלך.', 'success');
+        showMessage('alert-login', 'החשבון נפתח בהצלחה! התחבר כעת.', 'success');
     } catch (err) {
-        setLoading('btn-register', false, 'סיום הרשמה <i class="fa-solid fa-check" style="margin-right: 5px;"></i>');
+        setLoading('btn-register', false, 'סיום הרשמה');
         showMessage('alert-register', 'שגיאת רשת במהלך הרישום', 'error');
     }
 }
@@ -278,11 +286,10 @@ async function userLogin(e) {
     e.preventDefault();
     const password = document.getElementById('login_pass').value;
     setLoading('btn-login', true);
-
+    
     try {
         const res = await fetch(`${API_BASE_URL}/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ identifier: state.tempIdentifier, password })
         });
         const data = await res.json();
@@ -298,30 +305,48 @@ async function userLogin(e) {
         localStorage.setItem('userToken', data.token);
 
         updateDashboardUI();
+        
+        const mainHeader = document.getElementById('main-header');
+        if (mainHeader && window.innerWidth <= 768) mainHeader.style.display = 'none';
+
         showView('user-dash-view');
-        showMessage('alert-dash', 'התחברת בהצלחה!', 'success');
+        loadMessages();
     } catch (err) {
         setLoading('btn-login', false, 'היכנס למערכת');
         showMessage('alert-login', 'שגיאת תקשורת עם השרת', 'error');
     }
 }
 
+// ================= ניהול האזור האישי החדש =================
+
 function updateDashboardUI() {
     const user = state.currentUser;
     if (!user) return;
     
-    document.getElementById('dash-welcome-title').innerText = user.name || 'אורח';
-    document.getElementById('sidebar-name').innerText = user.name || 'אורח';
-    document.getElementById('dash-phone').innerText = user.phone;
+    const uiName = document.getElementById('ui-user-name');
+    if(uiName) uiName.innerText = user.name || 'אורח';
     
-    document.getElementById('update_email').value = user.email || '';
-    document.getElementById('update_new_pass').value = '';
-    document.getElementById('update_old_pass').value = '';
+    const uiPhone = document.getElementById('ui-user-phone');
+    if(uiPhone) uiPhone.innerText = user.phone;
     
+    const emailInput = document.getElementById('update_email');
+    if(emailInput) emailInput.value = user.email || '';
+    
+    const newPass = document.getElementById('update_new_pass');
+    if(newPass) newPass.value = '';
+    
+    const oldPass = document.getElementById('update_old_pass');
+    if(oldPass) oldPass.value = '';
+    
+    const badge = document.getElementById('ui-tzintuk-badge');
     const isConnected = (user.connectedToTzintukim === 'yes' || user.connectedToTzintukim === true || user.connectedToTzintukim === '1');
-    document.getElementById('dash-tzintukim').innerHTML = isConnected 
-        ? '<span class="badge success">פעיל ומחובר</span>' 
-        : '<span class="badge error">אינו מחובר</span>';
+    if(badge) {
+        if (isConnected) {
+            badge.innerHTML = '<span class="status-ok"><i class="fa-solid fa-shield-check"></i> צינתוקים פעילים</span>';
+        } else {
+            badge.innerHTML = '<span class="status-bad"><i class="fa-solid fa-triangle-exclamation"></i> צינתוקים מנותקים</span>';
+        }
+    }
 }
 
 async function updateUserProfile(e) {
@@ -329,26 +354,21 @@ async function updateUserProfile(e) {
     const oldPassword = document.getElementById('update_old_pass').value;
     const newPassword = document.getElementById('update_new_pass').value;
     const newEmail = document.getElementById('update_email').value;
-    
     setLoading('btn-update', true);
+    
     try {
         const res = await fetch(`${API_BASE_URL}/update-profile`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                phone: state.currentUser.phone, oldPassword, newPassword, newEmail 
-            })
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: state.currentUser.phone, oldPassword, newPassword, newEmail })
         });
         const data = await res.json();
         setLoading('btn-update', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
         
         if (!res.ok) {
             if(res.status === 401 || res.status === 403) {
-                logout();
-                showMessage('alert-login', 'תוקף החיבור פג, אנא התחבר מחדש.', 'error');
-                return;
+                logout(); return;
             }
-            alert(data.error || 'שגיאה בעדכון הפרטים');
+            showMessage('alert-dash', data.error || 'שגיאה בעדכון הפרטים', 'error');
             return;
         }
 
@@ -361,115 +381,209 @@ async function updateUserProfile(e) {
         state.currentUser.email = newEmail; 
         document.getElementById('update_old_pass').value = '';
         document.getElementById('update_new_pass').value = '';
-        alert('הגדרות החשבון עודכנו בהצלחה!');
+        showMessage('alert-dash', 'הגדרות החשבון עודכנו בהצלחה!', 'success');
+        switchUserTab('messages', document.getElementById('tab-btn-messages'));
     } catch (err) {
         setLoading('btn-update', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
-        alert('שגיאה בשליחת העדכון לשרת');
+        showMessage('alert-dash', 'שגיאה בשליחת העדכון לשרת', 'error');
     }
 }
 
-// ================= משיכת הודעות והשמעה =================
+// ================= משיכת הודעות והשמעה (התצוגה ההפוכה - column-reverse) =================
 
 async function loadMessages() {
     const token = state.userToken || localStorage.getItem('userToken');
-    if (!token) {
-        showMessage('alert-messages', 'אינך מחובר למערכת.', 'error');
-        return;
-    }
+    if (!token) return;
 
-    const tbody = document.getElementById('messages-table-body');
-    tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען הודעות מהמערכת...</td></tr>';
-    setLoading('btn-refresh-messages', true, '<i class="fa-solid fa-rotate-right"></i>');
-
+    const container = document.getElementById('messages-table-body');
+    if(!container) return;
+    
+    container.innerHTML = '<div class="loading-state"><i class="fa-solid fa-circle-notch fa-spin"></i> מסנכרן...</div>';
+    
     try {
         const res = await fetch(`${API_BASE_URL}/messages/list`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userToken: token })
         });
-        
         const data = await res.json();
-        setLoading('btn-refresh-messages', false, '<i class="fa-solid fa-rotate-right"></i> רענן נתונים');
-
+        
         if (!res.ok) {
-            showMessage('alert-messages', data.error || 'שגיאה בשליפת ההודעות', 'error');
-            tbody.innerHTML = '<tr><td colspan="5" class="empty-state" style="color:red;">שגיאה בטעינה</td></tr>';
+            container.innerHTML = `<div class="loading-state" style="color:var(--danger);">${data.error || 'שגיאה בשליפה'}</div>`;
             return;
         }
 
         if (!data.messages || data.messages.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">אין הודעות להצגה בשלוחה זו.</td></tr>';
+            container.innerHTML = '<div class="loading-state">אין הודעות להצגה כרגע.</div>';
             return;
         }
 
-        tbody.innerHTML = '';
-        data.messages.forEach(msg => {
-            const tr = document.createElement('tr');
-            const sizeKb = msg.size ? (msg.size / 1024).toFixed(1) + ' KB' : '-';
-            const fileId = msg.name.replace('.wav', '').replace('.mp3', '');
-            
-            const recorderHtml = msg.valName ? `<br><span style="font-size: 0.85rem; color: var(--secondary);"><i class="fa-solid fa-user-pen"></i> ${msg.valName}</span>` : '';
-            
-            tr.innerHTML = `
-                <td dir="ltr" style="text-align:right; font-weight:600; color:var(--text-dark);">
-                    ${msg.name}
-                    ${recorderHtml}
-                </td>
-                <td dir="ltr" style="text-align:right;">${msg.mtime || '-'}</td>
-                <td dir="ltr" style="text-align:right; color:var(--text-light);">${sizeKb}</td>
-                <td>${msg.durationStr || '-'}</td>
-                <td>
-                    <button class="actions-btn" style="background:var(--secondary); color:white;" onclick="playAudio('${fileId}', '${msg.name}')">
-                        <i class="fa-solid fa-play"></i> האזן
-                    </button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
-
+        renderMessages(data.messages);
     } catch (err) {
-        setLoading('btn-refresh-messages', false, '<i class="fa-solid fa-rotate-right"></i> רענן נתונים');
-        showMessage('alert-messages', 'שגיאת רשת מול שרת ה-API', 'error');
-        tbody.innerHTML = '<tr><td colspan="5" class="empty-state" style="color:red;">שגיאת תקשורת</td></tr>';
+        container.innerHTML = '<div class="loading-state" style="color:var(--danger);">תקלת תקשורת מול השרת.</div>';
     }
 }
 
-async function playAudio(fileId, fileName) {
+function renderMessages(messages) {
+    const container = document.getElementById('messages-table-body');
+    container.innerHTML = ''; 
+
+    // הגדרנו ב-CSS flex-direction: column-reverse;
+    // זה אומר שהפריט הראשון שנכניס למסך, יופיע ויזואלית בתחתית!
+    // השרת שולח את החדשות ביותר בתחילת המערך (index 0).
+    
+    if(messages.length === 0) return;
+    
+    // שליפת התאריך מההודעה הראשונה (החדשה ביותר) בשביל החוצץ
+    let currentDateGroup = messages[0].mtime ? messages[0].mtime.split(" ")[0] : "-";
+
+    messages.forEach((msg, index) => {
+        const fullDateTime = msg.mtime || '-';
+        let datePart = "-", timePart = "-";
+        
+        if(fullDateTime.includes(" ")) {
+            [datePart, timePart] = fullDateTime.split(" ");
+        }
+
+        // בגלל ההיפוך, אם התאריך משתנה, זה אומר שסיימנו את היום הקודם.
+        // נדביק את כותרת היום הקודם כך שתופיע מעל ההודעות שלו.
+        if (datePart !== currentDateGroup) {
+            if (currentDateGroup !== "-") {
+                const divider = document.createElement('div');
+                divider.className = 'date-divider';
+                divider.innerHTML = `<span>${currentDateGroup}</span>`;
+                container.appendChild(divider);
+            }
+            currentDateGroup = datePart;
+        }
+
+        // isOutgoing מגיע מהשרת ומחליט איזה צד ואיזה צבע
+        const isOut = msg.isOutgoing === true; 
+        const bubbleClass = isOut ? 'bubble-out' : 'bubble-in';
+        
+        const fileId = msg.name.replace('.wav', '').replace('.mp3', '');
+        const senderName = msg.valName || 'מערכת';
+        const durationText = msg.durationStr || '00:00';
+
+        const bubble = document.createElement('div');
+        bubble.className = `bubble ${bubbleClass}`;
+        
+        bubble.innerHTML = `
+            <div class="msg-top">
+                <span class="sender-name">${senderName}</span>
+                <span class="file-id">ID: ${fileId}</span>
+            </div>
+            
+            <div class="audio-player">
+                <button class="play-btn-circle" id="btn-${fileId}" onclick="togglePlay('${fileId}')">
+                    <i class="fa-solid fa-play"></i>
+                </button>
+                
+                <div class="player-track-container">
+                    <input type="range" id="slider-${fileId}" min="0" max="100" value="0" oninput="seekAudio('${fileId}', this.value)">
+                    <div class="track-fill" id="fill-${fileId}"></div>
+                    <div class="player-times">
+                        <span id="current-${fileId}">0:00</span>
+                        <span>${durationText}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="msg-bottom-time">
+                <span dir="ltr">${fullDateTime}</span>
+                ${isOut ? '<i class="fa-solid fa-check-double" style="color:#16a34a; font-size:0.8rem; margin-right:4px;"></i>' : ''}
+            </div>
+        `;
+
+        container.appendChild(bubble);
+
+        // בסיום המערך, נוסיף את התאריך האחרון (הישן ביותר)
+        if (index === messages.length - 1) {
+            const divider = document.createElement('div');
+            divider.className = 'date-divider';
+            divider.innerHTML = `<span>${currentDateGroup}</span>`;
+            container.appendChild(divider);
+        }
+    });
+}
+
+function setupAudioListeners() {
+    globalAudio.addEventListener('timeupdate', () => {
+        if (!currentPlayingId) return;
+        const slider = document.getElementById(`slider-${currentPlayingId}`);
+        const fill = document.getElementById(`fill-${currentPlayingId}`);
+        const timeLabel = document.getElementById(`current-${currentPlayingId}`);
+
+        if(globalAudio.duration && slider) {
+            const percent = (globalAudio.currentTime / globalAudio.duration) * 100;
+            if(!slider.matches(':active')) { 
+                slider.value = percent;
+                fill.style.width = percent + '%';
+            }
+            
+            const m = Math.floor(globalAudio.currentTime / 60);
+            const s = Math.floor(globalAudio.currentTime % 60);
+            timeLabel.innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+    });
+
+    globalAudio.addEventListener('ended', () => {
+        if (!currentPlayingId) return;
+        const btn = document.getElementById(`btn-${currentPlayingId}`);
+        if(btn) btn.querySelector('i').className = 'fa-solid fa-play';
+        const slider = document.getElementById(`slider-${currentPlayingId}`);
+        if(slider) {
+            slider.value = 0;
+            document.getElementById(`fill-${currentPlayingId}`).style.width = '0%';
+            document.getElementById(`current-${currentPlayingId}`).innerText = '0:00';
+        }
+        currentPlayingId = null;
+    });
+}
+
+function togglePlay(fileId) {
+    const btn = document.getElementById(`btn-${fileId}`);
+    const icon = btn.querySelector('i');
+
+    if (currentPlayingId === fileId) {
+        if (globalAudio.paused) {
+            globalAudio.play();
+            icon.className = 'fa-solid fa-pause';
+        } else {
+            globalAudio.pause();
+            icon.className = 'fa-solid fa-play';
+        }
+        return;
+    }
+
+    if (currentPlayingId) {
+        const oldBtn = document.getElementById(`btn-${currentPlayingId}`);
+        if(oldBtn) oldBtn.querySelector('i').className = 'fa-solid fa-play';
+    }
+
+    currentPlayingId = fileId;
+    icon.className = 'fa-solid fa-circle-notch fa-spin';
+
     const token = state.userToken || localStorage.getItem('userToken');
-    if (!token) return alert("החיבור נותק, אנא התחבר מחדש");
-    
-    const playerWrapper = document.getElementById('audio-player-wrapper');
-    const player = document.getElementById('main-audio-player');
-    const title = document.getElementById('playing-title');
-    
-    playerWrapper.style.display = 'block';
-    playerWrapper.classList.add('fade-in');
-    title.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> מתחבר לשרת... (בודק סטטוס)`;
-    
     const streamUrl = `${API_BASE_URL}/messages/stream?fileId=${encodeURIComponent(fileId)}&userToken=${encodeURIComponent(token)}`;
     
-    try {
-        const checkRes = await fetch(streamUrl);
-        
-        if (!checkRes.ok) {
-            const errorText = await checkRes.text();
-            title.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger);"></i> שגיאת שרת (${checkRes.status}): <span style="font-weight:normal;">${errorText}</span>`;
-            return;
-        }
-        
-        player.src = streamUrl;
-        player.play().then(() => {
-            title.innerHTML = `<i class="fa-solid fa-volume-high"></i> מנגן: <span dir="ltr">${fileName}</span>`;
-        }).catch(e => {
-            title.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:var(--danger);"></i> שגיאת הפעלה בדפדפן: ${e.message}`;
-        });
-        
-    } catch (err) {
-        title.innerHTML = `<i class="fa-solid fa-wifi" style="color:var(--danger);"></i> תקלת רשת מול השרת: ${err.message}`;
+    globalAudio.src = streamUrl;
+    globalAudio.play().then(() => {
+        icon.className = 'fa-solid fa-pause';
+    }).catch(err => {
+        icon.className = 'fa-solid fa-triangle-exclamation';
+    });
+}
+
+function seekAudio(fileId, percentValue) {
+    const fill = document.getElementById(`fill-${fileId}`);
+    if(fill) fill.style.width = percentValue + '%';
+
+    if (currentPlayingId === fileId && globalAudio.duration) {
+        globalAudio.currentTime = (percentValue / 100) * globalAudio.duration;
     }
 }
 
-// ================= תהליכי מנהל =================
+// ================= תהליכי מנהל (נשארו כפי שהיו) =================
 
 async function adminLogin(e) {
     e.preventDefault();
@@ -479,8 +593,7 @@ async function adminLogin(e) {
     setLoading('btn-admin-login', true);
     try {
         const res = await fetch(`${API_BASE_URL}/admin/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password })
         });
         const data = await res.json();
@@ -503,39 +616,35 @@ async function adminLogin(e) {
         loadAdminUsers();
     } catch (err) {
         setLoading('btn-admin-login', false, 'התחברות מאובטחת');
-        showMessage('alert-admin-login', 'שגיאת תקשורת. השרת לא זמין.', 'error');
+        showMessage('alert-admin-login', 'שגיאת תקשורת', 'error');
     }
 }
 
 async function loadAdminUsers() {
     if (!state.adminToken) return;
     const tbody = document.getElementById('admin-users-table-body');
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען נתונים מהמסד...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען נתונים...</td></tr>';
     setLoading('btn-refresh-users', true);
-    
     try {
         const res = await fetch(`${API_BASE_URL}/admin/users`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ adminToken: state.adminToken })
         });
         const data = await res.json();
         setLoading('btn-refresh-users', false, '<i class="fa-solid fa-rotate-right"></i> רענן נתונים');
         
         if (!res.ok) {
-            if (res.status === 401 || res.status === 403 || (data.error && data.error.includes('טוקן'))) {
-                logout();
-                showMessage('alert-admin-login', 'פג תוקף החיבור שלך. אנא התחבר כמנהל מחדש.', 'error');
-                return;
+            if (res.status === 401 || res.status === 403) {
+                logout(); return;
             }
-            showMessage('alert-admin-dash', data.error || 'שגיאה בשליפת המשתמשים', 'error');
+            showMessage('alert-admin-dash', data.error || 'שגיאה', 'error');
             tbody.innerHTML = '<tr><td colspan="6" class="empty-state" style="color:red;">שגיאה בטעינה</td></tr>';
             return;
         }
 
         tbody.innerHTML = '';
         if(data.users.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">אין משתמשים במערכת.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">אין משתמשים.</td></tr>';
             return;
         }
 
@@ -547,19 +656,16 @@ async function loadAdminUsers() {
             tr.innerHTML = `
                 <td style="font-weight:700; direction:ltr; text-align:right;">${user.phone}</td>
                 <td>${user.name || ''}</td>
-                <td dir="ltr" style="text-align:right;">${user.email || '<span style="color:#a1a1aa;">-</span>'}</td>
-                <td style="font-family:monospace; color:#71717a;">${user.password}</td>
+                <td dir="ltr" style="text-align:right;">${user.email || '-'}</td>
+                <td style="font-family:monospace;">${user.password}</td>
                 <td>${badgeHtml}</td>
-                <td>
-                    <button class="actions-btn" onclick="openAdminModal('${user.phone}', '${user.email || ''}')"><i class="fa-solid fa-pen"></i> עריכה</button>
-                </td>
+                <td><button class="actions-btn" onclick="openAdminModal('${user.phone}', '${user.email || ''}')"><i class="fa-solid fa-pen"></i> עריכה</button></td>
             `;
             tbody.appendChild(tr);
         });
-
     } catch (err) {
         setLoading('btn-refresh-users', false, '<i class="fa-solid fa-rotate-right"></i> רענן נתונים');
-        showMessage('alert-admin-dash', 'שגיאת שרת בשליפת נתונים', 'error');
+        showMessage('alert-admin-dash', 'שגיאת שרת', 'error');
     }
 }
 
@@ -580,55 +686,45 @@ async function submitAdminUpdate(e) {
     const phone = document.getElementById('modal_phone').value;
     const newEmail = document.getElementById('modal_email').value;
     const newPassword = document.getElementById('modal_password').value;
-    
     setLoading('btn-modal-save', true);
+    
     try {
         const res = await fetch(`${API_BASE_URL}/admin/update-user`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ adminToken: state.adminToken, phone, newEmail, newPassword })
         });
         const data = await res.json();
         setLoading('btn-modal-save', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
         
         if (!res.ok) {
-            if (res.status === 401 || res.status === 403) {
-                logout();
-                showMessage('alert-admin-login', 'פג תוקף החיבור שלך. התחבר מחדש.', 'error');
-                return;
-            }
             showMessage('alert-modal', data.error || 'עדכון נכשל', 'error');
             return;
         }
 
         closeAdminModal();
-        showMessage('alert-admin-dash', `המשתמש ${phone} עודכן בהצלחה!`, 'success');
+        showMessage('alert-admin-dash', `המשתמש עודכן בהצלחה!`, 'success');
         loadAdminUsers();
     } catch (err) {
         setLoading('btn-modal-save', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
-        showMessage('alert-modal', 'שגיאת רשת בשמירה', 'error');
+        showMessage('alert-modal', 'שגיאת רשת', 'error');
     }
 }
 
 function logout() {
     state = { userToken: null, currentUser: null, adminToken: null, tempIdentifier: null, sessionId: null };
-    
     localStorage.removeItem('userToken');
     localStorage.removeItem('adminToken');
     
     document.querySelectorAll('input').forEach(input => input.value = ''); 
-    
-    const player = document.getElementById('main-audio-player');
-    if(player) {
-        player.pause();
-        player.src = '';
-    }
+    if(globalAudio) { globalAudio.pause(); globalAudio.src = ''; }
     
     const path = window.location.pathname;
     if (path.includes('/admin')) {
         document.getElementById('navLinks').style.display = 'none';
         showView('admin-login-view');
     } else {
+        const mainHeader = document.getElementById('main-header');
+        if (mainHeader) mainHeader.style.display = 'flex';
         showView('init-view');
     }
 }
