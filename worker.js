@@ -2,6 +2,7 @@ import htmlContent from './index.js';
 import cssContent from './style.js';
 import jsContent from './frontend.txt'; // הקובץ הקיים
 import messagesJsContent from './messages-client.js'; // הקובץ החדש שהוספנו!
+import tzintukJsContent from './admin-tzintuk.txt'; // הוספנו את הייבוא
 
 export default {
     async fetch(request, env, ctx) {
