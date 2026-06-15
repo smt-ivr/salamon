@@ -6,7 +6,7 @@ let activeAlertId = null;
 
 let globalAudio = document.createElement('audio');
 let currentPlayingId = null;
-let pollingInterval = null; // משתנה לניהול בדיקת הרקע (Polling)
+let pollingInterval = null; 
 
 document.addEventListener('DOMContentLoaded', () => {
     const path = window.location.pathname;
@@ -35,7 +35,6 @@ document.addEventListener('DOMContentLoaded', () => {
     setupAudioListeners();
 });
 
-// פונקציה לביצוע בדיקת רקע שקטה כל 30 שניות
 function startPolling() {
     if (pollingInterval) clearInterval(pollingInterval);
     pollingInterval = setInterval(async () => {
@@ -49,11 +48,9 @@ function startPolling() {
             const data = await res.json();
             if (res.ok && data.user) {
                 state.currentUser = data.user;
-                updateDashboardUI(); // מעדכן הרשאות ושמות בזמן אמת ללא רענון דף
+                updateDashboardUI(); 
             }
-        } catch (e) {
-            // התעלמות משגיאות רשת שקטות ברקע
-        }
+        } catch (e) {}
     }, 30000);
 }
 
@@ -72,7 +69,7 @@ async function silentLogin(token) {
             updateDashboardUI();
             showView('user-dash-view');
             loadMessages();
-            startPolling(); // הפעלת בדיקת הרקע
+            startPolling(); 
         } else {
             logout();
         }
@@ -321,7 +318,7 @@ async function userLogin(e) {
         updateDashboardUI();
         showView('user-dash-view');
         loadMessages();
-        startPolling(); // הפעלת בדיקת הרקע
+        startPolling(); 
     } catch (err) {
         setLoading('btn-login', false, 'היכנס למערכת');
         showMessage('alert-login', 'שגיאת תקשורת עם השרת', 'error');
@@ -336,7 +333,6 @@ function updateDashboardUI() {
     document.getElementById('ui-user-name').innerText = user.name || 'אורח';
     document.getElementById('ui-user-phone').innerText = user.phone;
     
-    // מעדכן את שדות ההגדרות רק אם הם לא בפוקוס כרגע כדי לא להפריע להקלדה
     const emailInput = document.getElementById('update_email');
     if (document.activeElement !== emailInput) emailInput.value = user.email || '';
     
@@ -350,7 +346,6 @@ function updateDashboardUI() {
         }
     }
 
-    // ניהול הרשאות ויזואלי של אזור ההעלאה
     const uploadArea = document.getElementById('chat-upload-area');
     const statusText = document.getElementById('chat-upload-status');
     const fileInput = document.getElementById('chat-file-input');
@@ -364,7 +359,7 @@ function updateDashboardUI() {
             recordBtn.disabled = false;
         } else {
             uploadArea.classList.add('disabled');
-            statusText.innerText = 'אין לך הרשאה להעלות הודעות דרך האתר';
+            statusText.innerText = 'אין לך הרשאה להעלות הודעות';
             fileInput.disabled = true;
             recordBtn.disabled = true;
             if (isRecording) toggleChatRecording(); 
@@ -373,7 +368,7 @@ function updateDashboardUI() {
 }
 
 async function updateUserProfile(e) {
-    if (e) e.preventDefault(); // מניעה קשיחה של רענון דף
+    if (e) e.preventDefault(); 
     
     const oldPassword = document.getElementById('update_old_pass').value;
     const newPassword = document.getElementById('update_new_pass').value;
@@ -404,7 +399,6 @@ async function updateUserProfile(e) {
 
         state.currentUser.email = newEmail; 
         
-        // לא מוחקים כלום מהשדות של הסיסמה - הכל נשאר בדיוק כפי שהמשתמש הזין
         showMessage('alert-dash', 'הגדרות החשבון עודכנו בהצלחה!', 'success');
     } catch (err) {
         setLoading('btn-update', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
@@ -462,7 +456,7 @@ async function handleFileUpload(event) {
     const file = event.target.files[0];
     if (!file) return;
     sendChatUpload(file, file.name);
-    event.target.value = ''; // איפוס הקלט
+    event.target.value = ''; 
 }
 
 async function sendChatUpload(fileBlob, fileName) {
@@ -483,7 +477,7 @@ async function sendChatUpload(fileBlob, fileName) {
         if (res.ok && result.success) {
             statusText.innerText = 'ההודעה הועלתה בהצלחה!';
             setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ להעלאה'; }, 3000);
-            loadMessages(); // רענון הצ'אט כדי לראות את ההודעה החדשה
+            loadMessages(); 
         } else {
             statusText.innerText = 'שגיאה: ' + (result.error || 'נכשל');
             setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ להעלאה'; }, 4000);
@@ -664,6 +658,14 @@ function togglePlay(fileId) {
     });
 }
 
+function seekAudio(fileId, percentValue) {
+    const fill = document.getElementById(`fill-${fileId}`);
+    if(fill) fill.style.width = percentValue + '%';
+    if (currentPlayingId === fileId && globalAudio.duration) {
+        globalAudio.currentTime = (percentValue / 100) * globalAudio.duration;
+    }
+}
+
 // ================= תהליכי מנהל =================
 async function adminLogin(e) {
     if (e) e.preventDefault();
@@ -698,7 +700,7 @@ async function adminLogin(e) {
 async function loadAdminUsers() {
     if (!state.adminToken) return;
     const tbody = document.getElementById('admin-users-table-body');
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען נתונים...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען נתונים...</td></tr>';
     setLoading('btn-refresh-users', true);
     try {
         const res = await fetch(`${API_BASE_URL}/admin/users`, {
@@ -713,19 +715,20 @@ async function loadAdminUsers() {
                 logout(); return;
             }
             showMessage('alert-admin-dash', data.error || 'שגיאה', 'error');
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state" style="color:var(--danger);">שגיאה בטעינה</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state" style="color:var(--danger);">שגיאה בטעינה</td></tr>';
             return;
         }
 
         tbody.innerHTML = '';
         if(data.users.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">אין משתמשים.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">אין משתמשים.</td></tr>';
             return;
         }
 
         data.users.forEach(user => {
             const isTz = (user.connectedToTzintukim === 'yes' || user.connectedToTzintukim === true || user.connectedToTzintukim === '1');
             const badgeHtml = isTz ? '<span class="status-ok">פעיל</span>' : '<span class="status-bad">מנותק</span>';
+            const uploadHtml = user.canUpload ? '<span class="status-ok">מורשה</span>' : '<span class="status-bad">חסום</span>';
             
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -734,7 +737,8 @@ async function loadAdminUsers() {
                 <td dir="ltr" style="text-align:right;">${user.email || '-'}</td>
                 <td style="font-family:monospace;">${user.password}</td>
                 <td>${badgeHtml}</td>
-                <td><button class="actions-btn" onclick="openAdminModal('${user.phone}', '${user.email || ''}')"><i class="fa-solid fa-pen"></i> עריכה</button></td>
+                <td>${uploadHtml}</td>
+                <td><button class="actions-btn" onclick="openAdminModal('${user.phone}', '${user.email || ''}', ${user.canUpload})"><i class="fa-solid fa-pen"></i> עריכה</button></td>
             `;
             tbody.appendChild(tr);
         });
@@ -744,10 +748,15 @@ async function loadAdminUsers() {
     }
 }
 
-function openAdminModal(phone, email) {
+function openAdminModal(phone, email, canUpload) {
     document.getElementById('modal_phone').value = phone;
     document.getElementById('modal_email').value = email;
     document.getElementById('modal_password').value = '';
+    
+    // קביעת מצב הצ'ק-בוקס לפי ההרשאה הנוכחית של המשתמש
+    const checkbox = document.getElementById('modal_can_upload');
+    if(checkbox) checkbox.checked = canUpload;
+    
     document.getElementById('alert-modal').style.display = 'none';
     document.getElementById('adminEditModal').classList.add('active');
 }
@@ -761,12 +770,17 @@ async function submitAdminUpdate(e) {
     const phone = document.getElementById('modal_phone').value;
     const newEmail = document.getElementById('modal_email').value;
     const newPassword = document.getElementById('modal_password').value;
+    
+    // שליפת הסטטוס החדש של תיבת הסימון
+    const checkbox = document.getElementById('modal_can_upload');
+    const canUpload = checkbox ? checkbox.checked : false;
+
     setLoading('btn-modal-save', true);
     
     try {
         const res = await fetch(`${API_BASE_URL}/admin/update-user`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ adminToken: state.adminToken, phone, newEmail, newPassword })
+            body: JSON.stringify({ adminToken: state.adminToken, phone, newEmail, newPassword, canUpload })
         });
         const data = await res.json();
         setLoading('btn-modal-save', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
