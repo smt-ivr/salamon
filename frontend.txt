@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     } else {
         if (savedUserToken) {
-            // יש טוקן - נבצע התחברות שקטה מול השרת כדי למשוך את נתוני המשתמש לזיכרון הזמני
+            // יש טוקן - נבצע התחברות שקטה מול השרת כדי למשוך את נתוני המשתמש העדכניים לזיכרון הזמני
             state.userToken = savedUserToken;
             silentLogin(savedUserToken);
         } else {
@@ -309,7 +309,7 @@ async function loadMessages() {
 
     const tbody = document.getElementById('messages-table-body');
     tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> מושך הודעות מהשרת...</td></tr>';
-    setLoading('btn-refresh-messages', true, '<i class="fa-solid fa-rotate-right"></i>'); // מחזיר אייקון טעינה בכפתור קטן
+    setLoading('btn-refresh-messages', true, '<i class="fa-solid fa-rotate-right"></i>');
 
     try {
         const res = await fetch(`${API_BASE_URL}/messages/list`, {
@@ -410,7 +410,7 @@ async function adminLogin(e) {
         document.getElementById('nav-logout').style.display = 'inline-block';
 
         showView('admin-dash-view');
-        showMessage('alert-admin-dash', \`מחובר כמנהל בהצלחה\`, 'success');
+        showMessage('alert-admin-dash', `מחובר כמנהל בהצלחה`, 'success');
         loadAdminUsers();
     } catch (err) {
         setLoading('btn-admin-login', false, 'התחברות מאובטחת');
@@ -455,16 +455,16 @@ async function loadAdminUsers() {
             const badgeHtml = isTz ? '<span class="badge success">פעיל</span>' : '<span class="badge error">מנותק</span>';
             
             const tr = document.createElement('tr');
-            tr.innerHTML = \`
-                <td style="font-weight:700; direction:ltr; text-align:right;">\${user.phone}</td>
-                <td>\${user.name}</td>
-                <td dir="ltr" style="text-align:right;">\${user.email || '<span style="color:#a1a1aa;">-</span>'}</td>
-                <td style="font-family:monospace; color:#71717a;">\${user.password}</td>
-                <td>\${badgeHtml}</td>
+            tr.innerHTML = `
+                <td style="font-weight:700; direction:ltr; text-align:right;">${user.phone}</td>
+                <td>${user.name}</td>
+                <td dir="ltr" style="text-align:right;">${user.email || '<span style="color:#a1a1aa;">-</span>'}</td>
+                <td style="font-family:monospace; color:#71717a;">${user.password}</td>
+                <td>${badgeHtml}</td>
                 <td>
-                    <button class="actions-btn" onclick="openAdminModal('\${user.phone}', '\${user.email || ''}')"><i class="fa-solid fa-pen"></i> עריכה</button>
+                    <button class="actions-btn" onclick="openAdminModal('${user.phone}', '${user.email || ''}')"><i class="fa-solid fa-pen"></i> עריכה</button>
                 </td>
-            \`;
+            `;
             tbody.appendChild(tr);
         });
 
@@ -513,7 +513,7 @@ async function submitAdminUpdate(e) {
         }
 
         closeAdminModal();
-        showMessage('alert-admin-dash', \`המשתמש \${phone} עודכן בהצלחה!\`, 'success');
+        showMessage('alert-admin-dash', `המשתמש ${phone} עודכן בהצלחה!`, 'success');
         loadAdminUsers();
     } catch (err) {
         setLoading('btn-modal-save', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
