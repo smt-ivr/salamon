@@ -404,7 +404,7 @@ async function updateUserProfile(e) {
     }
 }
 
-// ================= העלאת קבצים והקלטה מהצ'אט (עם מודל חכם) =================
+// ================= העלאת קבצים והקלטה מהצ'אט (מודל מקצועי ומשופר) =================
 let mediaRecorder;
 let audioChunks = [];
 let pendingBlob = null;
@@ -412,10 +412,23 @@ let pendingFileName = "";
 let recordingTimerInterval = null;
 let recordingSeconds = 0;
 
+function resetRecordingUI() {
+    // איפוס כפתור השהיה
+    const pauseBtn = document.getElementById('btn-pause-resume');
+    if (pauseBtn) {
+        pauseBtn.innerHTML = '<span class="icon-wrap"><i class="fa-solid fa-pause"></i></span> השהה';
+    }
+    // איפוס האנימציה של פסי הקול
+    const visualizer = document.querySelector('.recording-visualizer');
+    if (visualizer) {
+        visualizer.classList.remove('paused');
+    }
+    stopRecordingTimer();
+}
+
 async function toggleChatRecording() {
     if (!state.currentUser?.canUpload) return;
     
-    // עצירת ההודעה שמתנגנת כרגע ברקע כדי שלא תכנס להקלטה
     if (globalAudio && !globalAudio.paused) globalAudio.pause();
 
     try {
@@ -429,15 +442,14 @@ async function toggleChatRecording() {
 
         mediaRecorder.onstop = () => {
             pendingBlob = new Blob(audioChunks);
-            // בחירת סיומת נכונה במיוחד עבור תאימות לאייפון
             const extension = pendingBlob.type.includes('mp4') ? 'mp4' : (pendingBlob.type.includes('webm') ? 'webm' : 'ogg');
             pendingFileName = `recording.${extension}`;
             showPreviewUI();
         };
 
+        resetRecordingUI(); // תיקון הבאג: מאפס את כפתור ההשהיה לפני שמתחילים
         mediaRecorder.start();
         
-        // מעבר למצב מודל ההקלטה
         document.getElementById('review-title').innerHTML = '<i class="fa-solid fa-microphone"></i> מקליט כעת...';
         document.getElementById('recording-ui').style.display = 'block';
         document.getElementById('preview-ui').style.display = 'none';
@@ -452,25 +464,25 @@ async function toggleChatRecording() {
 
 function togglePauseResumeRecording() {
     const btn = document.getElementById('btn-pause-resume');
+    const visualizer = document.querySelector('.recording-visualizer');
     if (!mediaRecorder) return;
     
     if (mediaRecorder.state === 'recording') {
         mediaRecorder.pause();
         stopRecordingTimer();
-        btn.innerHTML = '<i class="fa-solid fa-play"></i> המשך הקלטה';
-        document.querySelector('.recording-pulse').style.animationPlayState = 'paused';
+        btn.innerHTML = '<span class="icon-wrap"><i class="fa-solid fa-play"></i></span> המשך';
+        if (visualizer) visualizer.classList.add('paused'); // עוצר את האנימציה
     } else if (mediaRecorder.state === 'paused') {
         mediaRecorder.resume();
-        startRecordingTimer(false); // ממשיכים מאותו זמן
-        btn.innerHTML = '<i class="fa-solid fa-pause"></i> השהה';
-        document.querySelector('.recording-pulse').style.animationPlayState = 'running';
+        startRecordingTimer(false);
+        btn.innerHTML = '<span class="icon-wrap"><i class="fa-solid fa-pause"></i></span> השהה';
+        if (visualizer) visualizer.classList.remove('paused'); // מחזיר את האנימציה
     }
 }
 
 function stopRecordingForReview() {
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
         mediaRecorder.stop();
-        stopRecordingTimer();
         mediaRecorder.stream.getTracks().forEach(track => track.stop());
     }
 }
@@ -494,7 +506,6 @@ function updateTimerDisplay() {
     document.getElementById('recording-timer').innerText = `${m}:${s}`;
 }
 
-// בחירת קובץ מוכן מתוך המחשב/טלפון
 function handleFileUpload(event) {
     if (!state.currentUser?.canUpload) return;
     const file = event.target.files[0];
@@ -505,20 +516,19 @@ function handleFileUpload(event) {
     pendingBlob = file;
     pendingFileName = file.name;
     
-    document.getElementById('review-title').innerHTML = '<i class="fa-solid fa-file-audio"></i> אישור שליחת קובץ';
+    document.getElementById('review-title').innerHTML = '<i class="fa-solid fa-file-audio"></i> אישור קובץ';
     showPreviewUI();
     document.getElementById('uploadReviewModal').classList.add('active');
     
-    event.target.value = ''; // איפוס כדי שיהיה אפשר לבחור שוב את אותו קובץ במידת הצורך
+    event.target.value = ''; 
 }
 
-// הצגת התצוגה המקדימה להאזנה לפני השליחה (הן להקלטה והן לקובץ)
 function showPreviewUI() {
     document.getElementById('recording-ui').style.display = 'none';
     document.getElementById('preview-ui').style.display = 'block';
     
     if (document.getElementById('review-title').innerText.includes('מקליט')) {
-        document.getElementById('review-title').innerHTML = '<i class="fa-solid fa-headphones"></i> האזנה להקלטה לפני שליחה';
+        document.getElementById('review-title').innerHTML = '<i class="fa-solid fa-headphones"></i> האזנה ואישור';
     }
     
     const audioEl = document.getElementById('preview-audio');
@@ -528,7 +538,6 @@ function showPreviewUI() {
     document.getElementById('file-info').innerText = `${pendingFileName} (${sizeKb} KB)`;
 }
 
-// ביטול וסגירה מוחלטת
 function cancelUpload() {
     document.getElementById('uploadReviewModal').classList.remove('active');
     
@@ -543,10 +552,10 @@ function cancelUpload() {
         mediaRecorder.stop();
         mediaRecorder.stream.getTracks().forEach(track => track.stop());
     }
-    stopRecordingTimer();
+    
+    resetRecordingUI(); // תיקון הבאג: מבטיח שהכל יתאפס בלחיצה על ביטול או סגירה
 }
 
-// אישור ושליחת הנתונים לשרת (הפונקציה הישנה, קורית עכשיו מתוך המודל)
 function confirmUpload() {
     if (!pendingBlob) return;
     
@@ -558,6 +567,8 @@ function confirmUpload() {
     
     sendChatUpload(pendingBlob, pendingFileName);
     pendingBlob = null;
+    
+    resetRecordingUI();
 }
 
 async function sendChatUpload(fileBlob, fileName) {
@@ -576,7 +587,7 @@ async function sendChatUpload(fileBlob, fileName) {
         const result = await res.json();
         
         if (res.ok && result.success) {
-            statusText.innerHTML = '<span style="color:var(--play-out);"><i class="fa-solid fa-check"></i> ההודעה נשלחה והועלתה בהצלחה!</span>';
+            statusText.innerHTML = '<span style="color:var(--play-out);"><i class="fa-solid fa-check"></i> ההודעה נשלחה בהצלחה!</span>';
             setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ להעלאה'; }, 3000);
             loadMessages();
         } else {
@@ -584,12 +595,12 @@ async function sendChatUpload(fileBlob, fileName) {
             setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ להעלאה'; }, 4000);
         }
     } catch (err) {
-        statusText.innerHTML = '<span style="color:var(--danger);"><i class="fa-solid fa-xmark"></i> שגיאת תקשורת מול השרת בשליחה</span>';
+        statusText.innerHTML = '<span style="color:var(--danger);"><i class="fa-solid fa-xmark"></i> שגיאת תקשורת בשליחה</span>';
         setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ להעלאה'; }, 4000);
     }
 }
 
-// ================= משיכת הודעות (column-reverse) =================
+// ================= משיכת הודעות =================
 async function loadMessages() {
     const token = state.userToken || localStorage.getItem('userToken');
     if (!token) return;
