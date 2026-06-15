@@ -373,33 +373,55 @@ const htmlContent = `<!DOCTYPE html>
         </div>
     </div>
 
+    <!-- מודל הקלטה והעלאת קבצים (המשופר והמקצועי) -->
     <div class="modal-overlay" id="uploadReviewModal">
-        <div class="modal-content text-center" style="max-width: 400px; padding: 30px;">
-            <h2 id="review-title" style="margin-bottom: 20px; color: var(--text-dark);">הקלטת הודעה</h2>
+        <div class="modal-content professional-modal">
             
+            <div class="modal-header">
+                <h2 id="review-title"><i class="fa-solid fa-microphone"></i> הקלטת הודעה</h2>
+                <button class="close-modal-btn" onclick="cancelUpload()" title="סגור"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <!-- אזור תוך כדי הקלטה -->
             <div id="recording-ui" style="display: none;">
-                <div class="recording-pulse">
-                    <i class="fa-solid fa-microphone"></i>
-                </div>
-                <div id="recording-timer" style="font-size: 2.8rem; font-weight: bold; margin: 20px 0; font-variant-numeric: tabular-nums; color: var(--text-main);">00:00</div>
                 
-                <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
-                    <button type="button" class="btn-text" id="btn-pause-resume" onclick="togglePauseResumeRecording()" style="flex: 1; min-width: 120px; background: #f1f5f9; border-radius: 8px; font-size: 1rem;"><i class="fa-solid fa-pause"></i> השהה</button>
-                    <button type="button" class="btn-primary" onclick="stopRecordingForReview()" style="flex: 1; min-width: 120px; background: var(--danger);"><i class="fa-solid fa-stop"></i> סיום</button>
+                <div class="recording-visualizer">
+                    <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                    <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                    <div class="bar"></div><div class="bar"></div><div class="bar"></div>
                 </div>
-                <button type="button" class="btn-text" onclick="cancelUpload()" style="margin-top: 20px; color: var(--text-light);"><i class="fa-solid fa-times"></i> ביטול ומחיקה</button>
+                
+                <div id="recording-timer" class="recording-timer-pro">00:00</div>
+                
+                <div class="recording-actions-pro">
+                    <button type="button" class="btn-pro-secondary" id="btn-pause-resume" onclick="togglePauseResumeRecording()">
+                        <span class="icon-wrap"><i class="fa-solid fa-pause"></i></span> השהה
+                    </button>
+                    <button type="button" class="btn-pro-danger" onclick="stopRecordingForReview()">
+                        <span class="icon-wrap"><i class="fa-solid fa-stop"></i></span> סיום הקלטה
+                    </button>
+                </div>
             </div>
 
+            <!-- אזור תצוגה מקדימה לפני שליחה -->
             <div id="preview-ui" style="display: none;">
-                <div id="file-info" style="margin-bottom: 15px; font-size: 0.95rem; font-weight: 600; color: var(--text-light); direction: ltr; word-break: break-all;"></div>
                 
-                <audio id="preview-audio" controls class="preview-audio-modern"></audio>
+                <div class="preview-card">
+                    <div class="file-icon-large"><i class="fa-solid fa-file-audio"></i></div>
+                    <div id="file-info" class="file-info-text"></div>
+                    <audio id="preview-audio" controls class="preview-audio-modern"></audio>
+                </div>
                 
-                <div style="display: flex; gap: 10px; margin-top: 25px;">
-                    <button type="button" class="btn-text" style="flex: 1; background: #fee2e2; color: #b91c1c; border-radius: 8px;" onclick="cancelUpload()"><i class="fa-solid fa-trash"></i> מחיקה</button>
-                    <button type="button" class="btn-primary" style="flex: 1.5; background: var(--play-out);" id="btn-confirm-send" onclick="confirmUpload()"><i class="fa-solid fa-paper-plane"></i> שלח עכשיו</button>
+                <div class="preview-actions-pro">
+                    <button type="button" class="btn-pro-outline" onclick="cancelUpload()">
+                        <i class="fa-solid fa-trash-can"></i> מחיקה
+                    </button>
+                    <button type="button" class="btn-pro-primary" id="btn-confirm-send" onclick="confirmUpload()">
+                        <i class="fa-solid fa-paper-plane"></i> שלח הודעה
+                    </button>
                 </div>
             </div>
+            
         </div>
     </div>
 
