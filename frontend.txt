@@ -158,6 +158,7 @@ function goBackToInit() {
 
 // ================= תהליכי אימות והרשמה =================
 async function checkIdentifier(e) {
+    if (e) e.preventDefault();
     const identifier = document.getElementById('init_id').value.trim();
     if(!identifier) return;
     
@@ -218,6 +219,7 @@ async function initiateVerification(phone) {
 }
 
 async function verifyPhoneCode(e) {
+    if (e) e.preventDefault();
     const code = document.getElementById('verify_code').value.trim();
     setLoading('btn-verify', true);
     
@@ -265,6 +267,7 @@ async function resendVerification() {
 }
 
 async function userRegister(e) {
+    if (e) e.preventDefault();
     const phone = state.tempIdentifier;
     const email = document.getElementById('reg_email').value;
     const password = document.getElementById('reg_password').value;
@@ -294,6 +297,7 @@ async function userRegister(e) {
 }
 
 async function userLogin(e) {
+    if (e) e.preventDefault();
     const password = document.getElementById('login_pass').value;
     setLoading('btn-login', true);
     
@@ -355,7 +359,7 @@ function updateDashboardUI() {
     if (uploadArea && statusText && fileInput && recordBtn) {
         if (user.canUpload) {
             uploadArea.classList.remove('disabled');
-            if(!isRecording && statusText.innerText.includes('אין לך הרשאה')) statusText.innerText = 'הקלט או בחר קובץ';
+            if(!isRecording && statusText.innerText.includes('אין לך הרשאה')) statusText.innerText = 'הקלט או בחר קובץ להעלאה';
             fileInput.disabled = false;
             recordBtn.disabled = false;
         } else {
@@ -363,13 +367,14 @@ function updateDashboardUI() {
             statusText.innerText = 'אין לך הרשאה להעלות הודעות';
             fileInput.disabled = true;
             recordBtn.disabled = true;
-            // ביטול הקלטה קיימת במקרה שההרשאה נשללה באמצע
             if (isRecording) toggleChatRecording(); 
         }
     }
 }
 
 async function updateUserProfile(e) {
+    if (e) e.preventDefault(); // מניעה קשיחה של רענון דף
+    
     const oldPassword = document.getElementById('update_old_pass').value;
     const newPassword = document.getElementById('update_new_pass').value;
     const newEmail = document.getElementById('update_email').value;
@@ -398,9 +403,8 @@ async function updateUserProfile(e) {
         }
 
         state.currentUser.email = newEmail; 
-        document.getElementById('update_old_pass').value = '';
-        document.getElementById('update_new_pass').value = '';
         
+        // לא מוחקים כלום מהשדות של הסיסמה - הכל נשאר בדיוק כפי שהמשתמש הזין
         showMessage('alert-dash', 'הגדרות החשבון עודכנו בהצלחה!', 'success');
     } catch (err) {
         setLoading('btn-update', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
@@ -478,15 +482,15 @@ async function sendChatUpload(fileBlob, fileName) {
         
         if (res.ok && result.success) {
             statusText.innerText = 'ההודעה הועלתה בהצלחה!';
-            setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ'; }, 3000);
+            setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ להעלאה'; }, 3000);
             loadMessages(); // רענון הצ'אט כדי לראות את ההודעה החדשה
         } else {
             statusText.innerText = 'שגיאה: ' + (result.error || 'נכשל');
-            setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ'; }, 4000);
+            setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ להעלאה'; }, 4000);
         }
     } catch (err) {
         statusText.innerText = 'שגיאת תקשורת מול השרת';
-        setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ'; }, 4000);
+        setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ להעלאה'; }, 4000);
     }
 }
 
@@ -662,6 +666,7 @@ function togglePlay(fileId) {
 
 // ================= תהליכי מנהל =================
 async function adminLogin(e) {
+    if (e) e.preventDefault();
     const username = document.getElementById('admin_user').value;
     const password = document.getElementById('admin_pass').value;
 
@@ -752,6 +757,7 @@ function closeAdminModal() {
 }
 
 async function submitAdminUpdate(e) {
+    if (e) e.preventDefault();
     const phone = document.getElementById('modal_phone').value;
     const newEmail = document.getElementById('modal_email').value;
     const newPassword = document.getElementById('modal_password').value;
