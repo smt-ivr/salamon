@@ -7,13 +7,13 @@ const htmlContent = `<!DOCTYPE html>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/salamon/style.css">
     <script src="/salamon/frontend.js" defer></script>
-    <<script src="/salamon/admin-tzintuk.txt" defer></script>
+    <script src="/salamon/admin-tzintuk.txt" defer></script>
 </head>
 <body>
 
     <header id="main-header">
         <div class="logo">
-            <i class="fa-solid fa-layer-group logo-icon"></i>עכשיו סלומון
+            <i class="fa-solid fa-layer-group logo-icon"></i> עכשיו סלומון
         </div>
         <nav class="nav-links" id="navLinks">
             <button id="nav-auth" class="active" onclick="goBackToInit()"><i class="fa-solid fa-right-to-bracket"></i> התחברות</button>
@@ -58,11 +58,10 @@ const htmlContent = `<!DOCTYPE html>
                 <h2>רישום למערכת</h2>
                 <p class="subtitle">המספר <span id="pre_verify_phone" dir="ltr" style="font-weight:bold; color:var(--primary);"></span> מורשה אך טרם נרשם.</p>
                 <div id="alert-pre-verify" class="alert-box"></div>
-                <div style="background-color: #fffbeb; color: #b45309; border: 1px solid #fde68a; padding: 15px; border-radius: 6px; margin-bottom: 20px; font-size: 0.9rem; line-height: 1.5;">
+                <div class="verification-box">
                     <i class="fa-solid fa-triangle-exclamation" style="margin-bottom: 8px; font-size: 1.2rem; display: block; text-align: center;"></i>
                     כדי לפתוח חשבון, חובה לאמת את המספר תחילה.<br>
-                    המערכת תוציא כעת שיחת צינתוק קצרה לטלפון שלך.<br><br>
-                    <strong>שימו לב:</strong> המערכת מנטרת בקשות. שליחת בקשות סרק מרובות תוביל לחסימה אוטומטית של המספר על ידי מערכת האבטחה.
+                    המערכת תוציא כעת שיחת צינתוק קצרה לטלפון שלך.
                 </div>
                 <div style="display: flex; flex-direction: column; gap: 10px;">
                     <button type="button" id="btn-approve-tzintuk" class="btn-primary" onclick="approveVerification()">שלח לי צינתוק עכשיו <i class="fa-solid fa-phone-volume"></i></button>
@@ -74,7 +73,7 @@ const htmlContent = `<!DOCTYPE html>
         <section id="verify-view" class="view-section auth-section">
             <div class="clean-card fade-in">
                 <h2>אימות מספר טלפון</h2>
-                <p class="subtitle">כדי להירשם, הזן את הקוד שקיבלת כעת בשיחה נכנסת</p>
+                <p class="subtitle">הזן את 4 הספרות האחרונות מהשיחה</p>
                 <div id="alert-verify" class="alert-box"></div>
                 <div class="locked-input-container">
                     <span id="verify_display_phone" dir="ltr" style="color: var(--primary);"></span>
@@ -82,11 +81,11 @@ const htmlContent = `<!DOCTYPE html>
                 </div>
                 <form onsubmit="verifyPhoneCode(event)">
                     <div class="form-group">
-                        <input type="text" id="verify_code" required placeholder="הזן את הקוד שקיבלת" class="center-text ltr-input input-modern" autocomplete="one-time-code" maxlength="6">
+                        <input type="text" id="verify_code" required placeholder="הזן קוד מזהה" class="center-text ltr-input input-modern" autocomplete="one-time-code" maxlength="6">
                     </div>
-                    <button type="submit" id="btn-verify" class="btn-primary">אמת והמשך <i class="fa-solid fa-shield-check" style="margin-right: 5px;"></i></button>
+                    <button type="submit" id="btn-verify" class="btn-primary">אמת והמשך <i class="fa-solid fa-shield-check"></i></button>
                 </form>
-                <button type="button" class="btn-text" onclick="resendVerification()" style="margin-top: 15px; width: 100%;"><i class="fa-solid fa-phone-volume"></i> לא קיבלת שיחה? נסה שוב</button>
+                <button type="button" class="btn-text" onclick="resendVerification()" style="margin-top: 15px;"><i class="fa-solid fa-phone-volume"></i> לא קיבלת שיחה? נסה שוב</button>
             </div>
         </section>
 
@@ -104,7 +103,7 @@ const htmlContent = `<!DOCTYPE html>
                         <input type="text" id="reg_name" readonly class="readonly-input input-modern">
                     </div>
                     <div class="form-group">
-                        <label>אימייל</label>
+                        <label>אימייל (לא חובה)</label>
                         <input type="email" id="reg_email" placeholder="name@domain.com" class="ltr-input input-modern">
                     </div>
                     <div class="form-group">
@@ -115,7 +114,7 @@ const htmlContent = `<!DOCTYPE html>
                         <label>אימות סיסמה</label>
                         <input type="password" id="reg_password_confirm" required placeholder="****" class="input-modern">
                     </div>
-                    <button type="submit" id="btn-register" class="btn-primary">סיום הרשמה <i class="fa-solid fa-check" style="margin-right: 5px;"></i></button>
+                    <button type="submit" id="btn-register" class="btn-primary">סיום הרשמה <i class="fa-solid fa-check"></i></button>
                 </form>
             </div>
         </section>
@@ -137,94 +136,72 @@ const htmlContent = `<!DOCTYPE html>
             </div>
         </section>
 
-        <section id="user-dash-view" class="view-section dashboard-layout fade-in">
-            <aside class="sidebar">
-                <div class="user-info-mini">
-                    <div class="avatar-mini"><i class="fa-solid fa-user"></i></div>
-                    <span id="sidebar-name">אורח</span>
+        <section id="user-dash-view" class="view-section dashboard-layout fade-in" style="padding: 0; background: #fff;">
+            
+            <aside class="sidebar app-sidebar">
+                <div class="sidebar-header" style="height: 65px; padding: 0 15px; background: var(--header-bg); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="width: 40px; height: 40px; border-radius: 50%; background: var(--play-out); color: white; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;"><i class="fa-solid fa-user"></i></div>
+                        <div>
+                            <h2 id="ui-user-name" style="font-size: 0.95rem; margin-bottom:0; color: var(--text-dark);">טוען...</h2>
+                            <p id="ui-user-phone" class="ltr-input" style="font-size: 0.8rem; color: var(--text-light); text-align: right; margin:0;">---</p>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <button title="הגדרות חשבון" onclick="switchUserTab('settings', this)" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-light); padding: 8px;"><i class="fa-solid fa-gear"></i></button>
+                        <button title="התנתק" onclick="logout()" style="background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--danger); padding: 8px;"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
+                    </div>
                 </div>
-                <ul class="sidebar-menu">
-                    <li class="active" onclick="switchUserTab('overview', this)"><i class="fa-solid fa-chart-pie"></i> סקירה כללית</li>
-                    <li onclick="switchUserTab('messages', this); loadMessages();"><i class="fa-solid fa-microphone-lines"></i> הודעות קוליות</li>
-                    <li onclick="switchUserTab('settings', this)"><i class="fa-solid fa-gear"></i> הגדרות פרופיל</li>
-                </ul>
+                
+                <div class="tzintuk-status" id="ui-tzintuk-badge" style="padding: 10px 15px; font-size: 0.85rem; font-weight: 600; border-bottom: 1px solid var(--border);"></div>
+
+                <nav class="nav-menu" style="flex: 1; padding-top: 10px;">
+                    <div class="nav-item active" style="padding: 15px 20px; display: flex; align-items: center; gap: 15px; cursor: pointer; font-weight: 600; border-right: 4px solid var(--play-out); background: #f0f2f5; color: var(--play-out);" onclick="switchUserTab('messages', this)">
+                        <i class="fa-solid fa-comments" style="width: 25px; text-align: center; font-size: 1.2rem;"></i> <span>הודעות סלומון</span>
+                    </div>
+                </nav>
             </aside>
             
-            <div class="dashboard-content">
-                <div id="alert-dash" class="alert-box"></div>
+            <div class="dashboard-content app-main-area" style="padding: 0; display: flex; flex-direction: column; background: var(--chat-bg);">
                 
-                <div id="tab-overview" class="dash-tab active">
-                    <h1 style="margin-bottom: 5px;">שלום, <span id="dash-welcome-title">אורח</span></h1>
-                    <p class="subtitle" style="text-align: right; margin-bottom: 30px;">ברוך הבא לאזור האישי החדש שלך.</p>
-                    
-                    <div class="status-grid">
-                        <div class="status-card">
-                            <div class="status-icon"><i class="fa-solid fa-mobile-screen"></i></div>
-                            <div class="label">טלפון מזוהה</div>
-                            <div class="value ltr-input" id="dash-phone">-</div>
+                <div id="tab-messages" class="dash-tab active" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative;">
+                    <div style="height: 65px; background: var(--header-bg); padding: 0 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); flex-shrink: 0; z-index: 10;">
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <div style="width: 40px; height: 40px; border-radius: 50%; background: #0f766e; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: #fff;"><i class="fa-solid fa-headphones"></i></div>
+                            <div>
+                                <h3 style="font-size: 1.05rem; color: var(--text-dark); margin:0;">עכשיו סלומון</h3>
+                                <p style="font-size: 0.8rem; color: var(--text-light); margin:0;">מחובר ומסונכרן</p>
+                            </div>
                         </div>
-                        <div class="status-card">
-                            <div class="status-icon"><i class="fa-solid fa-bell"></i></div>
-                            <div class="label">סטטוס צינתוקים</div>
-                            <div class="value" id="dash-tzintukim">-</div>
-                        </div>
+                        <button onclick="loadMessages()" style="background: none; border: none; font-size: 1.2rem; color: var(--text-light); cursor: pointer;" title="רענן"><i class="fa-solid fa-rotate-right"></i></button>
                     </div>
+                    
+                    <div id="messages-table-body" class="messages-chat-container">
+                        </div>
                 </div>
 
-                <div id="tab-messages" class="dash-tab" style="display:none;">
-                    <div class="admin-header" style="margin-bottom: 20px;">
-                        <div>
-                            <h1 style="margin-bottom: 5px;">הודעות מהמערכת</h1>
-                            <p class="subtitle" style="text-align:right;">האזנה להודעות קוליות ישירות מהאתר</p>
-                        </div>
-                        <button onclick="loadMessages()" class="btn-primary small-btn" id="btn-refresh-messages" style="width: auto;"><i class="fa-solid fa-rotate-right"></i> רענן נתונים</button>
-                    </div>
-                    
-                    <div id="alert-messages" class="alert-box"></div>
-                    
-                    <div class="audio-player-container" id="audio-player-wrapper">
-                        <div class="playing-title" id="playing-title">מנגן כעת: המתן...</div>
-                        <audio id="main-audio-player" controls controlsList="nodownload" style="width: 100%; outline: none;"></audio>
-                    </div>
-
-                    <div class="table-wrapper">
-                        <table class="modern-table">
-                            <thead>
-                                <tr>
-                                    <th>שם הקובץ</th>
-                                    <th>תאריך</th>
-                                    <th>גודל</th>
-                                    <th>אורך</th>
-                                    <th>פעולות</th>
-                                </tr>
-                            </thead>
-                            <tbody id="messages-table-body">
-                                <tr><td colspan="5" class="empty-state">טוען הודעות...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div id="tab-settings" class="dash-tab" style="display:none;">
-                    <h2 style="text-align:right; margin-bottom:20px;">הגדרות חשבון</h2>
-                    <form onsubmit="updateUserProfile(event)" class="edit-form" style="max-width: 500px;">
+                <div id="tab-settings" class="dash-tab" style="display:none; padding: 40px 20px; overflow-y: auto; background: #fff;">
+                    <h2 style="text-align:center; margin-bottom:25px; color: var(--text-dark);">הגדרות פרופיל</h2>
+                    <div id="alert-dash" class="alert-box" style="max-width: 500px; margin: 0 auto 15px auto;"></div>
+                    <form onsubmit="updateUserProfile(event)" style="max-width: 500px; margin: 0 auto; border: 1px solid var(--border); padding: 30px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.03);">
                         <div class="form-group">
                             <label>אימייל מעודכן</label>
                             <input type="email" id="update_email" class="ltr-input input-modern">
                         </div>
                         <div class="form-group">
-                            <label>סיסמה חדשה (השאר ריק אם אין שינוי)</label>
+                            <label>סיסמה חדשה (השאר ריק ללא שינוי)</label>
                             <input type="password" id="update_new_pass" placeholder="****" class="input-modern">
                         </div>
-                        <div class="verification-box">
-                            <label><i class="fa-solid fa-lock"></i> סיסמה נוכחית (חובה לאימות)</label>
+                        <div class="form-group" style="margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">
+                            <label style="color: var(--danger);"><i class="fa-solid fa-lock"></i> סיסמה נוכחית (חובה לאימות)</label>
                             <input type="password" id="update_old_pass" required placeholder="הזן סיסמה נוכחית" class="input-modern">
                         </div>
                         <div class="form-actions" style="margin-top: 20px;">
-                            <button type="submit" id="btn-update" class="btn-primary">שמור שינויים <i class="fa-solid fa-floppy-disk"></i></button>
+                            <button type="submit" id="btn-update" class="btn-primary" style="background: var(--play-out);">שמור שינויים <i class="fa-solid fa-floppy-disk"></i></button>
                         </div>
                     </form>
                 </div>
+
             </div>
         </section>
 
@@ -274,7 +251,6 @@ const htmlContent = `<!DOCTYPE html>
                     <div class="admin-header" style="border-bottom:none; padding-bottom:0;">
                         <div>
                             <h1 style="margin-bottom: 5px;">מערכת אימות וחסימות</h1>
-                            <p class="subtitle" style="text-align:right;">שליטה על צינתוקים וניטור התקפות</p>
                         </div>
                         <button onclick="switchAdminTab('tzintuk', document.querySelector('.admin-sidebar-menu li:nth-child(2)'))" class="btn-primary small-btn" style="width: auto; background: var(--text-main);"><i class="fa-solid fa-rotate-right"></i> רענן הכל</button>
                     </div>
@@ -291,11 +267,11 @@ const htmlContent = `<!DOCTYPE html>
                             </div>
                             <div class="form-group" style="flex: 2; min-width: 200px;">
                                 <label>טלפון / IP לחסימה</label>
-                                <input type="text" id="block_value" required class="ltr-input input-modern" style="padding: 10px;" placeholder="לדוגמה: 0501234567">
+                                <input type="text" id="block_value" required class="ltr-input input-modern" style="padding: 10px;">
                             </div>
                             <div class="form-group" style="flex: 2; min-width: 200px;">
                                 <label>סיבת חסימה</label>
-                                <input type="text" id="block_reason" class="input-modern" style="padding: 10px;" placeholder="ספאם, נסיון פריצה...">
+                                <input type="text" id="block_reason" class="input-modern" style="padding: 10px;">
                             </div>
                             <div class="form-group" style="flex: 1; min-width: 100px;">
                                 <label>זמן</label>
@@ -311,31 +287,30 @@ const htmlContent = `<!DOCTYPE html>
                                 </select>
                             </div>
                             <div class="form-group" style="flex: 1; min-width: 150px;">
-                                <button type="submit" id="btn-submit-block" class="btn-primary" style="background: var(--danger); padding: 10px;">החל חסימה <i class="fa-solid fa-lock"></i></button>
+                                <button type="submit" id="btn-submit-block" class="btn-primary" style="background: var(--danger); padding: 10px;">החל חסימה</button>
                             </div>
                         </form>
                     </div>
 
-                    <h3 style="margin-bottom: 10px; color: var(--text-dark);"><i class="fa-solid fa-shield-virus"></i> חסימות פעילות ברשת</h3>
+                    <h3 style="margin-bottom: 10px; color: var(--text-dark);"><i class="fa-solid fa-shield-virus"></i> חסימות פעילות</h3>
                     <div class="table-wrapper" style="margin-bottom: 40px;">
                         <table class="modern-table">
                             <thead>
                                 <tr>
                                     <th>סוג</th>
-                                    <th>ערך (טלפון/IP)</th>
+                                    <th>ערך</th>
                                     <th>סיבה</th>
                                     <th>תאריך חסימה</th>
                                     <th>תפוגה</th>
                                     <th>פעולות</th>
                                 </tr>
                             </thead>
-                            <tbody id="admin-blocks-table-body">
-                            </tbody>
+                            <tbody id="admin-blocks-table-body"></tbody>
                         </table>
                     </div>
 
                     <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px;">
-                        <h3 style="color: var(--text-dark); margin: 0;"><i class="fa-solid fa-list-ol"></i> היסטוריית בקשות אימות אחרונות</h3>
+                        <h3 style="color: var(--text-dark); margin: 0;"><i class="fa-solid fa-list-ol"></i> היסטוריית אימותים</h3>
                         <button onclick="cleanOldLogs()" id="btn-clean-logs" class="btn-text" style="font-size: 0.85rem;"><i class="fa-solid fa-broom"></i> נקה לוגים ישנים</button>
                     </div>
                     <div class="table-wrapper">
@@ -348,11 +323,10 @@ const htmlContent = `<!DOCTYPE html>
                                     <th>מטרה</th>
                                     <th>קוד סודי</th>
                                     <th>סטטוס אימות</th>
-                                    <th>נסיונות שגויים</th>
+                                    <th>נסיונות</th>
                                 </tr>
                             </thead>
-                            <tbody id="admin-logs-table-body">
-                            </tbody>
+                            <tbody id="admin-logs-table-body"></tbody>
                         </table>
                     </div>
                 </div>
@@ -384,6 +358,9 @@ const htmlContent = `<!DOCTYPE html>
             </form>
         </div>
     </div>
+
+    <audio id="global-audio-player"></audio>
+
 </body>
 </html>`;
 
