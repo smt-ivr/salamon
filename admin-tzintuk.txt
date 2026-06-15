@@ -1,0 +1,222 @@
+// =================================================================
+// admin-tzintuk.txt - ניהול מערכת אימות וצינתוקים לפאנל מנהלים
+// =================================================================
+
+// מעבר בין לשוניות בתוך פאנל המנהל
+function switchAdminTab(tabName, element) {
+    document.querySelectorAll('.admin-dash-tab').forEach(tab => tab.style.display = 'none');
+    document.getElementById('tab-admin-' + tabName).style.display = 'block';
+    
+    document.querySelectorAll('.admin-sidebar-menu li').forEach(li => li.classList.remove('active'));
+    element.classList.add('active');
+    
+    // טעינת נתונים בהתאם ללשונית
+    if (tabName === 'users') loadAdminUsers();
+    if (tabName === 'tzintuk') {
+        loadVerifyBlocks();
+        loadVerifyLogs();
+    }
+}
+
+// 1. טעינת טבלת הלוגים המפורטת
+async function loadVerifyLogs(offset = 0) {
+    if (!state.adminToken) return;
+    const tbody = document.getElementById('admin-logs-table-body');
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען היסטוריית אימותים...</td></tr>';
+    
+    try {
+        const res = await fetch(`${API_BASE_URL}/verify/admin/logs`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adminToken: state.adminToken, limit: 100, offset: offset })
+        });
+        const data = await res.json();
+        
+        if (!res.ok) {
+            tbody.innerHTML = `<tr><td colspan="7" class="empty-state" style="color:red;">שגיאה: ${data.error || 'לא ניתן לטעון לוגים'}</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = '';
+        if(data.logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">אין רישומי אימות במערכת.</td></tr>';
+            return;
+        }
+
+        data.logs.forEach(log => {
+            // עיצוב הסטטוס בצבעים
+            let statusBadge = '';
+            switch(log.status) {
+                case 'pending': statusBadge = '<span class="badge info">ממתין לקוד</span>'; break;
+                case 'verified': statusBadge = '<span class="badge success">אומת בהצלחה</span>'; break;
+                case 'used': statusBadge = '<span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;">נוצל לרישום</span>'; break;
+                case 'failed': statusBadge = '<span class="badge error">נכשל / שגוי</span>'; break;
+                default: statusBadge = `<span class="badge">${log.status}</span>`;
+            }
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td dir="ltr" style="text-align:right; font-size:0.85rem; color:var(--text-light);">${log.created_at}</td>
+                <td style="font-weight:600; direction:ltr; text-align:right;">${log.phone}</td>
+                <td dir="ltr" style="text-align:right; font-family:monospace; font-size:0.9rem;">${log.ip_address}</td>
+                <td>${log.intent === 'register' ? 'הרשמה' : log.intent}</td>
+                <td style="font-family:monospace; letter-spacing:1px; font-weight:bold;">${log.code || '-'}</td>
+                <td>${statusBadge}</td>
+                <td>${log.attempts} / 3</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state" style="color:red;">שגיאת תקשורת בשליפת לוגים</td></tr>';
+    }
+}
+
+// 2. טעינת טבלת החסימות הפעילות
+async function loadVerifyBlocks() {
+    if (!state.adminToken) return;
+    const tbody = document.getElementById('admin-blocks-table-body');
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען חסימות אבטחה...</td></tr>';
+    
+    try {
+        const res = await fetch(`${API_BASE_URL}/verify/admin/blocks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adminToken: state.adminToken })
+        });
+        const data = await res.json();
+        
+        if (!res.ok) {
+            tbody.innerHTML = `<tr><td colspan="6" class="empty-state" style="color:red;">שגיאה בטעינת חסימות</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = '';
+        if(data.blocks.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state" style="color:var(--success);"><i class="fa-solid fa-shield-check"></i> אין חסימות פעילות כרגע. המערכת נקייה.</td></tr>';
+            return;
+        }
+
+        data.blocks.forEach(block => {
+            const tr = document.createElement('tr');
+            const typeLabel = block.block_type === 'ip' ? 'כתובת IP' : 'מספר טלפון';
+            const typeIcon = block.block_type === 'ip' ? '<i class="fa-solid fa-network-wired"></i>' : '<i class="fa-solid fa-phone"></i>';
+            
+            tr.innerHTML = `
+                <td>${typeIcon} ${typeLabel}</td>
+                <td dir="ltr" style="text-align:right; font-weight:bold; color:var(--danger);">${block.block_value}</td>
+                <td>${block.reason || 'לא צוינה סיבה'}</td>
+                <td dir="ltr" style="text-align:right; font-size:0.85rem;">${block.created_at}</td>
+                <td dir="ltr" style="text-align:right; font-size:0.85rem; color:var(--text-light);">${block.expires_at}</td>
+                <td>
+                    <button class="actions-btn" style="background:var(--success); color:white; border:none;" onclick="unblockTarget('${block.block_value}')">
+                        <i class="fa-solid fa-unlock"></i> שחרר
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state" style="color:red;">שגיאת רשת בשליפת חסימות</td></tr>';
+    }
+}
+
+// 3. הוספת חסימה ידנית (טלפון או IP)
+async function submitManualBlock(e) {
+    e.preventDefault();
+    if (!state.adminToken) return;
+
+    const btn = document.getElementById('btn-submit-block');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מבצע...';
+    btn.disabled = true;
+
+    const blockType = document.getElementById('block_type').value;
+    const blockValue = document.getElementById('block_value').value.trim();
+    const reason = document.getElementById('block_reason').value.trim() || 'חסימה ידנית על ידי מנהל';
+    const durationValue = document.getElementById('block_duration').value;
+    const durationUnit = document.getElementById('block_unit').value;
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/verify/admin/block`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                adminToken: state.adminToken, 
+                type: blockType, 
+                value: blockValue, 
+                reason: reason, 
+                durationValue: parseInt(durationValue), 
+                durationUnit: durationUnit 
+            })
+        });
+        const data = await res.json();
+        
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+
+        if (res.ok && data.success) {
+            alert('החסימה בוצעה בהצלחה!');
+            document.getElementById('manual-block-form').reset();
+            loadVerifyBlocks(); // רענון טבלה
+        } else {
+            alert('שגיאה: ' + (data.error || 'פעולת החסימה נכשלה'));
+        }
+    } catch (err) {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        alert('שגיאת תקשורת מול השרת');
+    }
+}
+
+// 4. שחרור חסימה (Unblock)
+async function unblockTarget(targetValue) {
+    if (!state.adminToken) return;
+    if (!confirm(`האם אתה בטוח שברצונך לשחרר את החסימה עבור: ${targetValue}?`)) return;
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/verify/admin/unblock`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adminToken: state.adminToken, target: targetValue })
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+            loadVerifyBlocks(); // רענון מהיר של הטבלה
+        } else {
+            alert('שגיאה בשחרור: ' + (data.error || ''));
+        }
+    } catch (err) {
+        alert('שגיאת תקשורת');
+    }
+}
+
+// 5. ניקוי לוגים ישנים (שמירה על ביצועי מסד נתונים)
+async function cleanOldLogs() {
+    if (!state.adminToken) return;
+    if (!confirm('פעולה זו תמחק את כל הלוגים שפג תוקפם או שהם בני יותר משבוע. להמשיך?')) return;
+
+    const btn = document.getElementById('btn-clean-logs');
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מנקה...';
+    
+    try {
+        const res = await fetch(`${API_BASE_URL}/verify/admin/clean`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adminToken: state.adminToken })
+        });
+        const data = await res.json();
+        
+        btn.innerHTML = '<i class="fa-solid fa-broom"></i> נקה לוגים ישנים';
+        
+        if (res.ok && data.success) {
+            alert(`ניקוי הושלם. נמחקו ${data.deletedCount} רשומות ישנות.`);
+            loadVerifyLogs(); // רענון טבלת לוגים
+        } else {
+            alert('שגיאה בניקוי: ' + (data.error || ''));
+        }
+    } catch (err) {
+        btn.innerHTML = '<i class="fa-solid fa-broom"></i> נקה לוגים ישנים';
+        alert('שגיאת תקשורת');
+    }
+}
