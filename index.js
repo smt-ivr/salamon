@@ -161,7 +161,7 @@ const htmlContent = `<!DOCTYPE html>
                     <div id="chat-upload-area" class="chat-upload-area">
                         <div class="chat-input-wrapper">
                             <div class="upload-status" id="chat-upload-status">הקלט או בחר קובץ להעלאה</div>
-                            <button class="upload-btn attach-btn" onclick="document.getElementById('chat-file-input').click()" title="בחר קובץ מהמכשיר">
+                            <button class="upload-btn attach-btn" id="chat-attach-btn" onclick="attemptFileUpload()" title="בחר קובץ מהמכשיר">
                                 <i class="fa-solid fa-paperclip"></i>
                             </button>
                             <input type="file" id="chat-file-input" accept="audio/*" style="display: none;" onchange="handleFileUpload(event)">
@@ -240,9 +240,9 @@ const htmlContent = `<!DOCTYPE html>
                                     <th>טלפון</th>
                                     <th>שם משתמש</th>
                                     <th>אימייל</th>
-                                    <th>סיסמה</th>
                                     <th>צינתוקים</th>
-                                    <th>הרשאת העלאה</th>
+                                    <th>הקלטה</th>
+                                    <th>העלאה קבצים</th>
                                     <th>פעולות</th>
                                 </tr>
                             </thead>
@@ -261,82 +261,7 @@ const htmlContent = `<!DOCTYPE html>
                         </div>
                         <button onclick="loadVerifyBlocks(); loadVerifyLogs();" class="btn-primary small-btn" style="width: auto; background: var(--text-main);"><i class="fa-solid fa-rotate-right"></i> רענן הכל</button>
                     </div>
-
-                    <div class="settings-card" style="max-width: 100%; border-color: var(--danger); margin-bottom: 30px;">
-                        <h3 style="color: var(--danger); margin-bottom: 15px;"><i class="fa-solid fa-ban"></i> חסימה ידנית חדשה</h3>
-                        <form id="manual-block-form" onsubmit="event.preventDefault(); submitManualBlock(event);" style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
-                            <div class="form-group" style="flex: 1; min-width: 120px;">
-                                <label>סוג חסימה</label>
-                                <select id="block_type" class="input-modern" style="padding: 10px;">
-                                    <option value="phone">מספר טלפון</option>
-                                    <option value="ip">כתובת IP</option>
-                                </select>
-                            </div>
-                            <div class="form-group" style="flex: 2; min-width: 200px;">
-                                <label>טלפון / IP לחסימה</label>
-                                <input type="text" id="block_value" required class="ltr-input input-modern" style="padding: 10px;" placeholder="לדוגמה: 0501234567">
-                            </div>
-                            <div class="form-group" style="flex: 2; min-width: 200px;">
-                                <label>סיבת חסימה</label>
-                                <input type="text" id="block_reason" class="input-modern" style="padding: 10px;" placeholder="ספאם, נסיון פריצה...">
-                            </div>
-                            <div class="form-group" style="flex: 1; min-width: 100px;">
-                                <label>זמן</label>
-                                <input type="number" id="block_duration" value="24" required class="input-modern center-text" style="padding: 10px;">
-                            </div>
-                            <div class="form-group" style="flex: 1; min-width: 120px;">
-                                <label>יחידת זמן</label>
-                                <select id="block_unit" class="input-modern" style="padding: 10px;">
-                                    <option value="hours">שעות</option>
-                                    <option value="minutes">דקות</option>
-                                    <option value="days">ימים</option>
-                                    <option value="permanent">לצמיתות</option>
-                                </select>
-                            </div>
-                            <div class="form-group" style="flex: 1; min-width: 150px;">
-                                <button type="submit" id="btn-submit-block" class="btn-primary" style="background: var(--danger); padding: 10px;">החל חסימה <i class="fa-solid fa-lock"></i></button>
-                            </div>
-                        </form>
                     </div>
-
-                    <h3 style="margin-bottom: 15px; color: var(--text-dark);"><i class="fa-solid fa-shield-virus"></i> חסימות פעילות ברשת</h3>
-                    <div class="table-wrapper" style="margin-bottom: 40px;">
-                        <table class="modern-table">
-                            <thead>
-                                <tr>
-                                    <th>סוג</th>
-                                    <th>ערך (טלפון/IP)</th>
-                                    <th>סיבה</th>
-                                    <th>תאריך חסימה</th>
-                                    <th>תפוגה</th>
-                                    <th>פעולות</th>
-                                </tr>
-                            </thead>
-                            <tbody id="admin-blocks-table-body"></tbody>
-                        </table>
-                    </div>
-
-                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px;">
-                        <h3 style="color: var(--text-dark); margin: 0;"><i class="fa-solid fa-list-ol"></i> היסטוריית בקשות אימות אחרונות</h3>
-                        <button onclick="cleanOldLogs()" id="btn-clean-logs" class="btn-text" style="font-size: 0.85rem; padding: 0;"><i class="fa-solid fa-broom"></i> נקה לוגים ישנים</button>
-                    </div>
-                    <div class="table-wrapper">
-                        <table class="modern-table">
-                            <thead>
-                                <tr>
-                                    <th>תאריך ושעה</th>
-                                    <th>טלפון</th>
-                                    <th>כתובת IP</th>
-                                    <th>מטרה</th>
-                                    <th>קוד סודי</th>
-                                    <th>סטטוס אימות</th>
-                                    <th>נסיונות</th>
-                                </tr>
-                            </thead>
-                            <tbody id="admin-logs-table-body"></tbody>
-                        </table>
-                    </div>
-                </div>
             </div>
         </main>
 
@@ -361,8 +286,13 @@ const htmlContent = `<!DOCTYPE html>
                 </div>
                 
                 <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 15px; padding: 10px; background: #f8fafc; border-radius: 8px;">
+                    <input type="checkbox" id="modal_can_record" style="width: 20px; height: 20px; cursor: pointer;">
+                    <label for="modal_can_record" style="margin: 0; font-size: 0.95rem; cursor: pointer; color: var(--text-main);">מורשה להקליט הודעות (מיקרופון)</label>
+                </div>
+
+                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 10px; background: #f8fafc; border-radius: 8px;">
                     <input type="checkbox" id="modal_can_upload" style="width: 20px; height: 20px; cursor: pointer;">
-                    <label for="modal_can_upload" style="margin: 0; font-size: 0.95rem; cursor: pointer; color: var(--text-main);">מורשה להעלות הודעות לאתר</label>
+                    <label for="modal_can_upload" style="margin: 0; font-size: 0.95rem; cursor: pointer; color: var(--text-main);">מורשה להעלות קבצים חיצונים</label>
                 </div>
 
                 <div style="margin-top: 30px; display: flex; gap: 10px;">
@@ -373,26 +303,20 @@ const htmlContent = `<!DOCTYPE html>
         </div>
     </div>
 
-    <!-- מודל הקלטה והעלאת קבצים (המשופר והמקצועי) -->
     <div class="modal-overlay" id="uploadReviewModal">
         <div class="modal-content professional-modal">
-            
             <div class="modal-header">
                 <h2 id="review-title"><i class="fa-solid fa-microphone"></i> הקלטת הודעה</h2>
                 <button class="close-modal-btn" onclick="cancelUpload()" title="סגור"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
-            <!-- אזור תוך כדי הקלטה -->
             <div id="recording-ui" style="display: none;">
-                
                 <div class="recording-visualizer">
                     <div class="bar"></div><div class="bar"></div><div class="bar"></div>
                     <div class="bar"></div><div class="bar"></div><div class="bar"></div>
                     <div class="bar"></div><div class="bar"></div><div class="bar"></div>
                 </div>
-                
                 <div id="recording-timer" class="recording-timer-pro">00:00</div>
-                
                 <div class="recording-actions-pro">
                     <button type="button" class="btn-pro-secondary" id="btn-pause-resume" onclick="togglePauseResumeRecording()">
                         <span class="icon-wrap"><i class="fa-solid fa-pause"></i></span> השהה
@@ -403,15 +327,12 @@ const htmlContent = `<!DOCTYPE html>
                 </div>
             </div>
 
-            <!-- אזור תצוגה מקדימה לפני שליחה -->
             <div id="preview-ui" style="display: none;">
-                
                 <div class="preview-card">
                     <div class="file-icon-large"><i class="fa-solid fa-file-audio"></i></div>
                     <div id="file-info" class="file-info-text"></div>
                     <audio id="preview-audio" controls class="preview-audio-modern"></audio>
                 </div>
-                
                 <div class="preview-actions-pro">
                     <button type="button" class="btn-pro-outline" onclick="cancelUpload()">
                         <i class="fa-solid fa-trash-can"></i> מחיקה
@@ -421,7 +342,18 @@ const htmlContent = `<!DOCTYPE html>
                     </button>
                 </div>
             </div>
-            
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="permissionAlertModal">
+        <div class="modal-content text-center" style="max-width: 320px; padding: 30px; border-radius: 16px;">
+            <div style="font-size: 3.5rem; color: #f59e0b; margin-bottom: 15px;"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            <h3 style="margin-bottom: 10px; color: var(--text-dark); font-size: 1.3rem;">נדרשת הרשאה מיוחדת</h3>
+            <p id="permissionAlertText" style="font-size: 0.95rem; color: var(--text-light); margin-bottom: 25px; line-height: 1.5;">
+                העלאת קבצי שמע חיצוניים חסומה כברירת מחדל כדי למנוע העלאת שירים או קבצים לא מאושרים. 
+                <br><br>כדי לפתוח אפשרות זו עבורך, אנא פנה להנהלת המערכת.
+            </p>
+            <button class="btn-primary" onclick="closePermissionAlert()" style="background: #f59e0b;">הבנתי, תודה</button>
         </div>
     </div>
 
