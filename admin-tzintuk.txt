@@ -1,817 +1,222 @@
-// הכתובת של ה-API שלך - לא משתנה!
-const API_BASE_URL = 'https://smti.uk/salamon/api';
+// =================================================================
+// admin-tzintuk.txt - ניהול מערכת אימות וצינתוקים לפאנל מנהלים
+// =================================================================
 
-let state = { userToken: null, currentUser: null, adminToken: null, tempIdentifier: null, sessionId: null };
-let activeAlertId = null;
-
-let globalAudio = document.createElement('audio');
-let currentPlayingId = null;
-let pollingInterval = null; 
-
-document.addEventListener('DOMContentLoaded', () => {
-    const path = window.location.pathname;
-    const savedUserToken = localStorage.getItem('userToken');
-    const savedAdminToken = localStorage.getItem('adminToken');
-
-    if (path.includes('/admin')) {
-        if (savedAdminToken) {
-            state.adminToken = savedAdminToken;
-            showView('admin-dash-view');
-            loadAdminUsers();
-        } else {
-            showView('admin-login-view');
-        }
-    } else {
-        if (savedUserToken) {
-            state.userToken = savedUserToken;
-            silentLogin(savedUserToken);
-        } else {
-            showView('init-view');
-        }
-    }
+// מעבר בין לשוניות בתוך פאנל המנהל
+function switchAdminTab(tabName, element) {
+    document.querySelectorAll('.admin-dash-tab').forEach(tab => tab.style.display = 'none');
+    document.getElementById('tab-admin-' + tabName).style.display = 'block';
     
-    const htmlAudio = document.getElementById('global-audio-player');
-    if (htmlAudio) globalAudio = htmlAudio;
-    setupAudioListeners();
-});
-
-function startPolling() {
-    if (pollingInterval) clearInterval(pollingInterval);
-    pollingInterval = setInterval(async () => {
-        if (!state.userToken) return;
-        try {
-            const [identifier, password] = state.userToken.split(':');
-            const res = await fetch(`${API_BASE_URL}/login`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ identifier, password })
-            });
-            const data = await res.json();
-            if (res.ok && data.user) {
-                state.currentUser = data.user;
-                updateDashboardUI(); 
-            }
-        } catch (e) {}
-    }, 30000);
+    document.querySelectorAll('.admin-sidebar-menu li').forEach(li => li.classList.remove('active'));
+    element.classList.add('active');
+    
+    // טעינת נתונים בהתאם ללשונית
+    if (tabName === 'users') loadAdminUsers();
+    if (tabName === 'tzintuk') {
+        loadVerifyBlocks();
+        loadVerifyLogs();
+    }
 }
 
-async function silentLogin(token) {
+// 1. טעינת טבלת הלוגים המפורטת
+async function loadVerifyLogs(offset = 0) {
+    if (!state.adminToken) return;
+    const tbody = document.getElementById('admin-logs-table-body');
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען היסטוריית אימותים...</td></tr>';
+    
     try {
-        const [identifier, password] = token.split(':');
-        const res = await fetch(`${API_BASE_URL}/login`, {
+        const res = await fetch(`${API_BASE_URL}/verify/admin/logs`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ identifier, password })
-        });
-        const data = await res.json();
-        
-        if (res.ok) {
-            state.currentUser = data.user;
-            updateDashboardUI();
-            showView('user-dash-view');
-            loadMessages();
-            startPolling(); 
-        } else {
-            logout();
-        }
-    } catch (err) {
-        logout();
-    }
-}
-
-function showMessage(containerId, msg, type = 'info') {
-    const box = document.getElementById(containerId);
-    if (!box) return;
-    box.className = `alert-box ${type}`;
-    box.innerHTML = msg;
-    box.style.display = 'block';
-    activeAlertId = containerId;
-}
-
-function clearMessage() {
-    if (activeAlertId) {
-        document.getElementById(activeAlertId).style.display = 'none';
-        activeAlertId = null;
-    }
-}
-document.addEventListener('input', clearMessage);
-
-function showView(viewId) {
-    clearMessage();
-    document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
-    
-    if(viewId.includes('view') && !viewId.includes('dash')) {
-        document.getElementById('auth-layout').classList.add('active');
-        document.querySelectorAll('.auth-card').forEach(card => card.classList.remove('active'));
-        document.getElementById(viewId).classList.add('active');
-    } else {
-        document.getElementById(viewId).classList.add('active');
-    }
-}
-
-function switchUserTab(tabName) {
-    clearMessage();
-    document.querySelectorAll('#user-dash-view .app-tab').forEach(tab => tab.classList.remove('active'));
-    document.getElementById('tab-' + tabName).classList.add('active');
-    
-    document.querySelectorAll('#user-dash-view .nav-item').forEach(li => li.classList.remove('active'));
-    const btn = document.getElementById('tab-btn-' + tabName);
-    if(btn) btn.classList.add('active');
-}
-
-function switchAdminTab(tabName) {
-    clearMessage();
-    document.querySelectorAll('#admin-dash-view .app-tab').forEach(tab => tab.classList.remove('active'));
-    document.getElementById('tab-admin-' + tabName).classList.add('active');
-    
-    document.querySelectorAll('#admin-dash-view .nav-item').forEach(li => li.classList.remove('active'));
-    const btn = document.getElementById('tab-btn-' + tabName);
-    if(btn) btn.classList.add('active');
-
-    if (tabName === 'users') loadAdminUsers();
-    if (tabName === 'tzintuk') { loadVerifyBlocks(); loadVerifyLogs(); }
-}
-
-function setLoading(btnId, isLoading, originalText = '') {
-    const btn = document.getElementById(btnId);
-    if (!btn) return;
-    if (isLoading) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> ממתין...';
-    } else {
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-    }
-}
-
-function goBackToInit() {
-    if(state.userToken || state.adminToken) return;
-    document.getElementById('login_pass').value = '';
-    document.getElementById('reg_password').value = '';
-    document.getElementById('reg_password_confirm').value = '';
-    if(document.getElementById('verify_code')) document.getElementById('verify_code').value = '';
-    showView('init-view');
-    setTimeout(() => document.getElementById('init_id').focus(), 100);
-}
-
-// ================= תהליכי אימות והרשמה =================
-async function checkIdentifier(e) {
-    if (e) e.preventDefault();
-    const identifier = document.getElementById('init_id').value.trim();
-    if(!identifier) return;
-    
-    setLoading('btn-init', true);
-    try {
-        const res = await fetch(`${API_BASE_URL}/check-identifier`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ identifier })
-        });
-        const data = await res.json();
-        setLoading('btn-init', false, 'המשך <i class="fa-solid fa-arrow-left"></i>');
-        
-        if (data.isRegistered) {
-            state.tempIdentifier = data.identifier;
-            document.getElementById('login_display_id').innerText = data.identifier;
-            showView('login-view');
-            document.getElementById('login_pass').focus();
-        } else if (data.authorized) {
-            state.tempIdentifier = data.phone;
-            document.getElementById('reg_name').value = data.name || 'משתמש לא מזוהה';
-            document.getElementById('pre_verify_phone').innerText = data.phone;
-            showView('pre-verify-view');
-        } else {
-            showMessage('alert-init', data.error || 'אירעה שגיאה בבדיקה', 'error');
-        }
-    } catch (err) {
-        setLoading('btn-init', false, 'המשך <i class="fa-solid fa-arrow-left"></i>');
-        showMessage('alert-init', 'שגיאת תקשורת עם השרת', 'error');
-    }
-}
-
-async function approveVerification() {
-    setLoading('btn-approve-tzintuk', true);
-    await initiateVerification(state.tempIdentifier);
-    setLoading('btn-approve-tzintuk', false, 'שלח צינתוק עכשיו <i class="fa-solid fa-phone-volume"></i>');
-}
-
-async function initiateVerification(phone) {
-    try {
-        const res = await fetch(`${API_BASE_URL}/verify/send`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone: phone, intent: 'register' })
-        });
-        const data = await res.json();
-
-        if (res.ok && data.success) {
-            state.sessionId = data.sessionId;
-            document.getElementById('verify_display_phone').innerText = phone;
-            showView('verify-view');
-            showMessage('alert-verify', 'השיחה נשלחה, נא להזין 4 ספרות אחרונות.', 'info');
-            setTimeout(() => document.getElementById('verify_code').focus(), 100);
-        } else {
-            showMessage('alert-pre-verify', data.error || 'שגיאה בהוצאת שיחה', 'error');
-        }
-    } catch (err) {
-        showMessage('alert-pre-verify', 'שגיאת תקשורת', 'error');
-    }
-}
-
-async function verifyPhoneCode(e) {
-    if (e) e.preventDefault();
-    const code = document.getElementById('verify_code').value.trim();
-    setLoading('btn-verify', true);
-    
-    try {
-        const res = await fetch(`${API_BASE_URL}/verify/check`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionId: state.sessionId, phone: state.tempIdentifier, code: code })
-        });
-        const data = await res.json();
-        setLoading('btn-verify', false, 'אמת והמשך <i class="fa-solid fa-shield-check"></i>');
-        
-        if (res.ok && data.success) {
-            document.getElementById('reg_display_phone').innerText = state.tempIdentifier;
-            showView('register-view');
-            showMessage('alert-register', 'אומת בהצלחה! הגדר סיסמה.', 'success');
-            document.getElementById('reg_password').focus();
-        } else {
-            showMessage('alert-verify', data.error || 'קוד שגוי', 'error');
-            document.getElementById('verify_code').value = '';
-        }
-    } catch (err) {
-        setLoading('btn-verify', false, 'אמת והמשך <i class="fa-solid fa-shield-check"></i>');
-        showMessage('alert-verify', 'שגיאת תקשורת', 'error');
-    }
-}
-
-async function resendVerification() {
-    if (!state.tempIdentifier) return;
-    showMessage('alert-verify', '<i class="fa-solid fa-circle-notch fa-spin"></i> שולח שיחה שוב...', 'info');
-    try {
-        const res = await fetch(`${API_BASE_URL}/verify/send`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone: state.tempIdentifier, intent: 'register' })
-        });
-        const data = await res.json();
-        if (res.ok && data.success) {
-            state.sessionId = data.sessionId;
-            showMessage('alert-verify', 'קוד חדש נשלח אליך.', 'success');
-        } else {
-            showMessage('alert-verify', data.error || 'שגיאה בשליחה', 'error');
-        }
-    } catch (e) {
-        showMessage('alert-verify', 'שגיאת רשת', 'error');
-    }
-}
-
-async function userRegister(e) {
-    if (e) e.preventDefault();
-    const phone = state.tempIdentifier;
-    const email = document.getElementById('reg_email').value;
-    const password = document.getElementById('reg_password').value;
-    const passwordConfirm = document.getElementById('reg_password_confirm').value;
-
-    setLoading('btn-register', true);
-    try {
-        const res = await fetch(`${API_BASE_URL}/register`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone, email, password, passwordConfirm, sessionId: state.sessionId })
-        });
-        const data = await res.json();
-        setLoading('btn-register', false, 'סיום הרשמה <i class="fa-solid fa-check"></i>');
-        
-        if (!res.ok) {
-            showMessage('alert-register', data.error || 'שגיאה ברישום', 'error');
-            return;
-        }
-
-        document.getElementById('login_display_id').innerText = phone;
-        showView('login-view');
-        showMessage('alert-login', 'החשבון נפתח בהצלחה! התחבר כעת.', 'success');
-    } catch (err) {
-        setLoading('btn-register', false, 'סיום הרשמה <i class="fa-solid fa-check"></i>');
-        showMessage('alert-register', 'שגיאת רשת במהלך הרישום', 'error');
-    }
-}
-
-async function userLogin(e) {
-    if (e) e.preventDefault();
-    const password = document.getElementById('login_pass').value;
-    setLoading('btn-login', true);
-    
-    try {
-        const res = await fetch(`${API_BASE_URL}/login`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ identifier: state.tempIdentifier, password })
-        });
-        const data = await res.json();
-        setLoading('btn-login', false, 'היכנס למערכת');
-        
-        if (!res.ok) {
-            showMessage('alert-login', data.error || 'שגיאת התחברות', 'error');
-            return;
-        }
-
-        state.userToken = data.token;
-        state.currentUser = data.user;
-        localStorage.setItem('userToken', data.token);
-
-        updateDashboardUI();
-        showView('user-dash-view');
-        loadMessages();
-        startPolling(); 
-    } catch (err) {
-        setLoading('btn-login', false, 'היכנס למערכת');
-        showMessage('alert-login', 'שגיאת תקשורת עם השרת', 'error');
-    }
-}
-
-// ================= ניהול פרופיל והגדרות =================
-function updateDashboardUI() {
-    const user = state.currentUser;
-    if (!user) return;
-    
-    document.getElementById('ui-user-name').innerText = user.name || 'אורח';
-    document.getElementById('ui-user-phone').innerText = user.phone;
-    
-    const emailInput = document.getElementById('update_email');
-    if (document.activeElement !== emailInput) emailInput.value = user.email || '';
-    
-    const badge = document.getElementById('ui-tzintuk-badge');
-    const isConnected = (user.connectedToTzintukim === 'yes' || user.connectedToTzintukim === true || user.connectedToTzintukim === '1');
-    if(badge) {
-        if (isConnected) {
-            badge.innerHTML = '<span class="status-ok"><i class="fa-solid fa-shield-check"></i> מחובר לצינתוקים</span>';
-        } else {
-            badge.innerHTML = '<span class="status-bad"><i class="fa-solid fa-triangle-exclamation"></i> מנותק מצינתוקים</span>';
-        }
-    }
-
-    const uploadArea = document.getElementById('chat-upload-area');
-    const statusText = document.getElementById('chat-upload-status');
-    const fileInput = document.getElementById('chat-file-input');
-    const recordBtn = document.getElementById('chat-record-btn');
-    
-    if (uploadArea && statusText && fileInput && recordBtn) {
-        if (user.canUpload) {
-            uploadArea.classList.remove('disabled');
-            if(!isRecording && statusText.innerText.includes('אין לך הרשאה')) statusText.innerText = 'הקלט או בחר קובץ להעלאה';
-            fileInput.disabled = false;
-            recordBtn.disabled = false;
-        } else {
-            uploadArea.classList.add('disabled');
-            statusText.innerText = 'אין לך הרשאה להעלות הודעות';
-            fileInput.disabled = true;
-            recordBtn.disabled = true;
-            if (isRecording) toggleChatRecording(); 
-        }
-    }
-}
-
-async function updateUserProfile(e) {
-    if (e) e.preventDefault(); 
-    
-    const oldPassword = document.getElementById('update_old_pass').value;
-    const newPassword = document.getElementById('update_new_pass').value;
-    const newEmail = document.getElementById('update_email').value;
-    setLoading('btn-update', true);
-    
-    try {
-        const res = await fetch(`${API_BASE_URL}/update-profile`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone: state.currentUser.phone, oldPassword, newPassword, newEmail })
-        });
-        const data = await res.json();
-        setLoading('btn-update', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
-        
-        if (!res.ok) {
-            if(res.status === 401 || res.status === 403) {
-                logout(); return;
-            }
-            showMessage('alert-dash', data.error || 'שגיאה בעדכון', 'error');
-            return;
-        }
-
-        if (newPassword) {
-            const newToken = `${state.currentUser.phone}:${newPassword}`;
-            state.userToken = newToken;
-            localStorage.setItem('userToken', newToken);
-        }
-
-        state.currentUser.email = newEmail; 
-        
-        showMessage('alert-dash', 'הגדרות החשבון עודכנו בהצלחה!', 'success');
-    } catch (err) {
-        setLoading('btn-update', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
-        showMessage('alert-dash', 'שגיאה בשליחת העדכון לשרת', 'error');
-    }
-}
-
-// ================= העלאת קבצים והקלטה מהצ'אט =================
-let mediaRecorder;
-let audioChunks = [];
-let recordedBlob = null;
-let isRecording = false;
-
-async function toggleChatRecording() {
-    if (!state.currentUser?.canUpload) return;
-    
-    const btn = document.getElementById('chat-record-btn');
-    const statusText = document.getElementById('chat-upload-status');
-
-    if (!isRecording) {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
-
-            mediaRecorder.ondataavailable = event => {
-                if (event.data.size > 0) audioChunks.push(event.data);
-            };
-
-            mediaRecorder.onstop = () => {
-                recordedBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                sendChatUpload(recordedBlob, 'recording.webm');
-            };
-
-            mediaRecorder.start();
-            isRecording = true;
-            btn.innerHTML = '<i class="fa-solid fa-stop"></i>';
-            btn.classList.add('recording-active');
-            statusText.innerText = 'מקליט... (לחץ לסיום ושליחה)';
-        } catch (err) {
-            alert("שגיאה בגישה למיקרופון: " + err.message);
-        }
-    } else {
-        mediaRecorder.stop();
-        isRecording = false;
-        btn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
-        btn.classList.remove('recording-active');
-        statusText.innerText = 'מעבד ושולח...';
-        mediaRecorder.stream.getTracks().forEach(track => track.stop());
-    }
-}
-
-async function handleFileUpload(event) {
-    if (!state.currentUser?.canUpload) return;
-    const file = event.target.files[0];
-    if (!file) return;
-    sendChatUpload(file, file.name);
-    event.target.value = ''; 
-}
-
-async function sendChatUpload(fileBlob, fileName) {
-    const statusText = document.getElementById('chat-upload-status');
-    statusText.innerText = 'מעלה הודעה לשרת...';
-    
-    const formData = new FormData();
-    formData.append('userToken', state.userToken);
-    formData.append('file', fileBlob, fileName);
-
-    try {
-        const res = await fetch(`${API_BASE_URL}/messages/upload`, {
-            method: 'POST',
-            body: formData
-        });
-        const result = await res.json();
-        
-        if (res.ok && result.success) {
-            statusText.innerText = 'ההודעה הועלתה בהצלחה!';
-            setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ להעלאה'; }, 3000);
-            loadMessages(); 
-        } else {
-            statusText.innerText = 'שגיאה: ' + (result.error || 'נכשל');
-            setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ להעלאה'; }, 4000);
-        }
-    } catch (err) {
-        statusText.innerText = 'שגיאת תקשורת מול השרת';
-        setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ להעלאה'; }, 4000);
-    }
-}
-
-// ================= משיכת הודעות (column-reverse) =================
-async function loadMessages() {
-    const token = state.userToken || localStorage.getItem('userToken');
-    if (!token) return;
-
-    const container = document.getElementById('messages-container');
-    if(!container) return;
-    
-    container.innerHTML = '<div class="loading-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען הודעות...</div>';
-    
-    try {
-        const res = await fetch(`${API_BASE_URL}/messages/list`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userToken: token })
+            body: JSON.stringify({ adminToken: state.adminToken, limit: 100, offset: offset })
         });
         const data = await res.json();
         
         if (!res.ok) {
-            container.innerHTML = `<div class="loading-state" style="color:var(--danger);">${data.error || 'שגיאה בשליפה'}</div>`;
-            return;
-        }
-
-        if (!data.messages || data.messages.length === 0) {
-            container.innerHTML = '<div class="loading-state">אין הודעות להצגה כרגע.</div>';
-            return;
-        }
-
-        renderMessages(data.messages);
-    } catch (err) {
-        container.innerHTML = '<div class="loading-state" style="color:var(--danger);">תקלת תקשורת מול השרת.</div>';
-    }
-}
-
-function renderMessages(messages) {
-    const container = document.getElementById('messages-container');
-    container.innerHTML = ''; 
-
-    if(messages.length === 0) return;
-    let currentDateGroup = messages[0].mtime ? messages[0].mtime.split(" ")[0] : "-";
-
-    messages.forEach((msg, index) => {
-        const fullDateTime = msg.mtime || '-';
-        let datePart = "-", timePart = "-";
-        
-        if(fullDateTime.includes(" ")) {
-            [datePart, timePart] = fullDateTime.split(" ");
-        }
-
-        if (datePart !== currentDateGroup) {
-            if (currentDateGroup !== "-") {
-                const divider = document.createElement('div');
-                divider.className = 'date-divider';
-                divider.innerHTML = `<span>${currentDateGroup}</span>`;
-                container.appendChild(divider);
-            }
-            currentDateGroup = datePart;
-        }
-
-        const isOut = msg.isOutgoing === true; 
-        const bubbleClass = isOut ? 'bubble-out' : 'bubble-in';
-        const fileId = msg.name.replace('.wav', '').replace('.mp3', '');
-        const senderName = msg.valName || 'מערכת';
-        const durationText = msg.durationStr || '00:00';
-
-        const bubble = document.createElement('div');
-        bubble.className = `bubble ${bubbleClass}`;
-        
-        bubble.innerHTML = `
-            <div class="msg-top">
-                <span class="sender-name">${senderName}</span>
-                <span class="file-id">ID: ${fileId}</span>
-            </div>
-            <div class="audio-player">
-                <button class="play-btn-circle" id="btn-${fileId}" onclick="togglePlay('${fileId}')">
-                    <i class="fa-solid fa-play"></i>
-                </button>
-                <div class="player-track-container">
-                    <input type="range" id="slider-${fileId}" min="0" max="100" value="0" oninput="seekAudio('${fileId}', this.value)">
-                    <div class="track-fill" id="fill-${fileId}"></div>
-                    <div class="player-times">
-                        <span id="current-${fileId}">0:00</span>
-                        <span>${durationText}</span>
-                    </div>
-                </div>
-            </div>
-            <div class="msg-bottom-time">
-                <span dir="ltr">${fullDateTime}</span>
-                ${isOut ? '<i class="fa-solid fa-check-double" style="color:#16a34a; font-size:0.8rem; margin-right:4px;"></i>' : ''}
-            </div>
-        `;
-
-        container.appendChild(bubble);
-
-        if (index === messages.length - 1) {
-            const divider = document.createElement('div');
-            divider.className = 'date-divider';
-            divider.innerHTML = `<span>${currentDateGroup}</span>`;
-            container.appendChild(divider);
-        }
-    });
-}
-
-function setupAudioListeners() {
-    globalAudio.addEventListener('timeupdate', () => {
-        if (!currentPlayingId) return;
-        const slider = document.getElementById(`slider-${currentPlayingId}`);
-        const fill = document.getElementById(`fill-${currentPlayingId}`);
-        const timeLabel = document.getElementById(`current-${currentPlayingId}`);
-
-        if(globalAudio.duration && slider) {
-            const percent = (globalAudio.currentTime / globalAudio.duration) * 100;
-            if(!slider.matches(':active')) { 
-                slider.value = percent;
-                fill.style.width = percent + '%';
-            }
-            
-            const m = Math.floor(globalAudio.currentTime / 60);
-            const s = Math.floor(globalAudio.currentTime % 60);
-            timeLabel.innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
-        }
-    });
-
-    globalAudio.addEventListener('ended', () => {
-        if (!currentPlayingId) return;
-        const btn = document.getElementById(`btn-${currentPlayingId}`);
-        if(btn) btn.querySelector('i').className = 'fa-solid fa-play';
-        const slider = document.getElementById(`slider-${currentPlayingId}`);
-        if(slider) {
-            slider.value = 0;
-            document.getElementById(`fill-${currentPlayingId}`).style.width = '0%';
-            document.getElementById(`current-${currentPlayingId}`).innerText = '0:00';
-        }
-        currentPlayingId = null;
-    });
-}
-
-function togglePlay(fileId) {
-    const btn = document.getElementById(`btn-${fileId}`);
-    const icon = btn.querySelector('i');
-
-    if (currentPlayingId === fileId) {
-        if (globalAudio.paused) {
-            globalAudio.play();
-            icon.className = 'fa-solid fa-pause';
-        } else {
-            globalAudio.pause();
-            icon.className = 'fa-solid fa-play';
-        }
-        return;
-    }
-
-    if (currentPlayingId) {
-        const oldBtn = document.getElementById(`btn-${currentPlayingId}`);
-        if(oldBtn) oldBtn.querySelector('i').className = 'fa-solid fa-play';
-    }
-
-    currentPlayingId = fileId;
-    icon.className = 'fa-solid fa-circle-notch fa-spin';
-
-    const token = state.userToken || localStorage.getItem('userToken');
-    const streamUrl = `${API_BASE_URL}/messages/stream?fileId=${encodeURIComponent(fileId)}&userToken=${encodeURIComponent(token)}`;
-    
-    globalAudio.src = streamUrl;
-    globalAudio.play().then(() => {
-        icon.className = 'fa-solid fa-pause';
-    }).catch(err => {
-        icon.className = 'fa-solid fa-triangle-exclamation';
-    });
-}
-
-function seekAudio(fileId, percentValue) {
-    const fill = document.getElementById(`fill-${fileId}`);
-    if(fill) fill.style.width = percentValue + '%';
-    if (currentPlayingId === fileId && globalAudio.duration) {
-        globalAudio.currentTime = (percentValue / 100) * globalAudio.duration;
-    }
-}
-
-// ================= תהליכי מנהל =================
-async function adminLogin(e) {
-    if (e) e.preventDefault();
-    const username = document.getElementById('admin_user').value;
-    const password = document.getElementById('admin_pass').value;
-
-    setLoading('btn-admin-login', true);
-    try {
-        const res = await fetch(`${API_BASE_URL}/admin/login`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-        const data = await res.json();
-        setLoading('btn-admin-login', false, 'התחברות מאובטחת');
-
-        if (!res.ok) {
-            showMessage('alert-admin-login', data.error || 'פרטי מנהל שגויים', 'error');
-            return;
-        }
-
-        state.adminToken = data.adminToken;
-        localStorage.setItem('adminToken', data.adminToken);
-        
-        showView('admin-dash-view');
-        loadAdminUsers();
-    } catch (err) {
-        setLoading('btn-admin-login', false, 'התחברות מאובטחת');
-        showMessage('alert-admin-login', 'שגיאת תקשורת. השרת לא זמין.', 'error');
-    }
-}
-
-async function loadAdminUsers() {
-    if (!state.adminToken) return;
-    const tbody = document.getElementById('admin-users-table-body');
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען נתונים...</td></tr>';
-    setLoading('btn-refresh-users', true);
-    try {
-        const res = await fetch(`${API_BASE_URL}/admin/users`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ adminToken: state.adminToken })
-        });
-        const data = await res.json();
-        setLoading('btn-refresh-users', false, '<i class="fa-solid fa-rotate-right"></i> רענן נתונים');
-        
-        if (!res.ok) {
-            if (res.status === 401 || res.status === 403) {
-                logout(); return;
-            }
-            showMessage('alert-admin-dash', data.error || 'שגיאה', 'error');
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-state" style="color:var(--danger);">שגיאה בטעינה</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="7" class="empty-state" style="color:red;">שגיאה: ${data.error || 'לא ניתן לטעון לוגים'}</td></tr>`;
             return;
         }
 
         tbody.innerHTML = '';
-        if(data.users.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">אין משתמשים.</td></tr>';
+        if(data.logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">אין רישומי אימות במערכת.</td></tr>';
             return;
         }
 
-        data.users.forEach(user => {
-            const isTz = (user.connectedToTzintukim === 'yes' || user.connectedToTzintukim === true || user.connectedToTzintukim === '1');
-            const badgeHtml = isTz ? '<span class="status-ok">פעיל</span>' : '<span class="status-bad">מנותק</span>';
-            const uploadHtml = user.canUpload ? '<span class="status-ok">מורשה</span>' : '<span class="status-bad">חסום</span>';
-            
+        data.logs.forEach(log => {
+            // עיצוב הסטטוס בצבעים
+            let statusBadge = '';
+            switch(log.status) {
+                case 'pending': statusBadge = '<span class="badge info">ממתין לקוד</span>'; break;
+                case 'verified': statusBadge = '<span class="badge success">אומת בהצלחה</span>'; break;
+                case 'used': statusBadge = '<span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;">נוצל לרישום</span>'; break;
+                case 'failed': statusBadge = '<span class="badge error">נכשל / שגוי</span>'; break;
+                default: statusBadge = `<span class="badge">${log.status}</span>`;
+            }
+
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td style="font-weight:700; direction:ltr; text-align:right;">${user.phone}</td>
-                <td>${user.name || ''}</td>
-                <td dir="ltr" style="text-align:right;">${user.email || '-'}</td>
-                <td style="font-family:monospace;">${user.password}</td>
-                <td>${badgeHtml}</td>
-                <td>${uploadHtml}</td>
-                <td><button class="actions-btn" onclick="openAdminModal('${user.phone}', '${user.email || ''}', ${user.canUpload})"><i class="fa-solid fa-pen"></i> עריכה</button></td>
+                <td dir="ltr" style="text-align:right; font-size:0.85rem; color:var(--text-light);">${log.created_at}</td>
+                <td style="font-weight:600; direction:ltr; text-align:right;">${log.phone}</td>
+                <td dir="ltr" style="text-align:right; font-family:monospace; font-size:0.9rem;">${log.ip_address}</td>
+                <td>${log.intent === 'register' ? 'הרשמה' : log.intent}</td>
+                <td style="font-family:monospace; letter-spacing:1px; font-weight:bold;">${log.code || '-'}</td>
+                <td>${statusBadge}</td>
+                <td>${log.attempts} / 3</td>
             `;
             tbody.appendChild(tr);
         });
     } catch (err) {
-        setLoading('btn-refresh-users', false, '<i class="fa-solid fa-rotate-right"></i> רענן נתונים');
-        showMessage('alert-admin-dash', 'שגיאת שרת', 'error');
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state" style="color:red;">שגיאת תקשורת בשליפת לוגים</td></tr>';
     }
 }
 
-function openAdminModal(phone, email, canUpload) {
-    document.getElementById('modal_phone').value = phone;
-    document.getElementById('modal_email').value = email;
-    document.getElementById('modal_password').value = '';
-    
-    // קביעת מצב הצ'ק-בוקס לפי ההרשאה הנוכחית של המשתמש
-    const checkbox = document.getElementById('modal_can_upload');
-    if(checkbox) checkbox.checked = canUpload;
-    
-    document.getElementById('alert-modal').style.display = 'none';
-    document.getElementById('adminEditModal').classList.add('active');
-}
-
-function closeAdminModal() {
-    document.getElementById('adminEditModal').classList.remove('active');
-}
-
-async function submitAdminUpdate(e) {
-    if (e) e.preventDefault();
-    const phone = document.getElementById('modal_phone').value;
-    const newEmail = document.getElementById('modal_email').value;
-    const newPassword = document.getElementById('modal_password').value;
-    
-    // שליפת הסטטוס החדש של תיבת הסימון
-    const checkbox = document.getElementById('modal_can_upload');
-    const canUpload = checkbox ? checkbox.checked : false;
-
-    setLoading('btn-modal-save', true);
+// 2. טעינת טבלת החסימות הפעילות
+async function loadVerifyBlocks() {
+    if (!state.adminToken) return;
+    const tbody = document.getElementById('admin-blocks-table-body');
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען חסימות אבטחה...</td></tr>';
     
     try {
-        const res = await fetch(`${API_BASE_URL}/admin/update-user`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ adminToken: state.adminToken, phone, newEmail, newPassword, canUpload })
+        const res = await fetch(`${API_BASE_URL}/verify/admin/blocks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adminToken: state.adminToken })
         });
         const data = await res.json();
-        setLoading('btn-modal-save', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
         
         if (!res.ok) {
-            showMessage('alert-modal', data.error || 'עדכון נכשל', 'error');
+            tbody.innerHTML = `<tr><td colspan="6" class="empty-state" style="color:red;">שגיאה בטעינת חסימות</td></tr>`;
             return;
         }
 
-        closeAdminModal();
-        showMessage('alert-admin-dash', 'המשתמש עודכן בהצלחה!', 'success');
-        loadAdminUsers();
+        tbody.innerHTML = '';
+        if(data.blocks.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state" style="color:var(--success);"><i class="fa-solid fa-shield-check"></i> אין חסימות פעילות כרגע. המערכת נקייה.</td></tr>';
+            return;
+        }
+
+        data.blocks.forEach(block => {
+            const tr = document.createElement('tr');
+            const typeLabel = block.block_type === 'ip' ? 'כתובת IP' : 'מספר טלפון';
+            const typeIcon = block.block_type === 'ip' ? '<i class="fa-solid fa-network-wired"></i>' : '<i class="fa-solid fa-phone"></i>';
+            
+            tr.innerHTML = `
+                <td>${typeIcon} ${typeLabel}</td>
+                <td dir="ltr" style="text-align:right; font-weight:bold; color:var(--danger);">${block.block_value}</td>
+                <td>${block.reason || 'לא צוינה סיבה'}</td>
+                <td dir="ltr" style="text-align:right; font-size:0.85rem;">${block.created_at}</td>
+                <td dir="ltr" style="text-align:right; font-size:0.85rem; color:var(--text-light);">${block.expires_at}</td>
+                <td>
+                    <button class="actions-btn" style="background:var(--success); color:white; border:none;" onclick="unblockTarget('${block.block_value}')">
+                        <i class="fa-solid fa-unlock"></i> שחרר
+                    </button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
     } catch (err) {
-        setLoading('btn-modal-save', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
-        showMessage('alert-modal', 'שגיאת רשת', 'error');
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state" style="color:red;">שגיאת רשת בשליפת חסימות</td></tr>';
     }
 }
 
-function logout() {
-    state = { userToken: null, currentUser: null, adminToken: null, tempIdentifier: null, sessionId: null };
-    localStorage.removeItem('userToken');
-    localStorage.removeItem('adminToken');
-    if (pollingInterval) clearInterval(pollingInterval);
+// 3. הוספת חסימה ידנית (טלפון או IP)
+async function submitManualBlock(e) {
+    e.preventDefault();
+    if (!state.adminToken) return;
+
+    const btn = document.getElementById('btn-submit-block');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מבצע...';
+    btn.disabled = true;
+
+    const blockType = document.getElementById('block_type').value;
+    const blockValue = document.getElementById('block_value').value.trim();
+    const reason = document.getElementById('block_reason').value.trim() || 'חסימה ידנית על ידי מנהל';
+    const durationValue = document.getElementById('block_duration').value;
+    const durationUnit = document.getElementById('block_unit').value;
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/verify/admin/block`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                adminToken: state.adminToken, 
+                type: blockType, 
+                value: blockValue, 
+                reason: reason, 
+                durationValue: parseInt(durationValue), 
+                durationUnit: durationUnit 
+            })
+        });
+        const data = await res.json();
+        
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+
+        if (res.ok && data.success) {
+            alert('החסימה בוצעה בהצלחה!');
+            document.getElementById('manual-block-form').reset();
+            loadVerifyBlocks(); // רענון טבלה
+        } else {
+            alert('שגיאה: ' + (data.error || 'פעולת החסימה נכשלה'));
+        }
+    } catch (err) {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        alert('שגיאת תקשורת מול השרת');
+    }
+}
+
+// 4. שחרור חסימה (Unblock)
+async function unblockTarget(targetValue) {
+    if (!state.adminToken) return;
+    if (!confirm(`האם אתה בטוח שברצונך לשחרר את החסימה עבור: ${targetValue}?`)) return;
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/verify/admin/unblock`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adminToken: state.adminToken, target: targetValue })
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+            loadVerifyBlocks(); // רענון מהיר של הטבלה
+        } else {
+            alert('שגיאה בשחרור: ' + (data.error || ''));
+        }
+    } catch (err) {
+        alert('שגיאת תקשורת');
+    }
+}
+
+// 5. ניקוי לוגים ישנים (שמירה על ביצועי מסד נתונים)
+async function cleanOldLogs() {
+    if (!state.adminToken) return;
+    if (!confirm('פעולה זו תמחק את כל הלוגים שפג תוקפם או שהם בני יותר משבוע. להמשיך?')) return;
+
+    const btn = document.getElementById('btn-clean-logs');
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מנקה...';
     
-    document.querySelectorAll('input').forEach(input => input.value = ''); 
-    if(globalAudio) { globalAudio.pause(); globalAudio.src = ''; }
-    
-    const path = window.location.pathname;
-    if (path.includes('/admin')) {
-        showView('admin-login-view');
-    } else {
-        showView('init-view');
+    try {
+        const res = await fetch(`${API_BASE_URL}/verify/admin/clean`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adminToken: state.adminToken })
+        });
+        const data = await res.json();
+        
+        btn.innerHTML = '<i class="fa-solid fa-broom"></i> נקה לוגים ישנים';
+        
+        if (res.ok && data.success) {
+            alert(`ניקוי הושלם. נמחקו ${data.deletedCount} רשומות ישנות.`);
+            loadVerifyLogs(); // רענון טבלת לוגים
+        } else {
+            alert('שגיאה בניקוי: ' + (data.error || ''));
+        }
+    } catch (err) {
+        btn.innerHTML = '<i class="fa-solid fa-broom"></i> נקה לוגים ישנים';
+        alert('שגיאת תקשורת');
     }
 }
