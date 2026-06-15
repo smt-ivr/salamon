@@ -32,7 +32,7 @@ const cssContent = `:root {
 
 body { background-color: var(--bg-color); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; overflow-x: hidden; }
 
-/* Header של האתר */
+/* Header של האתר (רק לאזור התחברות/מנהל) */
 header { background-color: var(--surface); padding: 15px 40px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: var(--shadow-sm); }
 .logo { font-size: 1.4rem; font-weight: 800; color: var(--text-dark); display: flex; align-items: center; gap: 8px; letter-spacing: -0.5px; }
 .logo-icon { color: var(--secondary); }
@@ -89,7 +89,7 @@ h1, h2 { color: var(--text-dark); margin-bottom: 8px; font-weight: 800; }
 .btn-text:hover { color: var(--text-dark); }
 .small-btn { padding: 8px 16px; width: auto; font-size: 0.9rem; }
 
-/* עיצוב פאנל מנהלים קודם */
+/* עיצוב פאנל מנהלים */
 .admin-card { border-top: 4px solid var(--secondary); }
 .admin-shield { font-size: 2.5rem; text-align: center; margin-bottom: 15px; color: var(--secondary); }
 .admin-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 25px; border-bottom: 1px solid var(--border); padding-bottom: 15px; }
@@ -115,10 +115,25 @@ h1, h2 { color: var(--text-dark); margin-bottom: 8px; font-weight: 800; }
 .modal-content { max-width: 400px; }
 
 /* =======================================
-   עיצוב אזור הצ'אט החדש (משתמש בלבד)
+   עיצוב אזור הצ'אט החדש (משתמש בלבד) - Web App Full Screen
    ======================================= */
-.app-sidebar { width: 320px; padding: 0 !important; overflow: hidden; border-radius: var(--radius-lg); background: #fff;}
-.app-main-area { height: calc(100vh - 150px); min-height: 500px;} /* למנוע חריגות מהמסך במחשב */
+#user-dash-view.dashboard-layout.active {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 999; /* מכסה את האתר לחלוטין */
+    background: var(--chat-bg);
+    margin: 0;
+    padding: 0;
+    max-width: none;
+    border: none;
+    border-radius: 0;
+}
+
+.app-sidebar { width: 320px; padding: 0 !important; overflow: hidden; border-radius: 0; background: #fff; height: 100vh; border-left: 1px solid var(--border); box-shadow: none;}
+.app-main-area { flex: 1; height: 100vh; border: none; border-radius: 0; box-shadow: none; background: var(--chat-bg);}
 
 /* קסם הגלילה! (column-reverse) */
 .messages-chat-container {
@@ -166,8 +181,8 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
 
 /* מובייל (עבור המסך החדש של המשתמש) */
 @media (max-width: 768px) {
-    #user-dash-view.dashboard-layout { flex-direction: column; background: #fff;}
-    .app-sidebar { width: 100%; border-radius: 0; border-bottom: 1px solid var(--border);}
+    #user-dash-view.dashboard-layout.active { flex-direction: column; background: #fff;}
+    .app-sidebar { width: 100%; height: auto; border-radius: 0; border-bottom: 1px solid var(--border); border-left: none;}
     
     /* העברת תפריט המשתמש ללמטה! */
     .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--header-bg); border-top: 1px solid var(--border); z-index: 100; flex-direction: row; justify-content: space-around; padding-bottom: env(safe-area-inset-bottom); }
@@ -176,7 +191,6 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
     
     .app-main-area { height: calc(100vh - 200px); border-radius: 0; border: none;}
     .bubble { max-width: 90%; }
-    header#main-header { display: none; } /* במובייל המחובר לא צריך את ההאדר הכללי */
 }
 `;
 
