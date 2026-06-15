@@ -242,11 +242,12 @@ const htmlContent = `<!DOCTYPE html>
                                     <th>אימייל</th>
                                     <th>סיסמה</th>
                                     <th>צינתוקים</th>
+                                    <th>הרשאת העלאה</th>
                                     <th>פעולות</th>
                                 </tr>
                             </thead>
                             <tbody id="admin-users-table-body">
-                                <tr><td colspan="6" class="empty-state">יש ללחוץ על "רענן נתונים"</td></tr>
+                                <tr><td colspan="7" class="empty-state">יש ללחוץ על "רענן נתונים"</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -339,7 +340,9 @@ const htmlContent = `<!DOCTYPE html>
             </div>
         </main>
 
-    </div> <div class="modal-overlay" id="adminEditModal">
+    </div> 
+    
+    <div class="modal-overlay" id="adminEditModal">
         <div class="modal-content">
             <h2 style="margin-bottom: 20px;">עריכת משתמש</h2>
             <div id="alert-modal" class="alert-box"></div>
@@ -356,6 +359,12 @@ const htmlContent = `<!DOCTYPE html>
                     <label>סיסמה חדשה</label>
                     <input type="text" id="modal_password" class="ltr-input input-modern">
                 </div>
+                
+                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 15px; padding: 10px; background: #f8fafc; border-radius: 8px;">
+                    <input type="checkbox" id="modal_can_upload" style="width: 20px; height: 20px; cursor: pointer;">
+                    <label for="modal_can_upload" style="margin: 0; font-size: 0.95rem; cursor: pointer; color: var(--text-main);">מורשה להעלות הודעות לאתר</label>
+                </div>
+
                 <div style="margin-top: 30px; display: flex; gap: 10px;">
                     <button type="button" class="btn-text" onclick="closeAdminModal()">ביטול</button>
                     <button type="submit" id="btn-modal-save" class="btn-primary" style="flex: 1; background: var(--secondary);">שמור שינויים <i class="fa-solid fa-check"></i></button>
