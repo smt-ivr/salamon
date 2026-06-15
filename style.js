@@ -101,7 +101,7 @@ body {
 .app-tab.active { display: flex; }
 .scrollable-tab { overflow-y: auto !important; padding: 30px; }
 
-/* ================== עיצוב צ'אט (column-reverse) ================== */
+/* ================== עיצוב צ'אט ================== */
 .chat-header-fixed { height: 65px; background: var(--header-bg); padding: 0 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color); z-index: 10; flex-shrink: 0; }
 .header-title-group { display: flex; align-items: center; gap: 15px; }
 .header-icon { width: 40px; height: 40px; border-radius: 50%; background: #cbd5e1; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: #fff; }
@@ -144,85 +144,16 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
 .date-divider span { background: var(--header-bg); padding: 6px 14px; border-radius: 8px; font-size: 0.8rem; color: var(--text-light); box-shadow: 0 1px 1px rgba(0,0,0,0.06); font-weight: 600; }
 .loading-state { text-align: center; padding: 40px; color: var(--text-light); font-weight: 600; font-size: 1.1rem; width: 100%;}
 
-/* ================== אזור העלאת קבצים (עיצוב צ'אט מקצועי) ================== */
-.chat-upload-area {
-    height: auto;
-    min-height: 70px;
-    background: var(--chat-bg);
-    padding: 10px 15px;
-    display: flex;
-    align-items: flex-end;
-    gap: 10px;
-    border-top: none;
-    flex-shrink: 0;
-    transition: 0.3s ease;
-}
-
-/* מצב חסום ומוצלל לחלוטין כשאין הרשאה */
-.chat-upload-area.disabled {
-    background: #9ca3af;
-    pointer-events: none;
-    filter: grayscale(100%);
-    opacity: 0.8;
-}
-
-.chat-upload-area.disabled .chat-input-wrapper {
-    background: #e5e7eb;
-}
-
-.chat-upload-area.disabled .upload-status {
-    color: #374151;
-    font-weight: 700;
-}
-
-/* בועת הטקסט והאטב */
-.chat-input-wrapper {
-    flex: 1;
-    background: #ffffff;
-    border-radius: 24px;
-    min-height: 48px;
-    padding: 5px 10px 5px 15px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
-    transition: 0.3s ease;
-}
-
-.upload-status {
-    flex: 1;
-    font-size: 0.95rem;
-    color: var(--text-light);
-    padding-right: 10px;
-    user-select: none;
-}
-
-.upload-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2rem;
-    cursor: pointer;
-    transition: 0.2s;
-    flex-shrink: 0;
-    border: none;
-    background: transparent;
-    color: var(--text-light);
-}
+/* ================== אזור העלאת קבצים ================== */
+.chat-upload-area { height: auto; min-height: 70px; background: var(--chat-bg); padding: 10px 15px; display: flex; align-items: flex-end; gap: 10px; flex-shrink: 0; transition: 0.3s ease; }
+.chat-upload-area.disabled { background: #9ca3af; pointer-events: none; filter: grayscale(100%); opacity: 0.8; }
+.chat-upload-area.disabled .chat-input-wrapper { background: #e5e7eb; }
+.chat-upload-area.disabled .upload-status { color: #374151; font-weight: 700; }
+.chat-input-wrapper { flex: 1; background: #ffffff; border-radius: 24px; min-height: 48px; padding: 5px 10px 5px 15px; display: flex; align-items: center; gap: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.08); transition: 0.3s ease; }
+.upload-status { flex: 1; font-size: 0.95rem; color: var(--text-light); padding-right: 10px; user-select: none; }
+.upload-btn { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; transition: 0.2s; flex-shrink: 0; border: none; background: transparent; color: var(--text-light); }
 .upload-btn:hover { color: var(--text-dark); }
-
-/* כפתור מיקרופון נפרד ובולט */
-.record-btn {
-    background: var(--play-out);
-    color: white;
-    width: 48px;
-    height: 48px;
-    font-size: 1.3rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-}
+.record-btn { background: var(--play-out); color: white; width: 48px; height: 48px; font-size: 1.3rem; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
 .record-btn:hover { background: #15803d; color: white; transform: scale(1.05); }
 
 /* ================== מסך הגדרות וניהול ================== */
@@ -239,79 +170,84 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
 .actions-btn { background: var(--header-bg); border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
 .actions-btn:hover { background: var(--secondary); color: white; border-color: var(--secondary); }
 
-/* מודלים (Popups) */
+/* מודלים כללי (Popups) */
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
 .modal-overlay.active { display: flex; }
 .modal-content { background: var(--surface); padding: 30px; border-radius: 12px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
 
-/* ================== מודל הקלטה והעלאה (חדש) ================== */
-.text-center { text-align: center; }
-.recording-pulse {
-    width: 75px; height: 75px; background: #fee2e2; color: var(--danger);
-    border-radius: 50%; display: flex; align-items: center; justify-content: center;
-    font-size: 2.2rem; margin: 10px auto;
-    animation: pulseBig 1.5s infinite;
-    box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2);
-}
-@keyframes pulseBig {
-    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
-    70% { transform: scale(1); box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); }
-    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-}
-.preview-audio-modern { 
-    width: 100%; margin: 10px 0; height: 45px; border-radius: 25px; outline: none;
-}
+/* ================== מודל הקלטה והעלאה - עיצוב מקצועי ================== */
+.professional-modal { max-width: 420px; padding: 0; overflow: hidden; background: #ffffff; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
+.modal-header { padding: 20px 24px; background: #f8fafc; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+.modal-header h2 { margin: 0; font-size: 1.15rem; color: var(--text-dark); display: flex; align-items: center; gap: 10px; font-weight: 700; }
+.close-modal-btn { background: none; border: none; font-size: 1.25rem; color: var(--text-light); cursor: pointer; transition: 0.2s; padding: 5px; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.close-modal-btn:hover { color: var(--danger); background: #fee2e2; }
 
-/* ================== התאמה למובייל (Bottom Nav) ================== */
+#recording-ui, #preview-ui { padding: 30px 24px; text-align: center; }
+
+/* אנימציית ויזואלייזר גלי קול */
+.recording-visualizer { display: flex; align-items: center; justify-content: center; gap: 4px; height: 60px; margin: 10px 0 20px; }
+.recording-visualizer .bar { width: 6px; background: var(--danger); border-radius: 3px; animation: bounceBar 0.5s infinite alternate; }
+.recording-visualizer .bar:nth-child(1) { height: 20%; animation-delay: 0.1s; }
+.recording-visualizer .bar:nth-child(2) { height: 50%; animation-delay: 0.2s; }
+.recording-visualizer .bar:nth-child(3) { height: 80%; animation-delay: 0.3s; }
+.recording-visualizer .bar:nth-child(4) { height: 40%; animation-delay: 0.4s; }
+.recording-visualizer .bar:nth-child(5) { height: 100%; animation-delay: 0.5s; background: #dc2626; }
+.recording-visualizer .bar:nth-child(6) { height: 60%; animation-delay: 0.4s; }
+.recording-visualizer .bar:nth-child(7) { height: 90%; animation-delay: 0.3s; }
+.recording-visualizer .bar:nth-child(8) { height: 30%; animation-delay: 0.2s; }
+.recording-visualizer .bar:nth-child(9) { height: 50%; animation-delay: 0.1s; }
+.recording-visualizer.paused .bar { animation-play-state: paused; opacity: 0.5; height: 10% !important; transition: height 0.3s ease; }
+
+@keyframes bounceBar { from { height: 20%; } to { height: 100%; } }
+
+.recording-timer-pro { font-size: 3rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text-dark); margin-bottom: 30px; letter-spacing: 2px; }
+
+/* כפתורי פעולה מקצועיים */
+.recording-actions-pro, .preview-actions-pro { display: flex; gap: 12px; justify-content: center; }
+
+.btn-pro-secondary, .btn-pro-danger, .btn-pro-outline, .btn-pro-primary { flex: 1; padding: 12px; border-radius: 10px; font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 8px; border: none; }
+
+.btn-pro-secondary { background: #f1f5f9; color: var(--text-dark); }
+.btn-pro-secondary:hover { background: #e2e8f0; }
+
+.btn-pro-danger { background: #fee2e2; color: var(--danger); }
+.btn-pro-danger:hover { background: var(--danger); color: white; }
+
+.btn-pro-outline { background: white; border: 1px solid #ef4444; color: #ef4444; }
+.btn-pro-outline:hover { background: #fef2f2; }
+
+.btn-pro-primary { background: var(--play-out); color: white; box-shadow: 0 4px 6px -1px rgba(22, 163, 74, 0.2); }
+.btn-pro-primary:hover { background: #15803d; transform: translateY(-1px); box-shadow: 0 6px 8px -1px rgba(22, 163, 74, 0.3); }
+
+/* אזור תצוגה מקדימה (Preview) */
+.preview-card { background: #f8fafc; border: 1px dashed var(--border-color); border-radius: 12px; padding: 20px; margin-bottom: 25px; }
+.file-icon-large { font-size: 2.5rem; color: var(--secondary); margin-bottom: 10px; }
+.file-info-text { font-size: 0.9rem; font-weight: 600; color: var(--text-light); margin-bottom: 15px; direction: ltr; word-break: break-all; }
+.preview-audio-modern { width: 100%; height: 40px; border-radius: 8px; outline: none; }
+
+/* ================== התאמה למובייל ================== */
 @media (max-width: 768px) {
     .app-layout { flex-direction: column; }
     .app-sidebar { width: 100%; height: auto; border-left: none; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
     
-    .nav-menu { 
-        position: fixed; bottom: 0; left: 0; right: 0; flex-direction: row; justify-content: space-around; align-items: center;
-        background: var(--header-bg); padding: 0; border-top: 1px solid var(--border-color); z-index: 100;
-        height: calc(65px + env(safe-area-inset-bottom));
-        padding-bottom: env(safe-area-inset-bottom);
-    }
+    .nav-menu { position: fixed; bottom: 0; left: 0; right: 0; flex-direction: row; justify-content: space-around; align-items: center; background: var(--header-bg); padding: 0; border-top: 1px solid var(--border-color); z-index: 100; height: calc(65px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); }
     .nav-item { flex: 1; justify-content: center; border-right: none; border-top: 3px solid transparent; flex-direction: column; gap: 4px; font-size: 0.8rem; padding: 5px 0;}
     .nav-item.active { border-top-color: var(--play-out); background: none; }
     .admin-sidebar-menu .nav-item.active { border-top-color: var(--secondary); }
     
-    .app-main-area { 
-        height: calc(100vh - 65px); 
-        height: calc(100dvh - 65px); 
-        padding-bottom: calc(65px + env(safe-area-inset-bottom)); 
-    }
-    
+    .app-main-area { height: calc(100vh - 65px); height: calc(100dvh - 65px); padding-bottom: calc(65px + env(safe-area-inset-bottom)); }
     .scrollable-tab { padding: 20px 15px; } 
     #messages-container { padding: 15px 10px; } 
     .bubble { max-width: 90%; min-width: 240px; }
     
-    .chat-upload-area {
-        padding: 8px 10px;
-        gap: 8px;
-        min-height: 60px;
-    }
-    .chat-input-wrapper {
-        padding: 4px 10px;
-        gap: 6px;
-    }
-    .upload-status {
-        font-size: 0.8rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .upload-btn {
-        width: 36px;
-        height: 36px;
-        font-size: 1.1rem;
-    }
-    .record-btn {
-        width: 44px;
-        height: 44px;
-        font-size: 1.1rem;
-    }
+    .chat-upload-area { padding: 8px 10px; gap: 8px; min-height: 60px; }
+    .chat-input-wrapper { padding: 4px 10px; gap: 6px; }
+    .upload-status { font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .upload-btn { width: 36px; height: 36px; font-size: 1.1rem; }
+    .record-btn { width: 44px; height: 44px; font-size: 1.1rem; }
+    
+    .professional-modal { max-width: 90%; border-radius: 12px; }
+    .recording-timer-pro { font-size: 2.5rem; }
 }
 `;
 
