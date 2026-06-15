@@ -6,6 +6,7 @@ let activeAlertId = null;
 
 let globalAudio = document.createElement('audio');
 let currentPlayingId = null;
+let pollingInterval = null; // משתנה לניהול בדיקת הרקע (Polling)
 
 document.addEventListener('DOMContentLoaded', () => {
     const path = window.location.pathname;
@@ -34,6 +35,28 @@ document.addEventListener('DOMContentLoaded', () => {
     setupAudioListeners();
 });
 
+// פונקציה לביצוע בדיקת רקע שקטה כל 30 שניות
+function startPolling() {
+    if (pollingInterval) clearInterval(pollingInterval);
+    pollingInterval = setInterval(async () => {
+        if (!state.userToken) return;
+        try {
+            const [identifier, password] = state.userToken.split(':');
+            const res = await fetch(`${API_BASE_URL}/login`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ identifier, password })
+            });
+            const data = await res.json();
+            if (res.ok && data.user) {
+                state.currentUser = data.user;
+                updateDashboardUI(); // מעדכן הרשאות ושמות בזמן אמת ללא רענון דף
+            }
+        } catch (e) {
+            // התעלמות משגיאות רשת שקטות ברקע
+        }
+    }, 30000);
+}
+
 async function silentLogin(token) {
     try {
         const [identifier, password] = token.split(':');
@@ -49,6 +72,7 @@ async function silentLogin(token) {
             updateDashboardUI();
             showView('user-dash-view');
             loadMessages();
+            startPolling(); // הפעלת בדיקת הרקע
         } else {
             logout();
         }
@@ -76,16 +100,13 @@ document.addEventListener('input', clearMessage);
 
 function showView(viewId) {
     clearMessage();
-    // מסתיר את שתי המעטפות הראשיות (Auth או App)
     document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
     
-    // מציג כרטיסי התחברות
     if(viewId.includes('view') && !viewId.includes('dash')) {
         document.getElementById('auth-layout').classList.add('active');
         document.querySelectorAll('.auth-card').forEach(card => card.classList.remove('active'));
         document.getElementById(viewId).classList.add('active');
     } else {
-        // מציג את המסך הראשי של המערכת
         document.getElementById(viewId).classList.add('active');
     }
 }
@@ -96,7 +117,8 @@ function switchUserTab(tabName) {
     document.getElementById('tab-' + tabName).classList.add('active');
     
     document.querySelectorAll('#user-dash-view .nav-item').forEach(li => li.classList.remove('active'));
-    document.getElementById('tab-btn-' + tabName).classList.add('active');
+    const btn = document.getElementById('tab-btn-' + tabName);
+    if(btn) btn.classList.add('active');
 }
 
 function switchAdminTab(tabName) {
@@ -105,7 +127,8 @@ function switchAdminTab(tabName) {
     document.getElementById('tab-admin-' + tabName).classList.add('active');
     
     document.querySelectorAll('#admin-dash-view .nav-item').forEach(li => li.classList.remove('active'));
-    document.getElementById('tab-btn-' + tabName).classList.add('active');
+    const btn = document.getElementById('tab-btn-' + tabName);
+    if(btn) btn.classList.add('active');
 
     if (tabName === 'users') loadAdminUsers();
     if (tabName === 'tzintuk') { loadVerifyBlocks(); loadVerifyLogs(); }
@@ -134,7 +157,6 @@ function goBackToInit() {
 }
 
 // ================= תהליכי אימות והרשמה =================
-
 async function checkIdentifier(e) {
     const identifier = document.getElementById('init_id').value.trim();
     if(!identifier) return;
@@ -295,6 +317,7 @@ async function userLogin(e) {
         updateDashboardUI();
         showView('user-dash-view');
         loadMessages();
+        startPolling(); // הפעלת בדיקת הרקע
     } catch (err) {
         setLoading('btn-login', false, 'היכנס למערכת');
         showMessage('alert-login', 'שגיאת תקשורת עם השרת', 'error');
@@ -302,16 +325,16 @@ async function userLogin(e) {
 }
 
 // ================= ניהול פרופיל והגדרות =================
-
 function updateDashboardUI() {
     const user = state.currentUser;
     if (!user) return;
     
     document.getElementById('ui-user-name').innerText = user.name || 'אורח';
     document.getElementById('ui-user-phone').innerText = user.phone;
-    document.getElementById('update_email').value = user.email || '';
-    document.getElementById('update_new_pass').value = '';
-    document.getElementById('update_old_pass').value = '';
+    
+    // מעדכן את שדות ההגדרות רק אם הם לא בפוקוס כרגע כדי לא להפריע להקלדה
+    const emailInput = document.getElementById('update_email');
+    if (document.activeElement !== emailInput) emailInput.value = user.email || '';
     
     const badge = document.getElementById('ui-tzintuk-badge');
     const isConnected = (user.connectedToTzintukim === 'yes' || user.connectedToTzintukim === true || user.connectedToTzintukim === '1');
@@ -320,6 +343,28 @@ function updateDashboardUI() {
             badge.innerHTML = '<span class="status-ok"><i class="fa-solid fa-shield-check"></i> מחובר לצינתוקים</span>';
         } else {
             badge.innerHTML = '<span class="status-bad"><i class="fa-solid fa-triangle-exclamation"></i> מנותק מצינתוקים</span>';
+        }
+    }
+
+    // ניהול הרשאות ויזואלי של אזור ההעלאה
+    const uploadArea = document.getElementById('chat-upload-area');
+    const statusText = document.getElementById('chat-upload-status');
+    const fileInput = document.getElementById('chat-file-input');
+    const recordBtn = document.getElementById('chat-record-btn');
+    
+    if (uploadArea && statusText && fileInput && recordBtn) {
+        if (user.canUpload) {
+            uploadArea.classList.remove('disabled');
+            if(!isRecording && statusText.innerText.includes('אין לך הרשאה')) statusText.innerText = 'הקלט או בחר קובץ';
+            fileInput.disabled = false;
+            recordBtn.disabled = false;
+        } else {
+            uploadArea.classList.add('disabled');
+            statusText.innerText = 'אין לך הרשאה להעלות הודעות';
+            fileInput.disabled = true;
+            recordBtn.disabled = true;
+            // ביטול הקלטה קיימת במקרה שההרשאה נשללה באמצע
+            if (isRecording) toggleChatRecording(); 
         }
     }
 }
@@ -363,8 +408,89 @@ async function updateUserProfile(e) {
     }
 }
 
-// ================= משיכת הודעות (column-reverse) =================
+// ================= העלאת קבצים והקלטה מהצ'אט =================
+let mediaRecorder;
+let audioChunks = [];
+let recordedBlob = null;
+let isRecording = false;
 
+async function toggleChatRecording() {
+    if (!state.currentUser?.canUpload) return;
+    
+    const btn = document.getElementById('chat-record-btn');
+    const statusText = document.getElementById('chat-upload-status');
+
+    if (!isRecording) {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = event => {
+                if (event.data.size > 0) audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = () => {
+                recordedBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                sendChatUpload(recordedBlob, 'recording.webm');
+            };
+
+            mediaRecorder.start();
+            isRecording = true;
+            btn.innerHTML = '<i class="fa-solid fa-stop"></i>';
+            btn.classList.add('recording-active');
+            statusText.innerText = 'מקליט... (לחץ לסיום ושליחה)';
+        } catch (err) {
+            alert("שגיאה בגישה למיקרופון: " + err.message);
+        }
+    } else {
+        mediaRecorder.stop();
+        isRecording = false;
+        btn.innerHTML = '<i class="fa-solid fa-microphone"></i>';
+        btn.classList.remove('recording-active');
+        statusText.innerText = 'מעבד ושולח...';
+        mediaRecorder.stream.getTracks().forEach(track => track.stop());
+    }
+}
+
+async function handleFileUpload(event) {
+    if (!state.currentUser?.canUpload) return;
+    const file = event.target.files[0];
+    if (!file) return;
+    sendChatUpload(file, file.name);
+    event.target.value = ''; // איפוס הקלט
+}
+
+async function sendChatUpload(fileBlob, fileName) {
+    const statusText = document.getElementById('chat-upload-status');
+    statusText.innerText = 'מעלה הודעה לשרת...';
+    
+    const formData = new FormData();
+    formData.append('userToken', state.userToken);
+    formData.append('file', fileBlob, fileName);
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/messages/upload`, {
+            method: 'POST',
+            body: formData
+        });
+        const result = await res.json();
+        
+        if (res.ok && result.success) {
+            statusText.innerText = 'ההודעה הועלתה בהצלחה!';
+            setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ'; }, 3000);
+            loadMessages(); // רענון הצ'אט כדי לראות את ההודעה החדשה
+        } else {
+            statusText.innerText = 'שגיאה: ' + (result.error || 'נכשל');
+            setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ'; }, 4000);
+        }
+    } catch (err) {
+        statusText.innerText = 'שגיאת תקשורת מול השרת';
+        setTimeout(() => { statusText.innerText = 'הקלט או בחר קובץ'; }, 4000);
+    }
+}
+
+// ================= משיכת הודעות (column-reverse) =================
 async function loadMessages() {
     const token = state.userToken || localStorage.getItem('userToken');
     if (!token) return;
@@ -534,17 +660,7 @@ function togglePlay(fileId) {
     });
 }
 
-function seekAudio(fileId, percentValue) {
-    const fill = document.getElementById(`fill-${fileId}`);
-    if(fill) fill.style.width = percentValue + '%';
-
-    if (currentPlayingId === fileId && globalAudio.duration) {
-        globalAudio.currentTime = (percentValue / 100) * globalAudio.duration;
-    }
-}
-
 // ================= תהליכי מנהל =================
-
 async function adminLogin(e) {
     const username = document.getElementById('admin_user').value;
     const password = document.getElementById('admin_pass').value;
@@ -667,6 +783,7 @@ function logout() {
     state = { userToken: null, currentUser: null, adminToken: null, tempIdentifier: null, sessionId: null };
     localStorage.removeItem('userToken');
     localStorage.removeItem('adminToken');
+    if (pollingInterval) clearInterval(pollingInterval);
     
     document.querySelectorAll('input').forEach(input => input.value = ''); 
     if(globalAudio) { globalAudio.pause(); globalAudio.src = ''; }
