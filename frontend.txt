@@ -400,7 +400,6 @@ async function updateUserProfile(e) {
     }
 }
 
-// ================= מודל התרעת הרשאות =================
 function attemptFileUpload() {
     if (!state.currentUser) return;
     if (state.currentUser.canUpload) {
@@ -414,7 +413,7 @@ function closePermissionAlert() {
     document.getElementById('permissionAlertModal').classList.remove('active');
 }
 
-// ================= העלאה, הקלטה והצינתוק החדש =================
+// ================= העלאה, הקלטה והצינתוק =================
 let mediaRecorder;
 let audioChunks = [];
 let pendingBlob = null;
@@ -560,7 +559,6 @@ function closeUploadModal() {
     }
     
     resetRecordingUI();
-    
     if (tzintukTimerInterval) clearInterval(tzintukTimerInterval);
     
     const confirmBtn = document.getElementById('btn-confirm-send');
@@ -755,11 +753,11 @@ function renderMessages(messages) {
         const senderName = msg.valName || 'מערכת';
         const durationText = msg.durationStr || '00:00';
 
-        // הוספת פח האשפה בצד השמאלי של השורה העליונה להודעות של המשתמש
+        // הוספת פח האשפה עם ID ייחודי לטובת ספינר הטעינה
         const fileIdGroup = isOut ? `
             <div class="file-id-group">
                 <span class="file-id">ID: ${fileId}</span>
-                <button class="delete-msg-btn" onclick="attemptDeleteMessage('${msg.name}')" title="מחק הודעה"><i class="fa-solid fa-trash-can"></i></button>
+                <button id="del-btn-${fileId}" class="delete-msg-btn" onclick="attemptDeleteMessage('${msg.name}', '${fileId}')" title="מחק הודעה"><i class="fa-solid fa-trash-can"></i></button>
             </div>
         ` : `<span class="file-id">ID: ${fileId}</span>`;
 
@@ -875,10 +873,20 @@ function seekAudio(fileId, percentValue) {
 // ================= מחיקת הודעה חכמה =================
 let pendingDeleteFileName = null;
 
-// פונקציה 1: בודקת מול השרת אם מותר למחוק (לפני הקפצת ה"בטוח?")
-async function attemptDeleteMessage(fileName) {
+// פונקציה 1: בודקת הרשאה עם ספינר על הכפתור
+async function attemptDeleteMessage(fileName, fileId) {
     if (globalAudio && !globalAudio.paused) globalAudio.pause();
     
+    const btn = document.getElementById(`del-btn-${fileId}`);
+    let originalHtml = '';
+    
+    // שינוי הכפתור למצב טעינה ונעילה
+    if (btn) {
+        originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+        btn.disabled = true;
+    }
+
     try {
         const res = await fetch(`${API_BASE_URL}/messages/check-delete`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -886,18 +894,26 @@ async function attemptDeleteMessage(fileName) {
         });
         const data = await res.json();
         
+        // החזרת הכפתור למצבו הרגיל
+        if (btn) {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+
         if (res.ok && data.success) {
-            // השרת אישר. נציג את השאלה במודל
             pendingDeleteFileName = fileName;
             document.getElementById('delete-status-msg').style.display = 'none';
             document.getElementById('delete-action-buttons').style.display = 'flex';
             document.getElementById('delete-modal-texts').style.display = 'block';
             document.getElementById('deleteConfirmModal').classList.add('active');
         } else {
-            // נדחה על ידי השרת - מציג במודל השגיאה החדש
-            showErrorModal("לא ניתן למחוק", (data.message || 'סיבה לא ידועה.') + "<br><br>במידת הצורך ניתן לפנות להנהלת המערכת.");
+            showErrorModal("לא ניתן למחוק", (data.message || 'סיבה לא ידועה.'));
         }
     } catch (err) {
+        if (btn) {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
         showErrorModal("שגיאת תקשורת", "אירעה שגיאה בבדיקת הרשאת המחיקה.");
     }
 }
@@ -912,7 +928,7 @@ function closeDeleteModal() {
     }
 }
 
-// פונקציה 2: ביצוע המחיקה הסופית בלחיצת אישור
+// פונקציה 2: מחיקה בפועל מהמודל
 async function confirmDeleteMessage() {
     if (!pendingDeleteFileName) return;
     
@@ -936,13 +952,11 @@ async function confirmDeleteMessage() {
             statusMsg.className = 'tzintuk-status-msg success';
             statusMsg.innerHTML = '<i class="fa-solid fa-check"></i> ' + data.message;
             
-            loadMessages(); // מרענן את ההודעות, ההודעה תעלם מהמסך
-            
+            loadMessages(); 
             setTimeout(() => { closeDeleteModal(); }, 3000);
         } else {
             statusMsg.className = 'tzintuk-status-msg error';
             statusMsg.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + (data.message || 'הפעולה נכשלה');
-            
             setTimeout(() => { closeDeleteModal(); }, 5000);
         }
     } catch (err) {
@@ -957,7 +971,7 @@ async function confirmDeleteMessage() {
     }
 }
 
-// פונקציות להצגת הודעת שגיאה כללית מעוצבת
+// הודעת שגיאה כללית
 function showErrorModal(title, text) {
     document.getElementById('errorModalTitle').innerHTML = title;
     document.getElementById('errorModalText').innerHTML = text;
