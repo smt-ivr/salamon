@@ -146,7 +146,8 @@ body {
 .file-id-group { display: flex; align-items: center; gap: 10px; direction: ltr; }
 .file-id { font-size: 0.75rem; color: #8696a0; font-family: monospace; font-weight: 600;}
 .delete-msg-btn { background: transparent; border: none; color: #ef4444; font-size: 1.05rem; cursor: pointer; opacity: 0.7; transition: 0.2s; padding: 3px; display: flex; align-items: center; justify-content: center; }
-.delete-msg-btn:hover { opacity: 1; transform: scale(1.1); color: #dc2626; }
+.delete-msg-btn:hover:not(:disabled) { opacity: 1; transform: scale(1.1); color: #dc2626; }
+.delete-msg-btn:disabled { opacity: 0.5; cursor: not-allowed; color: #94a3b8; transform: none; }
 
 .audio-player { display: flex; align-items: center; gap: 12px; padding: 4px 0; direction: ltr; }
 .play-btn-circle { width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; color: white; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 1.3rem; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.15);}
