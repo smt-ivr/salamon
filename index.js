@@ -452,7 +452,7 @@ const htmlContent = `<!DOCTYPE html>
                          ביטול וסיום
                     </button>
                     <button type="button" class="btn-pro-primary" id="btn-send-tzintuk" onclick="triggerTzintuk()">
-                        <i class="fa-solid fa-phone-volume" style="margin-left: 5px;"></i> צינתוק עכשיו
+                        <i class="fa-solid fa-phone-volume" style="margin-left: 5px;"></i> שלח צינתוק עכשיו
                     </button>
                 </div>
             </div>
