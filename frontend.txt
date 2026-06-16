@@ -166,7 +166,6 @@ async function checkIdentifier(e) {
         });
         const data = await res.json();
         setLoading('btn-init', false, 'המשך <i class="fa-solid fa-arrow-left"></i>');
-
         if (data.isRegistered) {
             state.tempIdentifier = data.identifier;
             document.getElementById('login_display_id').innerText = data.identifier;
@@ -218,7 +217,6 @@ async function verifyPhoneCode(e) {
     if (e) e.preventDefault();
     const code = document.getElementById('verify_code').value.trim();
     setLoading('btn-verify', true);
-
     try {
         const res = await fetch(`${API_BASE_URL}/verify/check`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -226,7 +224,6 @@ async function verifyPhoneCode(e) {
         });
         const data = await res.json();
         setLoading('btn-verify', false, 'אמת והמשך <i class="fa-solid fa-shield-check"></i>');
-
         if (res.ok && data.success) {
             document.getElementById('reg_display_phone').innerText = state.tempIdentifier;
             showView('register-view');
@@ -277,7 +274,6 @@ async function userRegister(e) {
         });
         const data = await res.json();
         setLoading('btn-register', false, 'סיום הרשמה <i class="fa-solid fa-check"></i>');
-
         if (!res.ok) {
             showMessage('alert-register', data.error || 'שגיאה ברישום', 'error');
             return;
@@ -324,7 +320,7 @@ async function userLogin(e) {
     }
 }
 
-// ================= ניהול פרופיל, הגדרות והרשאות נפרדות =================
+// ================= ניהול פרופיל והגדרות =================
 function updateDashboardUI() {
     const user = state.currentUser;
     if (!user) return;
@@ -345,14 +341,11 @@ function updateDashboardUI() {
         }
     }
 
-    // ניהול הרשאות נפרד לצ'אט (הקלטה והעלאה)
     const uploadArea = document.getElementById('chat-upload-area');
     const statusText = document.getElementById('chat-upload-status');
     const recordBtn = document.getElementById('chat-record-btn');
     const attachBtn = document.getElementById('chat-attach-btn');
-    
     if (uploadArea && statusText && recordBtn && attachBtn) {
-        // איפוס מצבים
         uploadArea.classList.remove('disabled');
         recordBtn.classList.remove('disabled');
         attachBtn.classList.remove('disabled');
@@ -364,10 +357,6 @@ function updateDashboardUI() {
             statusText.innerText = 'הקלטה חסומה (ניתן להעלות קובץ)';
         }
 
-        // אם אין לו הרשאת העלאה אנחנו משאירים את הכפתור פעיל למראה כדי שיקפיץ את מודל ההתרעה בלחיצה, 
-        // אבל אפשר לצבוע אותו באפור בהיר אם רוצים. כרגע נשאיר אותו רגיל.
-
-        // אם שניהם חסומים - חוסמים ויזואלית את כל האזור התחתון
         if (!user.canRecord && !user.canUpload) {
             uploadArea.classList.add('disabled');
             statusText.innerText = 'אין לך הרשאות כתיבה או העלאה למערכת';
@@ -376,13 +365,11 @@ function updateDashboardUI() {
 }
 
 async function updateUserProfile(e) {
-    if (e) e.preventDefault(); 
-    
+    if (e) e.preventDefault();
     const oldPassword = document.getElementById('update_old_pass').value;
     const newPassword = document.getElementById('update_new_pass').value;
     const newEmail = document.getElementById('update_email').value;
     setLoading('btn-update', true);
-
     try {
         const res = await fetch(`${API_BASE_URL}/update-profile`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -390,7 +377,6 @@ async function updateUserProfile(e) {
         });
         const data = await res.json();
         setLoading('btn-update', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
-
         if (!res.ok) {
             if(res.status === 401 || res.status === 403) {
                 logout();
@@ -414,15 +400,12 @@ async function updateUserProfile(e) {
     }
 }
 
-// ================= מודל התרעת הרשאות (כפתור העלאה) =================
+// ================= מודל התרעת הרשאות =================
 function attemptFileUpload() {
     if (!state.currentUser) return;
-    
-    // בדיקת הרשאת העלאה
     if (state.currentUser.canUpload) {
         document.getElementById('chat-file-input').click();
     } else {
-        // פתיחת מודל ההתרעה הקטן
         document.getElementById('permissionAlertModal').classList.add('active');
     }
 }
@@ -431,13 +414,17 @@ function closePermissionAlert() {
     document.getElementById('permissionAlertModal').classList.remove('active');
 }
 
-// ================= העלאת קבצים והקלטה מהצ'אט =================
+// ================= העלאה, הקלטה והצינתוק החדש =================
 let mediaRecorder;
 let audioChunks = [];
 let pendingBlob = null;
 let pendingFileName = "";
 let recordingTimerInterval = null;
 let recordingSeconds = 0;
+
+// -- משתנים למודל הצינתוק (המתנה וטיימר 90 שניות) --
+let tzintukTimerInterval = null;
+let tzintukSecondsLeft = 90;
 
 function resetRecordingUI() {
     const pauseBtn = document.getElementById('btn-pause-resume');
@@ -452,9 +439,7 @@ function resetRecordingUI() {
 }
 
 async function toggleChatRecording() {
-    // בדיקת הרשאת הקלטה מהמיקרופון בלבד
     if (!state.currentUser?.canRecord) return;
-    
     if (globalAudio && !globalAudio.paused) globalAudio.pause();
 
     try {
@@ -475,14 +460,15 @@ async function toggleChatRecording() {
 
         resetRecordingUI(); 
         mediaRecorder.start();
-        
         document.getElementById('review-title').innerHTML = '<i class="fa-solid fa-microphone"></i> מקליט כעת...';
+        
+        // הצגת ה-UI הנכון
         document.getElementById('recording-ui').style.display = 'block';
         document.getElementById('preview-ui').style.display = 'none';
+        document.getElementById('upload-success-ui').style.display = 'none';
+        
         document.getElementById('uploadReviewModal').classList.add('active');
-        
         startRecordingTimer();
-        
     } catch (err) {
         alert("שגיאה בגישה למיקרופון: יש לאשר הרשאת מיקרופון לדפדפן בהגדרות המכשיר.");
     }
@@ -492,17 +478,16 @@ function togglePauseResumeRecording() {
     const btn = document.getElementById('btn-pause-resume');
     const visualizer = document.querySelector('.recording-visualizer');
     if (!mediaRecorder) return;
-    
     if (mediaRecorder.state === 'recording') {
         mediaRecorder.pause();
         stopRecordingTimer();
         btn.innerHTML = '<span class="icon-wrap"><i class="fa-solid fa-play"></i></span> המשך';
-        if (visualizer) visualizer.classList.add('paused'); 
+        if (visualizer) visualizer.classList.add('paused');
     } else if (mediaRecorder.state === 'paused') {
         mediaRecorder.resume();
         startRecordingTimer(false);
         btn.innerHTML = '<span class="icon-wrap"><i class="fa-solid fa-pause"></i></span> השהה';
-        if (visualizer) visualizer.classList.remove('paused'); 
+        if (visualizer) visualizer.classList.remove('paused');
     }
 }
 
@@ -533,7 +518,6 @@ function updateTimerDisplay() {
 }
 
 function handleFileUpload(event) {
-    // השלב הזה קורה רק אם באמת יש הרשאה והחלון נפתח (נבדק ב attemptFileUpload)
     const file = event.target.files[0];
     if (!file) return;
     
@@ -541,16 +525,15 @@ function handleFileUpload(event) {
     
     pendingBlob = file;
     pendingFileName = file.name;
-    
     document.getElementById('review-title').innerHTML = '<i class="fa-solid fa-file-audio"></i> אישור קובץ';
     showPreviewUI();
     document.getElementById('uploadReviewModal').classList.add('active');
-    
-    event.target.value = ''; 
+    event.target.value = '';
 }
 
 function showPreviewUI() {
     document.getElementById('recording-ui').style.display = 'none';
+    document.getElementById('upload-success-ui').style.display = 'none';
     document.getElementById('preview-ui').style.display = 'block';
     
     if (document.getElementById('review-title').innerText.includes('מקליט')) {
@@ -559,14 +542,15 @@ function showPreviewUI() {
     
     const audioEl = document.getElementById('preview-audio');
     audioEl.src = URL.createObjectURL(pendingBlob);
-    
     const sizeKb = (pendingBlob.size / 1024).toFixed(1);
     document.getElementById('file-info').innerText = `${pendingFileName} (${sizeKb} KB)`;
 }
 
-function cancelUpload() {
+// פונקציה אחידה לסגירת המודל שמנקה את הכל
+function closeUploadModal() {
     document.getElementById('uploadReviewModal').classList.remove('active');
     
+    // ניקוי הקלטה ווידאו
     const audioEl = document.getElementById('preview-audio');
     audioEl.pause();
     audioEl.src = '';
@@ -579,34 +563,32 @@ function cancelUpload() {
         mediaRecorder.stream.getTracks().forEach(track => track.stop());
     }
     
-    resetRecordingUI(); 
+    resetRecordingUI();
+    
+    // ניקוי צינתוק
+    if (tzintukTimerInterval) clearInterval(tzintukTimerInterval);
 }
 
-function confirmUpload() {
+// העלאת ההודעה
+async function confirmUpload() {
     if (!pendingBlob) return;
     
-    document.getElementById('uploadReviewModal').classList.remove('active');
+    const confirmBtn = document.getElementById('btn-confirm-send');
+    const originalBtnHtml = confirmBtn.innerHTML;
     
+    // מצב המתנה בכפתור
+    confirmBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מעלה...';
+    confirmBtn.disabled = true;
+
     const audioEl = document.getElementById('preview-audio');
     audioEl.pause();
-    audioEl.src = '';
     
-    // זיהוי סוג ההעלאה לשליחה לשרת (record או file)
     const typeOfUpload = pendingFileName.startsWith('recording.') ? 'record' : 'file';
-    sendChatUpload(pendingBlob, pendingFileName, typeOfUpload);
-    
-    pendingBlob = null;
-    resetRecordingUI();
-}
-
-async function sendChatUpload(fileBlob, fileName, uploadType) {
-    const statusText = document.getElementById('chat-upload-status');
-    statusText.innerText = 'מעלה הודעה לשרת... (נא להמתין)';
     
     const formData = new FormData();
     formData.append('userToken', state.userToken);
-    formData.append('file', fileBlob, fileName);
-    formData.append('uploadType', uploadType); // מסייע לשרת לוודא הרשאות בקלות
+    formData.append('file', pendingBlob, pendingFileName);
+    formData.append('uploadType', typeOfUpload);
     
     try {
         const res = await fetch(`${API_BASE_URL}/messages/upload`, {
@@ -616,16 +598,111 @@ async function sendChatUpload(fileBlob, fileName, uploadType) {
         const result = await res.json();
         
         if (res.ok && result.success) {
-            statusText.innerHTML = '<span style="color:var(--play-out);"><i class="fa-solid fa-check"></i> ההודעה נשלחה בהצלחה!</span>';
-            setTimeout(() => { updateDashboardUI(); }, 3000);
-            loadMessages();
+            // מעבר למסך צינתוק!
+            showUploadSuccessUI();
+            loadMessages(); // מרענן רקע
         } else {
-            statusText.innerHTML = `<span style="color:var(--danger);"><i class="fa-solid fa-xmark"></i> שגיאה: ${result.error || 'נכשל'}</span>`;
-            setTimeout(() => { updateDashboardUI(); }, 4000);
+            alert(`שגיאה בהעלאה: ${result.error || 'נכשל'}`);
+            confirmBtn.innerHTML = originalBtnHtml;
+            confirmBtn.disabled = false;
         }
     } catch (err) {
-        statusText.innerHTML = '<span style="color:var(--danger);"><i class="fa-solid fa-xmark"></i> שגיאת תקשורת בשליחה</span>';
-        setTimeout(() => { updateDashboardUI(); }, 4000);
+        alert('שגיאת תקשורת בשליחה. אנא נסה שוב.');
+        confirmBtn.innerHTML = originalBtnHtml;
+        confirmBtn.disabled = false;
+    }
+}
+
+// ================= ממשק הצלחה וטיימר לצינתוק =================
+function showUploadSuccessUI() {
+    document.getElementById('recording-ui').style.display = 'none';
+    document.getElementById('preview-ui').style.display = 'none';
+    document.getElementById('upload-success-ui').style.display = 'block';
+    
+    document.getElementById('review-title').innerHTML = '<i class="fa-solid fa-check"></i> הפעולה הצליחה';
+    
+    // איפוס UI הצינתוק
+    document.getElementById('tzintuk-action-buttons').style.display = 'flex';
+    document.getElementById('tzintuk-status-msg').style.display = 'none';
+    
+    const btnSend = document.getElementById('btn-send-tzintuk');
+    btnSend.disabled = false;
+    btnSend.innerHTML = '<i class="fa-solid fa-phone-volume" style="margin-left: 5px;"></i> צינתוק עכשיו';
+    
+    // 90 שניות ספירה לאחור
+    tzintukSecondsLeft = 90;
+    updateTzintukTimerDisplay();
+    
+    if (tzintukTimerInterval) clearInterval(tzintukTimerInterval);
+    tzintukTimerInterval = setInterval(() => {
+        tzintukSecondsLeft--;
+        updateTzintukTimerDisplay();
+        
+        if (tzintukSecondsLeft <= 0) {
+            closeUploadModal();
+        }
+    }, 1000);
+}
+
+function updateTzintukTimerDisplay() {
+    const el = document.getElementById('tzintuk-timer');
+    if (!el) return;
+    
+    const m = Math.floor(tzintukSecondsLeft / 60).toString().padStart(2, '0');
+    const s = (tzintukSecondsLeft % 60).toString().padStart(2, '0');
+    el.innerText = `${m}:${s}`;
+    
+    if (tzintukSecondsLeft <= 10) {
+        el.classList.add('danger');
+    } else {
+        el.classList.remove('danger');
+    }
+}
+
+// שליחת הצינתוק מהמודל
+async function triggerTzintuk() {
+    clearInterval(tzintukTimerInterval); // עוצר את הטיימר
+    
+    const btn = document.getElementById('btn-send-tzintuk');
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> שולח פקודה...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/messages/tzintuk`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userToken: state.userToken })
+        });
+        const data = await res.json();
+
+        // הסתרת הכפתורים והצגת הודעת סטטוס
+        document.getElementById('tzintuk-action-buttons').style.display = 'none';
+        const statusMsg = document.getElementById('tzintuk-status-msg');
+        statusMsg.style.display = 'block';
+
+        if (res.ok && data.success) {
+            statusMsg.className = 'tzintuk-status-msg success';
+            statusMsg.innerHTML = '<i class="fa-solid fa-check"></i> ' + data.message;
+        } else {
+            statusMsg.className = 'tzintuk-status-msg error';
+            statusMsg.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + (data.message || 'שגיאה בשליחה');
+        }
+
+        // סגירת המודל אוטומטית אחרי 5 שניות
+        setTimeout(() => {
+            closeUploadModal();
+        }, 5000);
+
+    } catch (err) {
+        document.getElementById('tzintuk-action-buttons').style.display = 'none';
+        const statusMsg = document.getElementById('tzintuk-status-msg');
+        statusMsg.style.display = 'block';
+        statusMsg.className = 'tzintuk-status-msg error';
+        statusMsg.innerHTML = '<i class="fa-solid fa-xmark"></i> תקלת רשת, לא ניתן לשלוח כרגע.';
+        
+        setTimeout(() => {
+            closeUploadModal();
+        }, 5000);
     }
 }
 
@@ -638,7 +715,6 @@ async function loadMessages() {
     if(!container) return;
     
     container.innerHTML = '<div class="loading-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען הודעות...</div>';
-    
     try {
         const res = await fetch(`${API_BASE_URL}/messages/list`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -678,7 +754,7 @@ function renderMessages(messages) {
         }
 
         if (datePart !== currentDateGroup) {
-            if (currentDateGroup !== "-") {
+             if (currentDateGroup !== "-") {
                 const divider = document.createElement('div');
                 divider.className = 'date-divider';
                 divider.innerHTML = `<span>${currentDateGroup}</span>`;
@@ -749,7 +825,6 @@ function setupAudioListeners() {
             timeLabel.innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
         }
     });
-    
     globalAudio.addEventListener('ended', () => {
         if (!currentPlayingId) return;
         const btn = document.getElementById(`btn-${currentPlayingId}`);
@@ -767,7 +842,6 @@ function setupAudioListeners() {
 function togglePlay(fileId) {
     const btn = document.getElementById(`btn-${fileId}`);
     const icon = btn.querySelector('i');
-    
     if (currentPlayingId === fileId) {
         if (globalAudio.paused) {
             globalAudio.play();
@@ -841,7 +915,6 @@ async function loadAdminUsers() {
     const tbody = document.getElementById('admin-users-table-body');
     tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען נתונים...</td></tr>';
     setLoading('btn-refresh-users', true);
-    
     try {
         const res = await fetch(`${API_BASE_URL}/admin/users`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -849,7 +922,6 @@ async function loadAdminUsers() {
         });
         const data = await res.json();
         setLoading('btn-refresh-users', false, '<i class="fa-solid fa-rotate-right"></i> רענן נתונים');
-        
         if (!res.ok) {
             if (res.status === 401 || res.status === 403) {
                 logout();
@@ -929,7 +1001,6 @@ async function submitAdminUpdate(e) {
         });
         const data = await res.json();
         setLoading('btn-modal-save', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
-        
         if (!res.ok) {
             showMessage('alert-modal', data.error || 'עדכון נכשל', 'error');
             return;
