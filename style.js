@@ -32,7 +32,7 @@ body {
 .view-section { display: none; width: 100%; height: 100%; }
 .view-section.active { display: flex; }
 
-/* ================== מניעת זיהוי התמונה בעכבר (הגנה) ================== */
+/* ================== מניעת זיהוי התמונה בעכבר ================== */
 .protected-logo {
     pointer-events: none;
     user-select: none;
@@ -49,19 +49,7 @@ body {
 
 .auth-icon { font-size: 2.5rem; color: var(--play-out); margin-bottom: 15px; }
 
-/* עיצוב הלוגו הגדול בחלון ההתחברות */
-.auth-logo {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    margin: 0 auto 15px auto;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    overflow: hidden;
-    background: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
+.auth-logo { width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 15px auto; box-shadow: 0 4px 15px rgba(0,0,0,0.1); overflow: hidden; background: #fff; display: flex; align-items: center; justify-content: center; }
 .auth-logo img { width: 100%; height: 100%; object-fit: cover; }
 
 .auth-card h2 { font-size: 1.6rem; margin-bottom: 8px; font-weight: 800; color: var(--text-dark); }
@@ -134,7 +122,7 @@ body {
 .actions-btn { background: var(--header-bg); border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
 .actions-btn:hover { background: var(--secondary); color: white; border-color: var(--secondary); }
 
-/* ================== דשבורד סטטיסטיקות אבטחה ================== */
+/* דשבורד סטטיסטיקות אבטחה */
 .dashboard-stats { display: flex; gap: 15px; margin-bottom: 30px; flex-wrap: wrap; }
 .stat-card { flex: 1; min-width: 200px; background: #fff; border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.03); }
 .stat-icon { width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0; }
@@ -156,11 +144,8 @@ body {
 /* ================== עיצוב צ'אט ================== */
 .chat-header-fixed { height: 65px; background: var(--header-bg); padding: 0 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color); z-index: 10; flex-shrink: 0; }
 .header-title-group { display: flex; align-items: center; gap: 15px; }
-
-/* עיצוב הלוגו בתוך הצ'אט עצמו */
 .header-icon { width: 40px; height: 40px; border-radius: 50%; background: #cbd5e1; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: #fff; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 .header-icon img { width: 100%; height: 100%; object-fit: cover; }
-
 .header-title h3 { font-size: 1.05rem; font-weight: bold; }
 .header-title p { font-size: 0.8rem; color: var(--text-light); }
 .icon-btn { background: none; border: none; color: var(--text-light); cursor: pointer; font-size: 1.2rem; padding: 10px; transition: 0.2s; }
@@ -203,18 +188,19 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
 .record-btn { background: var(--play-out); color: white; width: 48px; height: 48px; font-size: 1.3rem; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
 .record-btn:hover:not(.disabled) { background: #15803d; color: white; transform: scale(1.05); }
 .upload-btn.disabled, .record-btn.disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; box-shadow: none; transform: none !important; }
+
+/* ================== מודלים (Modals) ================== */
 .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(2px); }
 .modal-overlay.active { display: flex; }
 .modal-content { background: var(--surface); padding: 30px; border-radius: 12px; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
 .text-center { text-align: center; }
 
-/* מודל הקלטה */
 .professional-modal { max-width: 420px; padding: 0; overflow: hidden; background: #ffffff; border-radius: 16px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); }
 .modal-header { padding: 20px 24px; background: #f8fafc; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
 .modal-header h2 { margin: 0; font-size: 1.15rem; color: var(--text-dark); display: flex; align-items: center; gap: 10px; font-weight: 700; }
 .close-modal-btn { background: none; border: none; font-size: 1.25rem; color: var(--text-light); cursor: pointer; transition: 0.2s; padding: 5px; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 .close-modal-btn:hover { color: var(--danger); background: #fee2e2; }
-#recording-ui, #preview-ui { padding: 30px 24px; text-align: center; }
+#recording-ui, #preview-ui, #upload-success-ui { padding: 30px 24px; text-align: center; }
 .recording-visualizer { display: flex; align-items: center; justify-content: center; gap: 4px; height: 60px; margin: 10px 0 20px; }
 .recording-visualizer .bar { width: 6px; background: var(--danger); border-radius: 3px; animation: bounceBar 0.5s infinite alternate; }
 .recording-visualizer .bar:nth-child(1) { height: 20%; animation-delay: 0.1s; }
@@ -229,6 +215,8 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
 .recording-visualizer.paused .bar { animation-play-state: paused; opacity: 0.5; height: 10% !important; transition: height 0.3s ease; }
 @keyframes bounceBar { from { height: 20%; } to { height: 100%; } }
 .recording-timer-pro { font-size: 3rem; font-weight: 800; font-variant-numeric: tabular-nums; color: var(--text-dark); margin-bottom: 30px; letter-spacing: 2px; }
+
+/* כפתורי מודל */
 .recording-actions-pro, .preview-actions-pro { display: flex; gap: 12px; justify-content: center; }
 .btn-pro-secondary, .btn-pro-danger, .btn-pro-outline, .btn-pro-primary { flex: 1; padding: 12px; border-radius: 10px; font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 8px; border: none; }
 .btn-pro-secondary { background: #f1f5f9; color: var(--text-dark); }
@@ -238,11 +226,27 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
 .btn-pro-outline { background: white; border: 1px solid #ef4444; color: #ef4444; }
 .btn-pro-outline:hover { background: #fef2f2; }
 .btn-pro-primary { background: var(--play-out); color: white; box-shadow: 0 4px 6px -1px rgba(22, 163, 74, 0.2); }
-.btn-pro-primary:hover { background: #15803d; transform: translateY(-1px); box-shadow: 0 6px 8px -1px rgba(22, 163, 74, 0.3); }
+.btn-pro-primary:hover:not(:disabled) { background: #15803d; transform: translateY(-1px); box-shadow: 0 6px 8px -1px rgba(22, 163, 74, 0.3); }
+.btn-pro-primary:disabled { opacity: 0.7; cursor: not-allowed; }
+
 .preview-card { background: #f8fafc; border: 1px dashed var(--border-color); border-radius: 12px; padding: 20px; margin-bottom: 25px; }
 .file-icon-large { font-size: 2.5rem; color: var(--secondary); margin-bottom: 10px; }
 .file-info-text { font-size: 0.9rem; font-weight: 600; color: var(--text-light); margin-bottom: 15px; direction: ltr; word-break: break-all; }
 .preview-audio-modern { width: 100%; height: 40px; border-radius: 8px; outline: none; }
+
+/* עיצוב לאזור ההצלחה והצינתוק */
+.success-header-pro { margin-bottom: 20px; }
+.text-success-pro { font-size: 4rem; color: var(--play-out); animation: scaleUp 0.4s ease-out; display: inline-block; }
+@keyframes scaleUp { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+
+.tzintuk-prompt-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 15px; margin-bottom: 20px; text-align: center; }
+.tzintuk-timer-wrap { font-size: 0.9rem; color: #15803d; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 5px; }
+.tzintuk-timer-text { font-size: 1.1rem; background: white; padding: 2px 8px; border-radius: 4px; border: 1px solid #bbf7d0; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+.tzintuk-timer-text.danger { color: #dc2626; border-color: #fecaca; background: #fef2f2; }
+
+.tzintuk-status-msg { margin-top: 15px; padding: 15px; border-radius: 8px; font-weight: 600; font-size: 0.95rem; display: none; animation: fadeIn 0.3s; }
+.tzintuk-status-msg.success { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+.tzintuk-status-msg.error { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
 
 @media (max-width: 768px) {
     .app-layout { flex-direction: column; }
