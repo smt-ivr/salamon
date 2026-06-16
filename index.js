@@ -218,7 +218,7 @@ const htmlContent = `<!DOCTYPE html>
                         <i class="fa-solid fa-users"></i> <span>ניהול משתמשים</span>
                     </div>
                     <div class="nav-item" id="tab-btn-tzintuk" onclick="switchAdminTab('tzintuk')">
-                        <i class="fa-solid fa-phone-shield"></i> <span>אבטחה וצינתוקים</span>
+                        <i class="fa-solid fa-shield-virus"></i> <span>אבטחה וצינתוקים</span>
                     </div>
                 </nav>
             </aside>
@@ -254,14 +254,94 @@ const htmlContent = `<!DOCTYPE html>
                 </div>
 
                 <div id="tab-admin-tzintuk" class="app-tab scrollable-tab">
-                    <div class="admin-top-bar">
+                    
+                    <div class="admin-top-bar" style="margin-bottom: 20px;">
                         <div>
-                            <h1>מערכת אימות וחסימות</h1>
-                            <p class="subtitle">שליטה על צינתוקים וניטור התקפות</p>
+                            <h1>ניהול אבטחה וצינתוקים</h1>
+                            <p class="subtitle">ניטור התקפות, היסטוריית לוגים וחסימות במערכת</p>
                         </div>
-                        <button onclick="loadVerifyBlocks(); loadVerifyLogs();" class="btn-primary small-btn" style="width: auto; background: var(--text-main);"><i class="fa-solid fa-rotate-right"></i> רענן הכל</button>
+                        <button onclick="refreshTzintukData()" id="btn-refresh-tzintuk" class="btn-primary small-btn" style="width: auto; background: var(--text-main);"><i class="fa-solid fa-rotate-right"></i> רענן נתונים</button>
                     </div>
+
+                    <div class="dashboard-stats" id="security-stats">
+                        <div class="stat-card"><div class="stat-info"><h3>-</h3><p>טוען נתונים...</p></div></div>
                     </div>
+
+                    <div class="settings-card" style="max-width: 100%; border-color: var(--danger); margin-bottom: 30px;">
+                        <h3 style="color: var(--danger); margin-bottom: 15px;"><i class="fa-solid fa-ban"></i> חסימה ידנית חדשה</h3>
+                        <form id="manual-block-form" onsubmit="submitManualBlock(event);" style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
+                            <div class="form-group" style="flex: 1; min-width: 120px;">
+                                <label>סוג חסימה</label>
+                                <select id="block_type" class="input-modern" style="padding: 10px;">
+                                    <option value="phone">מספר טלפון</option>
+                                    <option value="ip">כתובת IP</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex: 2; min-width: 200px;">
+                                <label>טלפון / IP לחסימה</label>
+                                <input type="text" id="block_value" required class="ltr-input input-modern" style="padding: 10px;" placeholder="לדוגמה: 0501234567">
+                            </div>
+                            <div class="form-group" style="flex: 2; min-width: 200px;">
+                                <label>סיבת חסימה</label>
+                                <input type="text" id="block_reason" class="input-modern" style="padding: 10px;" placeholder="ספאם, נסיון פריצה...">
+                            </div>
+                            <div class="form-group" style="flex: 1; min-width: 100px;">
+                                <label>זמן חסימה</label>
+                                <input type="number" id="block_duration" value="24" required class="input-modern center-text" style="padding: 10px;">
+                            </div>
+                            <div class="form-group" style="flex: 1; min-width: 120px;">
+                                <label>יחידת זמן</label>
+                                <select id="block_unit" class="input-modern" style="padding: 10px;">
+                                    <option value="hours">שעות</option>
+                                    <option value="minutes">דקות</option>
+                                    <option value="days">ימים</option>
+                                    <option value="permanent">לצמיתות</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="flex: 1; min-width: 150px;">
+                                <button type="submit" id="btn-submit-block" class="btn-primary" style="background: var(--danger); padding: 10px;">החל חסימה <i class="fa-solid fa-lock"></i></button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <h3 style="margin-bottom: 15px; color: var(--text-dark);"><i class="fa-solid fa-shield-virus"></i> חסימות פעילות ברשת</h3>
+                    <div class="table-wrapper" style="margin-bottom: 40px;">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>סוג חסימה</th>
+                                    <th>ערך (טלפון/IP)</th>
+                                    <th>סיבה שצוינה</th>
+                                    <th>תאריך הפעלה</th>
+                                    <th>תפוגה</th>
+                                    <th>פעולות</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-blocks-table-body"></tbody>
+                        </table>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px;">
+                        <h3 style="color: var(--text-dark); margin: 0;"><i class="fa-solid fa-list-ol"></i> היסטוריית פעולות ואימותים אחרונים</h3>
+                        <button onclick="cleanOldLogs()" id="btn-clean-logs" class="btn-text" style="font-size: 0.85rem; padding: 0; width: auto;"><i class="fa-solid fa-broom"></i> נקה לוגים ישנים</button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="modern-table">
+                            <thead>
+                                <tr>
+                                    <th>מזהה</th>
+                                    <th>תאריך ושעה</th>
+                                    <th>רמת חומרה</th>
+                                    <th>סוג פעולה</th>
+                                    <th>טלפון יעד</th>
+                                    <th>כתובת IP מקור</th>
+                                    <th>פירוט נוסף מהשרת</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-logs-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </main>
 
@@ -359,6 +439,16 @@ const htmlContent = `<!DOCTYPE html>
 
     <audio id="global-audio-player"></audio>
 
+    <script>
+        // האזנה קטנה למעבר לשוניות לצורך רענון אוטומטי
+        const originalSwitchAdminTab = window.switchAdminTab;
+        window.switchAdminTab = function(tabName) {
+            if(originalSwitchAdminTab) originalSwitchAdminTab(tabName);
+            if (tabName === 'tzintuk' && typeof refreshTzintukData === 'function') {
+                refreshTzintukData();
+            }
+        };
+    </script>
 </body>
 </html>`;
 
