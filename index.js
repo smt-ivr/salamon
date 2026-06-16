@@ -434,7 +434,6 @@ const htmlContent = `<!DOCTYPE html>
                     <i class="fa-solid fa-circle-check text-success-pro"></i>
                     <h3 style="margin-top: 10px; color: var(--text-dark); font-size:1.3rem;">ההודעה הועלתה!</h3>
                 </div>
-                
                 <div class="tzintuk-prompt-box">
                     <p style="font-weight: 600; color:var(--text-main); margin-bottom: 10px;">
                         האם תרצה לשלוח צינתוק על ההודעה החדשה?
@@ -444,31 +443,49 @@ const htmlContent = `<!DOCTYPE html>
                         <span id="tzintuk-timer" class="tzintuk-timer-text">01:30</span>
                     </div>
                 </div>
-                
                 <div id="tzintuk-status-msg" class="tzintuk-status-msg" style="display:none;"></div>
-                
                 <div class="preview-actions-pro" id="tzintuk-action-buttons">
-                    <button type="button" class="btn-pro-secondary" onclick="closeUploadModal()">
-                         ביטול וסיום
-                    </button>
+                    <button type="button" class="btn-pro-secondary" onclick="closeUploadModal()">ביטול וסיום</button>
                     <button type="button" class="btn-pro-primary" id="btn-send-tzintuk" onclick="triggerTzintuk()">
                         <i class="fa-solid fa-phone-volume" style="margin-left: 5px;"></i> שלח צינתוק עכשיו
                     </button>
                 </div>
             </div>
-
         </div>
     </div>
 
-    <div class="modal-overlay" id="permissionAlertModal">
+    <div class="modal-overlay" id="deleteConfirmModal">
+        <div class="modal-content professional-modal" style="max-width: 350px;">
+            <div class="modal-header" style="background: #fef2f2; border-bottom: 1px solid #fecaca;">
+                <h2 style="color: var(--danger);"><i class="fa-solid fa-trash-can"></i> מחיקת הודעה</h2>
+                <button class="close-modal-btn" onclick="closeDeleteModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div style="padding: 25px 20px; text-align: center;">
+                <div id="delete-modal-texts">
+                    <p style="font-size: 1rem; color: var(--text-main); font-weight: 600; margin-bottom: 15px;">
+                        האם אתה בטוח שברצונך למחוק את ההודעה?
+                    </p>
+                    <p style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 25px;">
+                        הודעה זו תוסר ממערכת הטלפון ולא תהיה זמינה יותר למאזינים. <br><b>פעולה זו בלתי הפיכה.</b>
+                    </p>
+                </div>
+                <div id="delete-status-msg" class="tzintuk-status-msg" style="display:none; margin-bottom:15px;"></div>
+                <div class="preview-actions-pro" id="delete-action-buttons">
+                    <button type="button" class="btn-pro-secondary" onclick="closeDeleteModal()">ביטול</button>
+                    <button type="button" class="btn-pro-danger" id="btn-confirm-delete" onclick="confirmDeleteMessage()">כן, מחק הודעה</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="errorAlertModal">
         <div class="modal-content text-center" style="max-width: 320px; padding: 30px; border-radius: 16px;">
-            <div style="font-size: 3.5rem; color: #f59e0b; margin-bottom: 15px;"><i class="fa-solid fa-triangle-exclamation"></i></div>
-            <h3 style="margin-bottom: 10px; color: var(--text-dark); font-size: 1.3rem;">נדרשת הרשאה מיוחדת</h3>
-            <p id="permissionAlertText" style="font-size: 0.95rem; color: var(--text-light); margin-bottom: 25px; line-height: 1.5;">
-                העלאת קבצי שמע חיצוניים חסומה כברירת מחדל כדי למנוע העלאת שירים או קבצים לא מאושרים. 
-                <br><br>כדי לפתוח אפשרות זו עבורך, אנא פנה להנהלת המערכת.
-            </p>
-            <button class="btn-primary" onclick="closePermissionAlert()" style="background: #f59e0b;">הבנתי, תודה</button>
+            <div id="errorModalIcon" style="font-size: 3.5rem; color: #ef4444; margin-bottom: 15px;">
+                <i class="fa-solid fa-circle-xmark"></i>
+            </div>
+            <h3 id="errorModalTitle" style="margin-bottom: 10px; color: var(--text-dark); font-size: 1.3rem;">שגיאה</h3>
+            <p id="errorModalText" style="font-size: 0.95rem; color: var(--text-light); margin-bottom: 25px; line-height: 1.5;"></p>
+            <button id="errorModalBtn" class="btn-primary" onclick="closeErrorModal()" style="background: #ef4444;">הבנתי, תודה</button>
         </div>
     </div>
 
