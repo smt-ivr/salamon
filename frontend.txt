@@ -546,7 +546,8 @@ function showPreviewUI() {
     document.getElementById('file-info').innerText = `${pendingFileName} (${sizeKb} KB)`;
 }
 
-// פונקציה אחידה לסגירת המודל שמנקה את הכל
+// ================== התיקון הקריטי ==================
+// פונקציה אחידה לסגירת המודל שמנקה את הכל - עכשיו מאפסת גם את הכפתורים!
 function closeUploadModal() {
     document.getElementById('uploadReviewModal').classList.remove('active');
     
@@ -565,8 +566,30 @@ function closeUploadModal() {
     
     resetRecordingUI();
     
-    // ניקוי צינתוק
+    // עצירת טיימר הצינתוק אם הוא רץ בחוזקה
     if (tzintukTimerInterval) clearInterval(tzintukTimerInterval);
+    
+    // --- התיקון: איפוס של מצבי הכפתורים כדי שבפעם הבאה הם יהיו מוכנים ---
+    
+    // איפוס כפתור אישור העלאה
+    const confirmBtn = document.getElementById('btn-confirm-send');
+    if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> שלח הודעה';
+    }
+
+    // איפוס כפתור הצינתוק (החזרת כפתורי הפעולה והסתרת הודעת הסטטוס)
+    const tzintukActionBtns = document.getElementById('tzintuk-action-buttons');
+    if (tzintukActionBtns) tzintukActionBtns.style.display = 'flex';
+    
+    const tzintukBtn = document.getElementById('btn-send-tzintuk');
+    if (tzintukBtn) {
+        tzintukBtn.disabled = false;
+        tzintukBtn.innerHTML = '<i class="fa-solid fa-phone-volume" style="margin-left: 5px;"></i> צינתוק עכשיו';
+    }
+
+    const statusMsg = document.getElementById('tzintuk-status-msg');
+    if (statusMsg) statusMsg.style.display = 'none';
 }
 
 // העלאת ההודעה
@@ -574,7 +597,6 @@ async function confirmUpload() {
     if (!pendingBlob) return;
     
     const confirmBtn = document.getElementById('btn-confirm-send');
-    const originalBtnHtml = confirmBtn.innerHTML;
     
     // מצב המתנה בכפתור
     confirmBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מעלה...';
@@ -598,17 +620,18 @@ async function confirmUpload() {
         const result = await res.json();
         
         if (res.ok && result.success) {
-            // מעבר למסך צינתוק!
+            // מעבר למסך צינתוק! (הכפתור יתאפס אוטומטית כשהמודל ייסגר)
             showUploadSuccessUI();
             loadMessages(); // מרענן רקע
         } else {
             alert(`שגיאה בהעלאה: ${result.error || 'נכשל'}`);
-            confirmBtn.innerHTML = originalBtnHtml;
+            // אם נכשל, מחזירים את הכפתור למצב פעיל כאן ועכשיו
+            confirmBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> שלח הודעה';
             confirmBtn.disabled = false;
         }
     } catch (err) {
         alert('שגיאת תקשורת בשליחה. אנא נסה שוב.');
-        confirmBtn.innerHTML = originalBtnHtml;
+        confirmBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> שלח הודעה';
         confirmBtn.disabled = false;
     }
 }
@@ -620,14 +643,6 @@ function showUploadSuccessUI() {
     document.getElementById('upload-success-ui').style.display = 'block';
     
     document.getElementById('review-title').innerHTML = '<i class="fa-solid fa-check"></i> הפעולה הצליחה';
-    
-    // איפוס UI הצינתוק
-    document.getElementById('tzintuk-action-buttons').style.display = 'flex';
-    document.getElementById('tzintuk-status-msg').style.display = 'none';
-    
-    const btnSend = document.getElementById('btn-send-tzintuk');
-    btnSend.disabled = false;
-    btnSend.innerHTML = '<i class="fa-solid fa-phone-volume" style="margin-left: 5px;"></i> צינתוק עכשיו';
     
     // 90 שניות ספירה לאחור
     tzintukSecondsLeft = 90;
