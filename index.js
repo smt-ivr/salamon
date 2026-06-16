@@ -4,7 +4,6 @@ const htmlContent = `<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>עכשיו סלומון</title>
-    <!-- הוספת סמלון מותאם לדפדפן (Favicon) -->
     <link rel="icon" href="https://smt-tel-manager.netlify.app/salamon-logo.png" type="image/png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/salamon/style.css">
@@ -19,7 +18,9 @@ const htmlContent = `<!DOCTYPE html>
             <div class="auth-container">
                 
                 <section id="init-view" class="auth-card active">
-                    <div class="auth-icon"><i class="fa-solid fa-layer-group"></i></div>
+                    <div class="auth-logo">
+                        <img src="https://smt-tel-manager.netlify.app/salamon-logo.png" alt="לוגו מערכת" class="protected-logo" draggable="false">
+                    </div>
                     <h2>עכשיו סלומון</h2>
                     <p class="subtitle">הזן טלפון או אימייל להתחברות</p>
                     <div id="alert-init" class="alert-box"></div>
@@ -32,7 +33,9 @@ const htmlContent = `<!DOCTYPE html>
                 </section>
 
                 <section id="login-view" class="auth-card">
-                    <div class="auth-icon"><i class="fa-solid fa-lock"></i></div>
+                    <div class="auth-logo">
+                        <img src="https://smt-tel-manager.netlify.app/salamon-logo.png" alt="לוגו מערכת" class="protected-logo" draggable="false">
+                    </div>
                     <h2>התחברות לחשבון</h2>
                     <div id="alert-login" class="alert-box"></div>
                     <div class="locked-input-container">
@@ -150,9 +153,8 @@ const htmlContent = `<!DOCTYPE html>
                 <div id="tab-messages" class="app-tab active">
                     <div class="chat-header-fixed">
                         <div class="header-title-group">
-                            <!-- כאן החלפנו את האייקון לתמונת הלוגו של הקבוצה -->
                             <div class="header-icon">
-                                <img src="https://smt-tel-manager.netlify.app/salamon-logo.png" alt="לוגו קבוצה">
+                                <img src="https://smt-tel-manager.netlify.app/salamon-logo.png" alt="לוגו קבוצה" class="protected-logo" draggable="false">
                             </div>
                             <div class="header-title">
                                 <h3>עכשיו סלומון</h3>
@@ -259,7 +261,6 @@ const htmlContent = `<!DOCTYPE html>
                 </div>
 
                 <div id="tab-admin-tzintuk" class="app-tab scrollable-tab">
-                    
                     <div class="admin-top-bar" style="margin-bottom: 20px;">
                         <div>
                             <h1>ניהול אבטחה וצינתוקים</h1>
@@ -388,7 +389,6 @@ const htmlContent = `<!DOCTYPE html>
         </div>
     </div>
 
-    <!-- מודל הקלטה והעלאת קבצים -->
     <div class="modal-overlay" id="uploadReviewModal">
         <div class="modal-content professional-modal">
             <div class="modal-header">
