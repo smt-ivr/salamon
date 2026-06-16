@@ -437,10 +437,10 @@ const htmlContent = `<!DOCTYPE html>
                 
                 <div class="tzintuk-prompt-box">
                     <p style="font-weight: 600; color:var(--text-main); margin-bottom: 10px;">
-                        האם תרצה לשלוח צינתוק למנויים על ההודעה החדשה?
+                        האם תרצה לשלוח צינתוק על ההודעה החדשה?
                     </p>
                     <div class="tzintuk-timer-wrap">
-                        <i class="fa-regular fa-clock"></i> נותר לך: 
+                        <i class="fa-regular fa-clock"></i> החלון יסגר בעוד: 
                         <span id="tzintuk-timer" class="tzintuk-timer-text">01:30</span>
                     </div>
                 </div>
