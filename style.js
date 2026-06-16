@@ -118,7 +118,6 @@ body {
 .stat-info h3 { font-size: 1.8rem; margin: 0; color: var(--text-dark); line-height: 1; }
 .stat-info p { margin: 5px 0 0; font-size: 0.85rem; color: var(--text-light); font-weight: 600; }
 
-/* תגיות לוגים */
 .badge-level { padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.5px; display: inline-flex; align-items: center; gap: 5px; }
 .badge-level.info { background: #e0f2fe; color: #0284c7; }
 .badge-level.warn { background: #fef3c7; color: #d97706; }
@@ -131,10 +130,14 @@ body {
 .badge-action.danger { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
 .badge-action.neutral { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; }
 
-/* ================== עיצוב צ'אט (קצר להמחשה) ================== */
+/* ================== עיצוב צ'אט ================== */
 .chat-header-fixed { height: 65px; background: var(--header-bg); padding: 0 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color); z-index: 10; flex-shrink: 0; }
 .header-title-group { display: flex; align-items: center; gap: 15px; }
-.header-icon { width: 40px; height: 40px; border-radius: 50%; background: #cbd5e1; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: #fff; }
+
+/* הוספת הגדרות לעיגול הלוגו בחלק העליון של הצ'אט */
+.header-icon { width: 40px; height: 40px; border-radius: 50%; background: #cbd5e1; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: #fff; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.header-icon img { width: 100%; height: 100%; object-fit: cover; }
+
 .header-title h3 { font-size: 1.05rem; font-weight: bold; }
 .header-title p { font-size: 0.8rem; color: var(--text-light); }
 .icon-btn { background: none; border: none; color: var(--text-light); cursor: pointer; font-size: 1.2rem; padding: 10px; transition: 0.2s; }
