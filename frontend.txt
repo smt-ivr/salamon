@@ -679,7 +679,7 @@ async function triggerTzintuk() {
     clearInterval(tzintukTimerInterval); // עוצר את הטיימר
     
     const btn = document.getElementById('btn-send-tzintuk');
-    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> שולח פקודה...';
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> שולח צינתוק...';
     btn.disabled = true;
 
     try {
