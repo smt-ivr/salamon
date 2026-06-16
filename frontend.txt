@@ -422,7 +422,6 @@ let pendingFileName = "";
 let recordingTimerInterval = null;
 let recordingSeconds = 0;
 
-// -- משתנים למודל הצינתוק (המתנה וטיימר 90 שניות) --
 let tzintukTimerInterval = null;
 let tzintukSecondsLeft = 90;
 
@@ -462,7 +461,6 @@ async function toggleChatRecording() {
         mediaRecorder.start();
         document.getElementById('review-title').innerHTML = '<i class="fa-solid fa-microphone"></i> מקליט כעת...';
         
-        // הצגת ה-UI הנכון
         document.getElementById('recording-ui').style.display = 'block';
         document.getElementById('preview-ui').style.display = 'none';
         document.getElementById('upload-success-ui').style.display = 'none';
@@ -546,12 +544,9 @@ function showPreviewUI() {
     document.getElementById('file-info').innerText = `${pendingFileName} (${sizeKb} KB)`;
 }
 
-// ================== התיקון הקריטי ==================
-// פונקציה אחידה לסגירת המודל שמנקה את הכל - עכשיו מאפסת גם את הכפתורים!
 function closeUploadModal() {
     document.getElementById('uploadReviewModal').classList.remove('active');
     
-    // ניקוי הקלטה ווידאו
     const audioEl = document.getElementById('preview-audio');
     audioEl.pause();
     audioEl.src = '';
@@ -566,19 +561,14 @@ function closeUploadModal() {
     
     resetRecordingUI();
     
-    // עצירת טיימר הצינתוק אם הוא רץ בחוזקה
     if (tzintukTimerInterval) clearInterval(tzintukTimerInterval);
     
-    // --- התיקון: איפוס של מצבי הכפתורים כדי שבפעם הבאה הם יהיו מוכנים ---
-    
-    // איפוס כפתור אישור העלאה
     const confirmBtn = document.getElementById('btn-confirm-send');
     if (confirmBtn) {
         confirmBtn.disabled = false;
         confirmBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> שלח הודעה';
     }
 
-    // איפוס כפתור הצינתוק (החזרת כפתורי הפעולה והסתרת הודעת הסטטוס)
     const tzintukActionBtns = document.getElementById('tzintuk-action-buttons');
     if (tzintukActionBtns) tzintukActionBtns.style.display = 'flex';
     
@@ -592,13 +582,10 @@ function closeUploadModal() {
     if (statusMsg) statusMsg.style.display = 'none';
 }
 
-// העלאת ההודעה
 async function confirmUpload() {
     if (!pendingBlob) return;
     
     const confirmBtn = document.getElementById('btn-confirm-send');
-    
-    // מצב המתנה בכפתור
     confirmBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מעלה...';
     confirmBtn.disabled = true;
 
@@ -614,18 +601,15 @@ async function confirmUpload() {
     
     try {
         const res = await fetch(`${API_BASE_URL}/messages/upload`, {
-            method: 'POST',
-            body: formData
+            method: 'POST', body: formData
         });
         const result = await res.json();
         
         if (res.ok && result.success) {
-            // מעבר למסך צינתוק! (הכפתור יתאפס אוטומטית כשהמודל ייסגר)
             showUploadSuccessUI();
-            loadMessages(); // מרענן רקע
+            loadMessages(); 
         } else {
             alert(`שגיאה בהעלאה: ${result.error || 'נכשל'}`);
-            // אם נכשל, מחזירים את הכפתור למצב פעיל כאן ועכשיו
             confirmBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> שלח הודעה';
             confirmBtn.disabled = false;
         }
@@ -636,15 +620,12 @@ async function confirmUpload() {
     }
 }
 
-// ================= ממשק הצלחה וטיימר לצינתוק =================
 function showUploadSuccessUI() {
     document.getElementById('recording-ui').style.display = 'none';
     document.getElementById('preview-ui').style.display = 'none';
     document.getElementById('upload-success-ui').style.display = 'block';
-    
     document.getElementById('review-title').innerHTML = '<i class="fa-solid fa-check"></i> הפעולה הצליחה';
     
-    // 90 שניות ספירה לאחור
     tzintukSecondsLeft = 90;
     updateTzintukTimerDisplay();
     
@@ -674,12 +655,11 @@ function updateTzintukTimerDisplay() {
     }
 }
 
-// שליחת הצינתוק מהמודל
 async function triggerTzintuk() {
-    clearInterval(tzintukTimerInterval); // עוצר את הטיימר
+    clearInterval(tzintukTimerInterval); 
     
     const btn = document.getElementById('btn-send-tzintuk');
-    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> שולח צינתוק...';
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> שולח פקודה...';
     btn.disabled = true;
 
     try {
@@ -690,7 +670,6 @@ async function triggerTzintuk() {
         });
         const data = await res.json();
 
-        // הסתרת הכפתורים והצגת הודעת סטטוס
         document.getElementById('tzintuk-action-buttons').style.display = 'none';
         const statusMsg = document.getElementById('tzintuk-status-msg');
         statusMsg.style.display = 'block';
@@ -703,10 +682,7 @@ async function triggerTzintuk() {
             statusMsg.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + (data.message || 'שגיאה בשליחה');
         }
 
-        // סגירת המודל אוטומטית אחרי 5 שניות
-        setTimeout(() => {
-            closeUploadModal();
-        }, 5000);
+        setTimeout(() => { closeUploadModal(); }, 5000);
 
     } catch (err) {
         document.getElementById('tzintuk-action-buttons').style.display = 'none';
@@ -715,9 +691,7 @@ async function triggerTzintuk() {
         statusMsg.className = 'tzintuk-status-msg error';
         statusMsg.innerHTML = '<i class="fa-solid fa-xmark"></i> תקלת רשת, לא ניתן לשלוח כרגע.';
         
-        setTimeout(() => {
-            closeUploadModal();
-        }, 5000);
+        setTimeout(() => { closeUploadModal(); }, 5000);
     }
 }
 
@@ -763,10 +737,7 @@ function renderMessages(messages) {
     messages.forEach((msg, index) => {
         const fullDateTime = msg.mtime || '-';
         let datePart = "-", timePart = "-";
-        
-        if(fullDateTime.includes(" ")) {
-            [datePart, timePart] = fullDateTime.split(" ");
-        }
+        if(fullDateTime.includes(" ")) [datePart, timePart] = fullDateTime.split(" ");
 
         if (datePart !== currentDateGroup) {
              if (currentDateGroup !== "-") {
@@ -784,13 +755,20 @@ function renderMessages(messages) {
         const senderName = msg.valName || 'מערכת';
         const durationText = msg.durationStr || '00:00';
 
+        // הוספת פח האשפה בצד השמאלי של השורה העליונה להודעות של המשתמש
+        const fileIdGroup = isOut ? `
+            <div class="file-id-group">
+                <span class="file-id">ID: ${fileId}</span>
+                <button class="delete-msg-btn" onclick="attemptDeleteMessage('${msg.name}')" title="מחק הודעה"><i class="fa-solid fa-trash-can"></i></button>
+            </div>
+        ` : `<span class="file-id">ID: ${fileId}</span>`;
+
         const bubble = document.createElement('div');
         bubble.className = `bubble ${bubbleClass}`;
-        
         bubble.innerHTML = `
             <div class="msg-top">
                 <span class="sender-name">${senderName}</span>
-                <span class="file-id">ID: ${fileId}</span>
+                ${fileIdGroup}
             </div>
             <div class="audio-player">
                 <button class="play-btn-circle" id="btn-${fileId}" onclick="togglePlay('${fileId}')">
@@ -892,6 +870,102 @@ function seekAudio(fileId, percentValue) {
     if (currentPlayingId === fileId && globalAudio.duration) {
         globalAudio.currentTime = (percentValue / 100) * globalAudio.duration;
     }
+}
+
+// ================= מחיקת הודעה חכמה =================
+let pendingDeleteFileName = null;
+
+// פונקציה 1: בודקת מול השרת אם מותר למחוק (לפני הקפצת ה"בטוח?")
+async function attemptDeleteMessage(fileName) {
+    if (globalAudio && !globalAudio.paused) globalAudio.pause();
+    
+    try {
+        const res = await fetch(`${API_BASE_URL}/messages/check-delete`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userToken: state.userToken, fileName: fileName })
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+            // השרת אישר. נציג את השאלה במודל
+            pendingDeleteFileName = fileName;
+            document.getElementById('delete-status-msg').style.display = 'none';
+            document.getElementById('delete-action-buttons').style.display = 'flex';
+            document.getElementById('delete-modal-texts').style.display = 'block';
+            document.getElementById('deleteConfirmModal').classList.add('active');
+        } else {
+            // נדחה על ידי השרת - מציג במודל השגיאה החדש
+            showErrorModal("לא ניתן למחוק", (data.message || 'סיבה לא ידועה.') + "<br><br>במידת הצורך ניתן לפנות להנהלת המערכת.");
+        }
+    } catch (err) {
+        showErrorModal("שגיאת תקשורת", "אירעה שגיאה בבדיקת הרשאת המחיקה.");
+    }
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteConfirmModal').classList.remove('active');
+    pendingDeleteFileName = null;
+    const btn = document.getElementById('btn-confirm-delete');
+    if(btn) {
+        btn.innerHTML = 'כן, מחק הודעה';
+        btn.disabled = false;
+    }
+}
+
+// פונקציה 2: ביצוע המחיקה הסופית בלחיצת אישור
+async function confirmDeleteMessage() {
+    if (!pendingDeleteFileName) return;
+    
+    const btn = document.getElementById('btn-confirm-delete');
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מוחק...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/messages/delete`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userToken: state.userToken, fileName: pendingDeleteFileName })
+        });
+        const data = await res.json();
+        
+        const statusMsg = document.getElementById('delete-status-msg');
+        document.getElementById('delete-action-buttons').style.display = 'none';
+        document.getElementById('delete-modal-texts').style.display = 'none';
+        statusMsg.style.display = 'block';
+
+        if (res.ok && data.success) {
+            statusMsg.className = 'tzintuk-status-msg success';
+            statusMsg.innerHTML = '<i class="fa-solid fa-check"></i> ' + data.message;
+            
+            loadMessages(); // מרענן את ההודעות, ההודעה תעלם מהמסך
+            
+            setTimeout(() => { closeDeleteModal(); }, 3000);
+        } else {
+            statusMsg.className = 'tzintuk-status-msg error';
+            statusMsg.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + (data.message || 'הפעולה נכשלה');
+            
+            setTimeout(() => { closeDeleteModal(); }, 5000);
+        }
+    } catch (err) {
+        const statusMsg = document.getElementById('delete-status-msg');
+        document.getElementById('delete-action-buttons').style.display = 'none';
+        document.getElementById('delete-modal-texts').style.display = 'none';
+        statusMsg.style.display = 'block';
+        statusMsg.className = 'tzintuk-status-msg error';
+        statusMsg.innerHTML = '<i class="fa-solid fa-xmark"></i> שגיאת תקשורת מול השרת.';
+        
+        setTimeout(() => { closeDeleteModal(); }, 3000);
+    }
+}
+
+// פונקציות להצגת הודעת שגיאה כללית מעוצבת
+function showErrorModal(title, text) {
+    document.getElementById('errorModalTitle').innerHTML = title;
+    document.getElementById('errorModalText').innerHTML = text;
+    document.getElementById('errorAlertModal').classList.add('active');
+}
+
+function closeErrorModal() {
+    document.getElementById('errorAlertModal').classList.remove('active');
 }
 
 // ================= תהליכי מנהל =================
