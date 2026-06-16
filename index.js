@@ -393,7 +393,7 @@ const htmlContent = `<!DOCTYPE html>
         <div class="modal-content professional-modal">
             <div class="modal-header">
                 <h2 id="review-title"><i class="fa-solid fa-microphone"></i> הקלטת הודעה</h2>
-                <button class="close-modal-btn" onclick="cancelUpload()" title="סגור"><i class="fa-solid fa-xmark"></i></button>
+                <button class="close-modal-btn" onclick="closeUploadModal()" title="סגור"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
             <div id="recording-ui" style="display: none;">
@@ -420,7 +420,7 @@ const htmlContent = `<!DOCTYPE html>
                     <audio id="preview-audio" controls class="preview-audio-modern"></audio>
                 </div>
                 <div class="preview-actions-pro">
-                    <button type="button" class="btn-pro-outline" onclick="cancelUpload()">
+                    <button type="button" class="btn-pro-outline" onclick="closeUploadModal()">
                         <i class="fa-solid fa-trash-can"></i> מחיקה
                     </button>
                     <button type="button" class="btn-pro-primary" id="btn-confirm-send" onclick="confirmUpload()">
@@ -428,6 +428,35 @@ const htmlContent = `<!DOCTYPE html>
                     </button>
                 </div>
             </div>
+            
+            <div id="upload-success-ui" style="display: none;">
+                <div class="success-header-pro">
+                    <i class="fa-solid fa-circle-check text-success-pro"></i>
+                    <h3 style="margin-top: 10px; color: var(--text-dark); font-size:1.3rem;">ההודעה הועלתה!</h3>
+                </div>
+                
+                <div class="tzintuk-prompt-box">
+                    <p style="font-weight: 600; color:var(--text-main); margin-bottom: 10px;">
+                        האם תרצה לשלוח צינתוק למנויים על ההודעה החדשה?
+                    </p>
+                    <div class="tzintuk-timer-wrap">
+                        <i class="fa-regular fa-clock"></i> נותר לך: 
+                        <span id="tzintuk-timer" class="tzintuk-timer-text">01:30</span>
+                    </div>
+                </div>
+                
+                <div id="tzintuk-status-msg" class="tzintuk-status-msg" style="display:none;"></div>
+                
+                <div class="preview-actions-pro" id="tzintuk-action-buttons">
+                    <button type="button" class="btn-pro-secondary" onclick="closeUploadModal()">
+                         ביטול וסיום
+                    </button>
+                    <button type="button" class="btn-pro-primary" id="btn-send-tzintuk" onclick="triggerTzintuk()">
+                        <i class="fa-solid fa-phone-volume" style="margin-left: 5px;"></i> צינתוק עכשיו
+                    </button>
+                </div>
+            </div>
+
         </div>
     </div>
 
