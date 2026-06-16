@@ -4,7 +4,8 @@ const htmlContent = `<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>עכשיו סלומון</title>
-        <link rel="icon" type="image/png" href="https://smt-tel-manager.netlify.app/salamon-logo.png">
+    <!-- הוספת סמלון מותאם לדפדפן (Favicon) -->
+    <link rel="icon" href="https://smt-tel-manager.netlify.app/salamon-logo.png" type="image/png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/salamon/style.css">
     <script src="/salamon/frontend.js" defer></script>
@@ -149,7 +150,10 @@ const htmlContent = `<!DOCTYPE html>
                 <div id="tab-messages" class="app-tab active">
                     <div class="chat-header-fixed">
                         <div class="header-title-group">
-                            <div class="header-icon"><i class="fa-solid fa-headphones"></i></div>
+                            <!-- כאן החלפנו את האייקון לתמונת הלוגו של הקבוצה -->
+                            <div class="header-icon">
+                                <img src="https://smt-tel-manager.netlify.app/salamon-logo.png" alt="לוגו קבוצה">
+                            </div>
                             <div class="header-title">
                                 <h3>עכשיו סלומון</h3>
                                 <p>מחובר</p>
@@ -384,6 +388,7 @@ const htmlContent = `<!DOCTYPE html>
         </div>
     </div>
 
+    <!-- מודל הקלטה והעלאת קבצים -->
     <div class="modal-overlay" id="uploadReviewModal">
         <div class="modal-content professional-modal">
             <div class="modal-header">
@@ -441,7 +446,6 @@ const htmlContent = `<!DOCTYPE html>
     <audio id="global-audio-player"></audio>
 
     <script>
-        // האזנה קטנה למעבר לשוניות לצורך רענון אוטומטי
         const originalSwitchAdminTab = window.switchAdminTab;
         window.switchAdminTab = function(tabName) {
             if(originalSwitchAdminTab) originalSwitchAdminTab(tabName);
