@@ -32,6 +32,13 @@ body {
 .view-section { display: none; width: 100%; height: 100%; }
 .view-section.active { display: flex; }
 
+/* ================== מניעת זיהוי התמונה בעכבר (הגנה) ================== */
+.protected-logo {
+    pointer-events: none;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
 /* ================== מסכי התחברות ================== */
 #auth-layout { background: var(--header-bg); justify-content: center; align-items: center; }
 .auth-container { width: 100%; max-width: 420px; padding: 20px; }
@@ -41,6 +48,22 @@ body {
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
 .auth-icon { font-size: 2.5rem; color: var(--play-out); margin-bottom: 15px; }
+
+/* עיצוב הלוגו הגדול בחלון ההתחברות */
+.auth-logo {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    margin: 0 auto 15px auto;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    overflow: hidden;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.auth-logo img { width: 100%; height: 100%; object-fit: cover; }
+
 .auth-card h2 { font-size: 1.6rem; margin-bottom: 8px; font-weight: 800; color: var(--text-dark); }
 .subtitle { font-size: 0.95rem; color: var(--text-light); margin-bottom: 25px; }
 
@@ -134,7 +157,7 @@ body {
 .chat-header-fixed { height: 65px; background: var(--header-bg); padding: 0 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-color); z-index: 10; flex-shrink: 0; }
 .header-title-group { display: flex; align-items: center; gap: 15px; }
 
-/* הוספת הגדרות לעיגול הלוגו בחלק העליון של הצ'אט */
+/* עיצוב הלוגו בתוך הצ'אט עצמו */
 .header-icon { width: 40px; height: 40px; border-radius: 50%; background: #cbd5e1; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; color: #fff; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
 .header-icon img { width: 100%; height: 100%; object-fit: cover; }
 
