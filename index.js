@@ -16,11 +16,8 @@ const htmlContent = `<!DOCTYPE html>
 
         <main id="initial-loader" class="view-section active">
             <div class="loader-container">
-                <div class="auth-logo pulse-anim">
-                    <img src="https://smt-tel-manager.netlify.app/salamon-logo.png" alt="לוגו מערכת" class="protected-logo" draggable="false">
-                </div>
-                <i class="fa-solid fa-circle-notch fa-spin loader-spinner"></i>
-                <p>מתחבר למערכת...</p>
+                <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 2.5rem; color: #16a34a; margin-bottom: 15px;"></i>
+                <p style="font-size: 1.1rem; color: #475569; font-weight: 500;">מתחבר למערכת...</p>
             </div>
         </main>
 
@@ -28,149 +25,172 @@ const htmlContent = `<!DOCTYPE html>
             <div class="auth-container">
                 
                 <section id="init-view" class="auth-card">
-                    <div class="auth-logo">
-                        <img src="https://smt-tel-manager.netlify.app/salamon-logo.png" alt="לוגו מערכת" class="protected-logo" draggable="false">
+                    <div class="auth-header">
+                        <img src="https://smt-tel-manager.netlify.app/salamon-logo.png" alt="לוגו" class="auth-logo protected-logo" draggable="false">
+                        <h2>ברוכים הבאים</h2>
+                        <p>הזן טלפון או אימייל כדי להמשיך</p>
                     </div>
-                    <h2>ברוכים הבאים</h2>
-                    <p class="subtitle">אנא הזן טלפון או אימייל כדי להתחיל</p>
                     <div id="alert-init" class="alert-box"></div>
                     <form onsubmit="event.preventDefault(); checkIdentifier(event);">
                         <div class="form-group">
-                            <input type="text" id="init_id" required placeholder="מספר טלפון או אימייל" class="center-text ltr-input input-modern">
+                            <label>מזהה משתמש</label>
+                            <input type="text" id="init_id" required placeholder="טלפון או אימייל" class="input-standard ltr-input center-text">
                         </div>
-                        <button type="submit" id="btn-init" class="btn-primary">המשך <i class="fa-solid fa-arrow-left"></i></button>
+                        <button type="submit" id="btn-init" class="btn-primary">המשך</button>
                     </form>
                 </section>
 
                 <section id="login-view" class="auth-card">
-                    <div class="auth-logo">
-                        <img src="https://smt-tel-manager.netlify.app/salamon-logo.png" alt="לוגו מערכת" class="protected-logo" draggable="false">
+                    <div class="auth-header">
+                        <img src="https://smt-tel-manager.netlify.app/salamon-logo.png" alt="לוגו" class="auth-logo protected-logo" draggable="false">
+                        <h2>התחברות</h2>
                     </div>
-                    <h2>התחברות לחשבון</h2>
-                    <p class="subtitle">הזן את סיסמתך כדי להיכנס למערכת</p>
                     <div id="alert-login" class="alert-box"></div>
-                    <div class="locked-input-container">
-                        <span id="login_display_id"></span>
-                        <button type="button" onclick="goBackToInit()"><i class="fa-solid fa-pen"></i> שנה</button>
+                    
+                    <div class="user-badge">
+                        <span id="login_display_id" dir="ltr"></span>
+                        <button type="button" class="btn-link" onclick="goBackToInit()">החלף</button>
                     </div>
+
                     <form onsubmit="event.preventDefault(); userLogin(event);">
                         <div class="form-group">
-                            <input type="password" id="login_pass" required placeholder="הזן סיסמה" class="input-modern center-text ltr-input">
+                            <label>סיסמה</label>
+                            <input type="password" id="login_pass" required placeholder="הזן את סיסמתך" class="input-standard ltr-input center-text">
                         </div>
-                        <button type="submit" id="btn-login" class="btn-primary">היכנס למערכת</button>
+                        <button type="submit" id="btn-login" class="btn-primary">היכנס</button>
                     </form>
-                    <button type="button" class="btn-text forgot-pass-btn" id="btn-forgot-pass" onclick="forgotPassword()"><i class="fa-solid fa-unlock-keyhole"></i> שכחת סיסמה? איפוס דרך אימייל</button>
+                    <div class="auth-footer">
+                        <button type="button" class="btn-link" id="btn-forgot-pass" onclick="forgotPassword()">שכחת סיסמה? איפוס במייל</button>
+                    </div>
                 </section>
 
                 <section id="pre-verify-view" class="auth-card">
-                    <div class="auth-icon"><i class="fa-solid fa-user-plus"></i></div>
-                    <h2>רישום למערכת</h2>
-                    <p class="subtitle">המספר <span id="pre_verify_phone" dir="ltr" style="font-weight:bold; color:var(--play-out);"></span> מורשה אך טרם נרשם.</p>
-                    <div id="alert-pre-verify" class="alert-box"></div>
-                    <div class="warning-box">
-                        <i class="fa-solid fa-triangle-exclamation" style="display:block; text-align:center; font-size:1.5rem; margin-bottom:10px;"></i>
-                        חובה לאמת את המספר תחילה.<br>המערכת תשלח כעת שיחת אימות (צינתוק) לטלפון.
+                    <div class="auth-header">
+                        <h2>רישום למערכת</h2>
+                        <p>המספר <span id="pre_verify_phone" dir="ltr" style="font-weight:bold; color:#16a34a;"></span> מורשה אך טרם נרשם.</p>
                     </div>
-                    <button type="button" id="btn-approve-tzintuk" class="btn-primary" onclick="approveVerification()">שלח צינתוק עכשיו <i class="fa-solid fa-phone-volume"></i></button>
-                    <button type="button" class="btn-text" onclick="goBackToInit()">ביטול וחזרה</button>
+                    <div id="alert-pre-verify" class="alert-box"></div>
+                    <div class="info-box">
+                        כדי להמשיך, עלינו לאמת את מספר הטלפון שלך. המערכת תוציא אליך כעת שיחת אימות (צינתוק).
+                    </div>
+                    <button type="button" id="btn-approve-tzintuk" class="btn-primary" onclick="approveVerification()">שלח לי שיחת אימות</button>
+                    <div class="auth-footer">
+                        <button type="button" class="btn-link" onclick="goBackToInit()">ביטול וחזרה</button>
+                    </div>
                 </section>
 
                 <section id="verify-view" class="auth-card">
-                    <div class="auth-icon"><i class="fa-solid fa-phone-shield"></i></div>
-                    <h2>אימות מספר</h2>
-                    <p class="subtitle">הזן את 4 הספרות האחרונות מהשיחה הנכנסת</p>
-                    <div id="alert-verify" class="alert-box"></div>
-                    <div class="locked-input-container">
-                        <span id="verify_display_phone" dir="ltr" style="color: var(--play-out);"></span>
-                        <button type="button" onclick="goBackToInit()"><i class="fa-solid fa-pen"></i> שנה</button>
+                    <div class="auth-header">
+                        <h2>אימות מספר</h2>
+                        <p>הזן את 4 הספרות האחרונות מהשיחה הנכנסת</p>
                     </div>
+                    <div id="alert-verify" class="alert-box"></div>
+                    
+                    <div class="user-badge">
+                        <span id="verify_display_phone" dir="ltr"></span>
+                        <button type="button" class="btn-link" onclick="goBackToInit()">החלף</button>
+                    </div>
+
                     <form onsubmit="event.preventDefault(); verifyPhoneCode(event);">
                         <div class="form-group">
-                            <input type="text" id="verify_code" required placeholder="הזן קוד (4 ספרות)" class="center-text ltr-input input-modern" maxlength="6">
+                            <label>קוד אימות</label>
+                            <input type="text" id="verify_code" required placeholder="4 ספרות" class="input-standard ltr-input center-text" maxlength="6">
                         </div>
-                        <button type="submit" id="btn-verify" class="btn-primary">אמת קוד והמשך <i class="fa-solid fa-shield-check"></i></button>
+                        <button type="submit" id="btn-verify" class="btn-primary">אמת והמשך</button>
                     </form>
-                    <button type="button" class="btn-text" onclick="resendVerification()"><i class="fa-solid fa-phone-volume"></i> לא קיבלת שיחה? נסה שוב</button>
+                    <div class="auth-footer">
+                        <button type="button" class="btn-link" onclick="resendVerification()">לא קיבלת שיחה? נסה שוב</button>
+                    </div>
                 </section>
 
                 <section id="register-view" class="auth-card">
-                    <div class="auth-icon"><i class="fa-solid fa-user-check"></i></div>
-                    <h2>יצירת חשבון</h2>
-                    <p class="subtitle">המספר אומת! הגדר את פרטיך האישיים</p>
-                    <div id="alert-register" class="alert-box"></div>
-                    <div class="locked-input-container" style="background: #f0fdf4; border-color: #bbf7d0;">
-                        <span id="reg_display_phone"></span>
-                        <span style="font-size: 0.85rem; color: #15803d; font-weight:bold;"><i class="fa-solid fa-circle-check"></i> מאומת</span>
+                    <div class="auth-header">
+                        <h2>יצירת חשבון</h2>
+                        <p>המספר אומת. הגדר את פרטי החשבון שלך</p>
                     </div>
+                    <div id="alert-register" class="alert-box"></div>
+                    
+                    <div class="user-badge success-badge">
+                        <span id="reg_display_phone" dir="ltr"></span>
+                        <span class="badge-text"><i class="fa-solid fa-check"></i> מאומת</span>
+                    </div>
+
                     <form onsubmit="event.preventDefault(); userRegister(event);">
                         <div class="form-group">
                             <label>שם המשתמש (מימות המשיח)</label>
-                            <input type="text" id="reg_name" readonly class="input-modern" style="background:#f1f5f9; color:#64748b; cursor:not-allowed;">
+                            <input type="text" id="reg_name" readonly class="input-standard input-disabled">
                         </div>
                         <div class="form-group">
-                            <label>אימייל לגיבוי ואיפוס סיסמה (מומלץ)</label>
-                            <input type="email" id="reg_email" placeholder="email@example.com" class="ltr-input input-modern">
+                            <label>אימייל לגיבוי (מומלץ)</label>
+                            <input type="email" id="reg_email" placeholder="email@example.com" class="input-standard ltr-input">
                         </div>
                         <div class="form-group">
-                            <label>בחר סיסמה חדשה (4-10 ספרות)</label>
-                            <input type="password" id="reg_password" required placeholder="****" class="input-modern center-text ltr-input">
+                            <label>בחר סיסמה (4-10 ספרות)</label>
+                            <input type="password" id="reg_password" required placeholder="****" class="input-standard ltr-input center-text">
                         </div>
                         <div class="form-group">
-                            <label>אימות סיסמה</label>
-                            <input type="password" id="reg_password_confirm" required placeholder="הזן שוב את הסיסמה" class="input-modern center-text ltr-input">
+                            <label>אישור סיסמה</label>
+                            <input type="password" id="reg_password_confirm" required placeholder="הזן שוב את הסיסמה" class="input-standard ltr-input center-text">
                         </div>
-                        <button type="submit" id="btn-register" class="btn-primary">סיים הרשמה <i class="fa-solid fa-check"></i></button>
+                        <button type="submit" id="btn-register" class="btn-primary">סיים הרשמה</button>
                     </form>
                 </section>
 
                 <section id="reset-verify-view" class="auth-card">
-                    <div class="auth-icon" style="color: var(--secondary);"><i class="fa-solid fa-envelope-open-text"></i></div>
-                    <h2>אימות אימייל</h2>
-                    <p class="subtitle">שלחנו קוד אימות חד-פעמי לאימייל המשויך לחשבונך</p>
-                    <div id="alert-reset-verify" class="alert-box"></div>
-                    <div class="locked-input-container">
-                        <span id="reset_display_id" dir="ltr"></span>
-                        <button type="button" onclick="goBackToInit()"><i class="fa-solid fa-xmark"></i> ביטול</button>
+                    <div class="auth-header">
+                        <h2>אימות אימייל</h2>
+                        <p>שלחנו קוד אימות בן 6 ספרות לאימייל שלך</p>
                     </div>
+                    <div id="alert-reset-verify" class="alert-box"></div>
+                    
+                    <div class="user-badge">
+                        <span id="reset_display_id" dir="ltr"></span>
+                        <button type="button" class="btn-link" onclick="goBackToInit()">ביטול</button>
+                    </div>
+
                     <form onsubmit="event.preventDefault(); verifyResetCode(event);">
                         <div class="form-group">
-                            <input type="text" id="reset_verify_code" required placeholder="הזן קוד מהאימייל (6 ספרות)" class="center-text ltr-input input-modern" maxlength="6">
+                            <label>קוד אימות מהמייל</label>
+                            <input type="text" id="reset_verify_code" required placeholder="123456" class="input-standard ltr-input center-text" maxlength="6">
                         </div>
-                        <button type="submit" id="btn-reset-verify" class="btn-primary" style="background: var(--secondary);">אמת קוד אימייל <i class="fa-solid fa-shield-check"></i></button>
+                        <button type="submit" id="btn-reset-verify" class="btn-primary btn-blue">אמת קוד</button>
                     </form>
                 </section>
 
                 <section id="reset-confirm-view" class="auth-card">
-                    <div class="auth-icon" style="color: var(--secondary);"><i class="fa-solid fa-key"></i></div>
-                    <h2>איפוס סיסמה</h2>
-                    <p class="subtitle">האימייל אומת בהצלחה! בחר סיסמה חדשה</p>
+                    <div class="auth-header">
+                        <h2>סיסמה חדשה</h2>
+                        <p>האימייל אומת! בחר סיסמה חדשה לחשבונך</p>
+                    </div>
                     <div id="alert-reset-confirm" class="alert-box"></div>
                     <form onsubmit="event.preventDefault(); confirmNewPassword(event);">
                         <div class="form-group">
                             <label>סיסמה חדשה (4-10 ספרות)</label>
-                            <input type="password" id="new_reset_pass" required placeholder="****" class="input-modern center-text ltr-input">
+                            <input type="password" id="new_reset_pass" required placeholder="****" class="input-standard ltr-input center-text">
                         </div>
                         <div class="form-group">
                             <label>אישור סיסמה חדשה</label>
-                            <input type="password" id="new_reset_pass_confirm" required placeholder="הזן שוב את הסיסמה" class="input-modern center-text ltr-input">
+                            <input type="password" id="new_reset_pass_confirm" required placeholder="הזן שוב את הסיסמה" class="input-standard ltr-input center-text">
                         </div>
-                        <button type="submit" id="btn-reset-confirm" class="btn-primary" style="background: var(--secondary);">החלף סיסמה <i class="fa-solid fa-floppy-disk"></i></button>
+                        <button type="submit" id="btn-reset-confirm" class="btn-primary btn-blue">החלף סיסמה</button>
                     </form>
                 </section>
 
                 <section id="admin-login-view" class="auth-card">
-                    <div class="auth-icon" style="color: var(--secondary);"><i class="fa-solid fa-shield-halved"></i></div>
-                    <h2>כניסת הנהלה</h2>
-                    <p class="subtitle">גישה מאובטחת לצוות הניהול בלבד</p>
+                    <div class="auth-header">
+                        <h2>כניסת מנהל</h2>
+                    </div>
                     <div id="alert-admin-login" class="alert-box"></div>
                     <form onsubmit="event.preventDefault(); adminLogin(event);">
                         <div class="form-group">
-                            <input type="text" id="admin_user" required placeholder="שם משתמש" class="ltr-input input-modern">
+                            <label>שם משתמש</label>
+                            <input type="text" id="admin_user" required class="input-standard ltr-input">
                         </div>
                         <div class="form-group">
-                            <input type="password" id="admin_pass" required placeholder="סיסמה" class="input-modern ltr-input">
+                            <label>סיסמה</label>
+                            <input type="password" id="admin_pass" required class="input-standard ltr-input">
                         </div>
-                        <button type="submit" id="btn-admin-login" class="btn-primary" style="background: var(--secondary);">התחברות מאובטחת</button>
+                        <button type="submit" id="btn-admin-login" class="btn-primary btn-blue">התחבר למערכת הניהול</button>
                     </form>
                 </section>
 
