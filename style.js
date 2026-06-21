@@ -38,7 +38,7 @@ body {
 #initial-loader { background: var(--header-bg); flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }
 .loader-container { text-align: center; }
 
-/* ================== מסכי התחברות (קלאסי ונקי, מאפשר גלילה!) ================== */
+/* ================== מסכי התחברות (קלאסי ונקי, מאפשר גלילה) ================== */
 #auth-layout { 
     background: var(--header-bg); 
     display: block; 
@@ -56,6 +56,7 @@ body {
 }
 
 .auth-card { 
+    display: none; /* התיקון הקריטי: מסתיר את שאר המסכים! */
     width: 100%; 
     max-width: 400px; 
     background: #ffffff; 
@@ -65,6 +66,10 @@ body {
     border: 1px solid #e2e8f0; 
     margin: auto; 
     animation: fadeIn 0.3s ease; 
+}
+
+.auth-card.active { 
+    display: block; /* התיקון הקריטי: מציג רק את המסך הפעיל! */
 }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
