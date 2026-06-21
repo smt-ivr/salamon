@@ -42,9 +42,9 @@ body {
 .pulse-anim { animation: pulse 2s infinite ease-in-out; }
 @keyframes pulse { 0% { transform: scale(0.95); opacity: 0.8; } 50% { transform: scale(1.05); opacity: 1; } 100% { transform: scale(0.95); opacity: 0.8; } }
 
-/* ================== מסכי התחברות (מעוצב מחדש) ================== */
-#auth-layout { background: var(--header-bg); justify-content: center; align-items: center; }
-.auth-container { width: 100%; max-width: 440px; padding: 20px; }
+/* ================== מסכי התחברות (מעוצב מחדש עם גלילה תקינה) ================== */
+#auth-layout { background: var(--header-bg); justify-content: center; overflow-y: auto; }
+.auth-container { width: 100%; max-width: 440px; padding: 30px 20px; margin: auto; }
 .auth-card { display: none; background: var(--surface); border-radius: 16px; padding: 45px 35px; box-shadow: 0 10px 25px rgba(0,0,0,0.06); border: none; text-align: center; animation: fadeIn 0.3s ease; }
 .auth-card.active { display: block; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
