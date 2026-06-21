@@ -32,57 +32,77 @@ body {
 .view-section { display: none; width: 100%; height: 100%; }
 .view-section.active { display: flex; }
 
-/* ================== מניעת זיהוי התמונה בעכבר ================== */
 .protected-logo { pointer-events: none; user-select: none; -webkit-user-drag: none; }
 
-/* ================== מסך טעינה ראשוני ================== */
+/* ================== מסך טעינה ================== */
 #initial-loader { background: var(--header-bg); flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }
-.loader-container { text-align: center; color: var(--text-light); }
-.loader-spinner { font-size: 2.5rem; color: var(--play-out); margin-bottom: 15px; }
-.pulse-anim { animation: pulse 2s infinite ease-in-out; }
-@keyframes pulse { 0% { transform: scale(0.95); opacity: 0.8; } 50% { transform: scale(1.05); opacity: 1; } 100% { transform: scale(0.95); opacity: 0.8; } }
+.loader-container { text-align: center; }
 
-/* ================== מסכי התחברות (מעוצב מחדש) ================== */
-#auth-layout { background: var(--header-bg); justify-content: center; align-items: center; }
-.auth-container { width: 100%; max-width: 440px; padding: 20px; }
-.auth-card { display: none; background: var(--surface); border-radius: 16px; padding: 45px 35px; box-shadow: 0 10px 25px rgba(0,0,0,0.06); border: none; text-align: center; animation: fadeIn 0.3s ease; }
-.auth-card.active { display: block; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+/* ================== מסכי התחברות (קלאסי ונקי, מאפשר גלילה!) ================== */
+#auth-layout { 
+    background: var(--header-bg); 
+    display: block; 
+    overflow-y: auto; 
+    height: 100%;
+}
 
-.auth-icon { font-size: 2.8rem; color: var(--play-out); margin-bottom: 20px; }
-.auth-logo { width: 85px; height: 85px; border-radius: 50%; margin: 0 auto 20px auto; box-shadow: 0 4px 15px rgba(0,0,0,0.1); overflow: hidden; background: #fff; display: flex; align-items: center; justify-content: center; }
-.auth-logo img { width: 100%; height: 100%; object-fit: cover; }
-.auth-card h2 { font-size: 1.7rem; margin-bottom: 8px; font-weight: 800; color: var(--text-dark); }
-.subtitle { font-size: 0.95rem; color: var(--text-light); margin-bottom: 25px; line-height: 1.4; }
+.auth-container { 
+    min-height: 100%; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    padding: 30px 15px; 
+    width: 100%; 
+}
 
-.form-group { margin-bottom: 18px; text-align: right; }
-.form-group label { display: block; margin-bottom: 6px; font-weight: 600; font-size: 0.85rem; color: var(--text-light); }
-.input-modern { width: 100%; padding: 14px 16px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 1rem; color: var(--text-main); transition: 0.2s; background: #f8fafc; }
-.input-modern:focus { outline: none; border-color: var(--play-out); background: white; box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15); }
+.auth-card { 
+    width: 100%; 
+    max-width: 400px; 
+    background: #ffffff; 
+    border-radius: 12px; 
+    padding: 40px 30px; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+    border: 1px solid #e2e8f0; 
+    margin: auto; 
+    animation: fadeIn 0.3s ease; 
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+.auth-header { text-align: center; margin-bottom: 30px; }
+.auth-logo { width: 75px; height: 75px; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.08); background: #fff; padding: 2px; margin-bottom: 15px; }
+.auth-header h2 { font-size: 1.5rem; color: var(--text-dark); margin-bottom: 5px; font-weight: 700; }
+.auth-header p { font-size: 0.9rem; color: var(--text-light); }
+
+.form-group { margin-bottom: 20px; text-align: right; }
+.form-group label { display: block; margin-bottom: 6px; font-size: 0.85rem; font-weight: 600; color: #475569; }
+.input-standard { width: 100%; padding: 12px 14px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 1rem; color: var(--text-main); background: #fff; transition: border-color 0.2s; }
+.input-standard:focus { outline: none; border-color: var(--play-out); }
+.input-disabled { background: #f1f5f9; color: #64748b; cursor: not-allowed; }
 .ltr-input { direction: ltr; text-align: left; }
-.center-text { text-align: center; font-size: 1.1rem; font-weight: 600; letter-spacing: 1px; }
+.center-text { text-align: center; font-size: 1.05rem; letter-spacing: 1px; }
 
-.btn-primary { width: 100%; padding: 14px; background-color: var(--play-out); color: white; border: none; border-radius: 8px; font-size: 1.05rem; font-weight: 600; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 6px -1px rgba(22, 163, 74, 0.2); }
-.btn-primary:hover:not(:disabled) { background-color: #15803d; transform: translateY(-1px); box-shadow: 0 6px 8px -1px rgba(22, 163, 74, 0.3); }
-.btn-primary:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+.btn-primary { width: 100%; padding: 12px; background: var(--play-out); color: white; border: none; border-radius: 6px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: 0.2s; }
+.btn-primary:hover:not(:disabled) { background: #15803d; }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-blue { background: var(--secondary); }
+.btn-blue:hover:not(:disabled) { background: #2563eb; }
 
-.btn-text { background: none; border: none; color: var(--text-light); font-weight: 600; cursor: pointer; padding: 12px; width: 100%; margin-top: 15px; transition: 0.2s; border-radius: 8px;}
-.btn-text:hover { color: var(--text-main); background: #f1f5f9; }
-.forgot-pass-btn { color: var(--secondary); margin-top: 15px; }
-.forgot-pass-btn:hover { color: #1d4ed8; background: #eff6ff; }
+.auth-footer { margin-top: 20px; text-align: center; border-top: 1px solid #f1f5f9; padding-top: 15px; }
+.btn-link { background: none; border: none; color: var(--secondary); cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: 0.2s; padding: 5px; }
+.btn-link:hover { color: #1e40af; text-decoration: underline; }
 
-.locked-input-container { display: flex; align-items: center; justify-content: space-between; background-color: #f8fafc; border: 1px dashed var(--border-color); border-radius: 8px; padding: 12px 16px; margin-bottom: 25px; }
-.locked-input-container span { font-weight: 600; font-size: 1.1rem; color: var(--text-main); }
-.locked-input-container button { background: none; border: none; color: var(--secondary); cursor: pointer; font-weight: 600; font-size: 0.9rem; padding: 5px; border-radius: 4px; transition: 0.2s; }
-.locked-input-container button:hover { background: #eff6ff; }
+.user-badge { display: flex; align-items: center; justify-content: space-between; background: #f8fafc; border: 1px dashed #cbd5e1; padding: 10px 15px; border-radius: 6px; margin-bottom: 25px; }
+.user-badge span { font-weight: 600; color: var(--text-main); font-size: 1.05rem; }
+.success-badge { background: #f0fdf4; border-color: #bbf7d0; }
 
-.warning-box { background-color: #fffbeb; color: #b45309; border: 1px solid #fde68a; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 0.95rem; line-height: 1.5; text-align: right; }
-.alert-box { padding: 14px; border-radius: 8px; margin-bottom: 20px; font-weight: 600; font-size: 0.9rem; display: none; text-align: right; line-height: 1.4; animation: fadeIn 0.3s ease; }
-.alert-box.error { background-color: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
-.alert-box.success { background-color: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
-.alert-box.info { background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.info-box { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; padding: 12px; border-radius: 6px; font-size: 0.9rem; line-height: 1.5; margin-bottom: 20px; text-align: right; }
+.alert-box { padding: 12px; border-radius: 6px; margin-bottom: 20px; font-weight: 600; font-size: 0.85rem; display: none; text-align: right; line-height: 1.4; }
+.alert-box.error { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+.alert-box.success { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+.alert-box.info { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
 
-/* ================== אזור האפליקציה (ללא שינוי מעבר למה שהיה) ================== */
+/* ================== אזור האפליקציה ================== */
 .app-layout { flex-direction: row; }
 .app-sidebar { width: 320px; background: var(--surface); display: flex; flex-direction: column; border-left: 1px solid var(--border-color); z-index: 20; flex-shrink: 0; }
 .sidebar-header { height: 65px; padding: 0 15px; background: var(--header-bg); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); }
@@ -154,7 +174,6 @@ body {
 .sender-name { font-weight: 700; font-size: 0.9rem; color: var(--name-color); }
 .bubble-out .sender-name { color: var(--link-color); }
 
-/* עיצוב לאזור השמאלי (כפתור פח אשפה + ID) */
 .file-id-group { display: flex; align-items: center; gap: 10px; direction: ltr; }
 .file-id { font-size: 0.75rem; color: #8696a0; font-family: monospace; font-weight: 600;}
 .delete-msg-btn { background: transparent; border: none; color: #ef4444; font-size: 1.05rem; cursor: pointer; opacity: 0.7; transition: 0.2s; padding: 3px; display: flex; align-items: center; justify-content: center; }
