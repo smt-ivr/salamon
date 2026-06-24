@@ -82,7 +82,7 @@ body {
 .alert-box.success { background-color: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
 .alert-box.info { background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
 
-/* ================== אזור האפליקציה (ללא שינוי מעבר למה שהיה) ================== */
+/* ================== אזור האפליקציה ================== */
 .app-layout { flex-direction: row; }
 .app-sidebar { width: 320px; background: var(--surface); display: flex; flex-direction: column; border-left: 1px solid var(--border-color); z-index: 20; flex-shrink: 0; }
 .sidebar-header { height: 65px; padding: 0 15px; background: var(--header-bg); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); }
@@ -250,6 +250,9 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
     .chat-upload-area { padding: 8px 10px; gap: 8px; min-height: 60px; }
     .chat-input-wrapper { padding: 4px 10px; gap: 6px; }
     .professional-modal { max-width: 90%; border-radius: 12px; }
+    
+    #user-dash-view .nav-menu { display: none !important; }
+    #user-dash-view .app-main-area { padding-bottom: 0 !important; height: calc(100vh - 65px) !important; height: calc(100dvh - 65px) !important; }
 }
 `;
 
