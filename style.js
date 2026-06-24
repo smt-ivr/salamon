@@ -42,7 +42,7 @@ body {
 .pulse-anim { animation: pulse 2s infinite ease-in-out; }
 @keyframes pulse { 0% { transform: scale(0.95); opacity: 0.8; } 50% { transform: scale(1.05); opacity: 1; } 100% { transform: scale(0.95); opacity: 0.8; } }
 
-/* ================== מסכי התחברות (מעוצב מחדש עם גלילה תקינה) ================== */
+/* ================== מסכי התחברות ================== */
 #auth-layout { background: var(--header-bg); justify-content: center; overflow-y: auto; }
 .auth-container { width: 100%; max-width: 440px; padding: 30px 20px; margin: auto; }
 .auth-card { display: none; background: var(--surface); border-radius: 16px; padding: 45px 35px; box-shadow: 0 10px 25px rgba(0,0,0,0.06); border: none; text-align: center; animation: fadeIn 0.3s ease; }
@@ -90,7 +90,7 @@ body {
 .avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--play-out); color: white; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
 .user-details h2 { font-size: 0.95rem; font-weight: 700; margin-bottom: 2px; white-space: nowrap; }
 .user-details p { font-size: 0.75rem; color: var(--text-light); direction: ltr; text-align: right;}
-.sidebar-actions { display: flex; gap: 5px; }
+.sidebar-actions { display: flex; align-items: center; gap: 5px; }
 .sidebar-actions button { background: none; border: none; color: var(--text-light); font-size: 1.2rem; cursor: pointer; padding: 8px; border-radius: 50%; transition: 0.2s; }
 .sidebar-actions button:hover { background: rgba(0,0,0,0.05); color: var(--text-main); }
 .logout-btn { color: var(--danger) !important; }
@@ -240,10 +240,22 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
 @media (max-width: 768px) {
     .app-layout { flex-direction: column; }
     .app-sidebar { width: 100%; height: auto; border-left: none; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
+    
+    /* תיקון וכיווץ חכם של הכותרות העליונות לחסכון במקום במסכים קטנים */
+    .sidebar-header { height: 52px; padding: 0 12px; }
+    .chat-header-fixed { height: 52px; padding: 0 12px; }
+    .user-profile-wrap .avatar, .header-icon { width: 34px; height: 34px; font-size: 1rem; }
+    .user-details h2 { font-size: 0.9rem; margin-bottom: 0px; }
+    .user-details p { font-size: 0.75rem; }
+    .header-title h3 { font-size: 0.95rem; margin-bottom: 0px; }
+    .header-title p { font-size: 0.75rem; }
+    .sidebar-actions { gap: 2px; }
+    .sidebar-actions button, .icon-btn { padding: 6px; font-size: 1.1rem; }
+    
     .nav-menu { position: fixed; bottom: 0; left: 0; right: 0; flex-direction: row; justify-content: space-around; align-items: center; background: var(--header-bg); padding: 0; border-top: 1px solid var(--border-color); z-index: 100; height: calc(65px + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); }
     .nav-item { flex: 1; justify-content: center; border-right: none; border-top: 3px solid transparent; flex-direction: column; gap: 4px; font-size: 0.8rem; padding: 5px 0;}
     .nav-item.active { border-top-color: var(--play-out); background: none; }
-    .app-main-area { height: calc(100vh - 65px); height: calc(100dvh - 65px); padding-bottom: calc(65px + env(safe-area-inset-bottom)); }
+    .app-main-area { height: calc(100vh - 52px); height: calc(100dvh - 52px); padding-bottom: calc(65px + env(safe-area-inset-bottom)); }
     .scrollable-tab { padding: 20px 15px; } 
     #messages-container { padding: 15px 10px; } 
     .bubble { max-width: 90%; min-width: 240px; }
@@ -252,7 +264,7 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
     .professional-modal { max-width: 90%; border-radius: 12px; }
     
     #user-dash-view .nav-menu { display: none !important; }
-    #user-dash-view .app-main-area { padding-bottom: 0 !important; height: calc(100vh - 65px) !important; height: calc(100dvh - 65px) !important; }
+    #user-dash-view .app-main-area { padding-bottom: 0 !important; height: calc(100vh - 52px) !important; height: calc(100dvh - 52px) !important; }
 }
 `;
 
