@@ -183,17 +183,18 @@ const htmlContent = `<!DOCTYPE html>
                     <div class="user-profile-wrap">
                         <div class="avatar"><i class="fa-solid fa-user"></i></div>
                         <div class="user-details">
-                            <h2 id="ui-user-name">טוען...</h2>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <h2 id="ui-user-name">טוען...</h2>
+                                <span id="ui-tzintuk-icon" style="font-size: 0.85rem;"></span>
+                            </div>
                             <p id="ui-user-phone">---</p>
                         </div>
                     </div>
                     <div class="sidebar-actions">
-                        <button title="הגדרות חשבון" onclick="switchUserTab('settings')"><i class="fa-solid fa-gear"></i></button>
+                        <button title="הגדרות חשבון" onclick="openUserSettingsModal()"><i class="fa-solid fa-gear"></i></button>
                         <button title="התנתק" class="logout-btn" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
                     </div>
                 </div>
-                
-                <div class="tzintuk-status" id="ui-tzintuk-badge"></div>
 
                 <nav class="nav-menu">
                     <div class="nav-item active" id="tab-btn-messages" onclick="switchUserTab('messages')">
@@ -229,30 +230,6 @@ const htmlContent = `<!DOCTYPE html>
                         <button class="upload-btn record-btn" id="chat-record-btn" onclick="toggleChatRecording()" title="הקלט הודעה">
                             <i class="fa-solid fa-microphone"></i>
                         </button>
-                    </div>
-                </div>
-
-                <div id="tab-settings" class="app-tab scrollable-tab">
-                    <div class="settings-wrapper">
-                        <h2>הגדרות פרופיל</h2>
-                        <div class="settings-card">
-                            <div id="alert-dash" class="alert-box"></div>
-                            <form onsubmit="event.preventDefault(); updateUserProfile(event);">
-                                <div class="form-group">
-                                    <label>אימייל מעודכן</label>
-                                    <input type="email" id="update_email" class="ltr-input input-modern">
-                                </div>
-                                <div class="form-group">
-                                    <label>סיסמה חדשה (השאר ריק ללא שינוי)</label>
-                                    <input type="password" id="update_new_pass" placeholder="****" class="input-modern">
-                                </div>
-                                <div class="form-group" style="margin-top: 30px; border-top: 1px solid var(--border-color); padding-top: 20px;">
-                                    <label style="color: var(--danger);"><i class="fa-solid fa-lock"></i> סיסמה נוכחית (חובה לאימות)</label>
-                                    <input type="password" id="update_old_pass" required placeholder="הזן סיסמה נוכחית" class="input-modern">
-                                </div>
-                                <button type="submit" id="btn-update" class="btn-primary" style="margin-top: 10px;">שמור שינויים <i class="fa-solid fa-floppy-disk"></i></button>
-                            </form>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -539,6 +516,33 @@ const htmlContent = `<!DOCTYPE html>
             <h3 id="errorModalTitle" style="margin-bottom: 10px; color: var(--text-dark); font-size: 1.3rem;">שגיאה</h3>
             <p id="errorModalText" style="font-size: 0.95rem; color: var(--text-light); margin-bottom: 25px; line-height: 1.5;"></p>
             <button id="errorModalBtn" class="btn-primary" onclick="closeErrorModal()" style="background: #ef4444;">הבנתי, תודה</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="userSettingsModal">
+        <div class="modal-content professional-modal">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-gear"></i> הגדרות פרופיל</h2>
+                <button class="close-modal-btn" onclick="closeUserSettingsModal()" title="סגור"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div style="padding: 25px 20px;">
+                <div id="alert-settings" class="alert-box"></div>
+                <form onsubmit="event.preventDefault(); updateUserProfile(event);">
+                    <div class="form-group">
+                        <label>אימייל מעודכן</label>
+                        <input type="email" id="update_email" class="ltr-input input-modern">
+                    </div>
+                    <div class="form-group">
+                        <label>סיסמה חדשה (השאר ריק ללא שינוי)</label>
+                        <input type="password" id="update_new_pass" placeholder="****" class="input-modern">
+                    </div>
+                    <div class="form-group" style="margin-top: 30px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+                        <label style="color: var(--danger);"><i class="fa-solid fa-lock"></i> סיסמה נוכחית (חובה לאימות)</label>
+                        <input type="password" id="update_old_pass" required placeholder="הזן סיסמה נוכחית" class="input-modern">
+                    </div>
+                    <button type="submit" id="btn-update" class="btn-primary" style="margin-top: 10px;">שמור שינויים <i class="fa-solid fa-floppy-disk"></i></button>
+                </form>
+            </div>
         </div>
     </div>
 
