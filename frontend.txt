@@ -89,7 +89,8 @@ function showMessage(containerId, msg, type = 'info') {
 
 function clearMessage() {
     if (activeAlertId) {
-        document.getElementById(activeAlertId).style.display = 'none';
+        const box = document.getElementById(activeAlertId);
+        if (box) box.style.display = 'none';
         activeAlertId = null;
     }
 }
@@ -98,7 +99,6 @@ document.addEventListener('input', clearMessage);
 function showView(viewId) {
     clearMessage();
     document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
-    
     if (viewId === 'initial-loader') {
         document.getElementById('initial-loader').classList.add('active');
     } else if (viewId.includes('view') && !viewId.includes('dash')) {
@@ -113,7 +113,8 @@ function showView(viewId) {
 function switchUserTab(tabName) {
     clearMessage();
     document.querySelectorAll('#user-dash-view .app-tab').forEach(tab => tab.classList.remove('active'));
-    document.getElementById('tab-' + tabName).classList.add('active');
+    const tabEl = document.getElementById('tab-' + tabName);
+    if (tabEl) tabEl.classList.add('active');
     
     document.querySelectorAll('#user-dash-view .nav-item').forEach(li => li.classList.remove('active'));
     const btn = document.getElementById('tab-btn-' + tabName);
@@ -170,7 +171,6 @@ async function checkIdentifier(e) {
         });
         const data = await res.json();
         setLoading('btn-init', false, 'המשך <i class="fa-solid fa-arrow-left"></i>');
-        
         if (data.isRegistered) {
             state.tempIdentifier = data.identifier;
             document.getElementById('login_display_id').innerText = data.identifier;
@@ -229,7 +229,6 @@ async function verifyPhoneCode(e) {
         });
         const data = await res.json();
         setLoading('btn-verify', false, 'אמת והמשך <i class="fa-solid fa-shield-check"></i>');
-        
         if (res.ok && data.success) {
             document.getElementById('reg_display_phone').innerText = state.tempIdentifier;
             showView('register-view');
@@ -280,7 +279,6 @@ async function userRegister(e) {
         });
         const data = await res.json();
         setLoading('btn-register', false, 'סיום הרשמה <i class="fa-solid fa-check"></i>');
-        
         if (!res.ok) {
             showMessage('alert-register', data.message || data.error || 'שגיאה ברישום', 'error');
             return;
@@ -339,10 +337,9 @@ async function forgotPassword() {
         });
         const data = await res.json();
         setLoading('btn-forgot-pass', false, '<i class="fa-solid fa-unlock-keyhole"></i> שכחת סיסמה? איפוס דרך אימייל');
-        
         if (res.ok && data.success) {
             state.sessionId = data.sessionId;
-            state.tempIdentifier = data.phone; // שימוש בטלפון האמיתי לשלבים הבאים
+            state.tempIdentifier = data.phone; 
             document.getElementById('reset_display_id').innerText = data.phone;
             showView('reset-verify-view');
             showMessage('alert-reset-verify', data.message || 'קוד נשלח לאימייל המעודכן בחשבונך', 'success');
@@ -366,7 +363,6 @@ async function verifyResetCode(e) {
         });
         const data = await res.json();
         setLoading('btn-reset-verify', false, 'אמת קוד אימייל <i class="fa-solid fa-shield-check"></i>');
-        
         if (res.ok && data.success) {
             state.resetToken = data.token;
             showView('reset-confirm-view');
@@ -399,10 +395,9 @@ async function confirmNewPassword(e) {
         });
         const data = await res.json();
         setLoading('btn-reset-confirm', false, 'החלף סיסמה <i class="fa-solid fa-floppy-disk"></i>');
-
         if (res.ok && data.success) {
             showView('login-view');
-            document.getElementById('login_pass').value = ''; // ניקוי שדה הסיסמה
+            document.getElementById('login_pass').value = '';
             showMessage('alert-login', data.message || 'הסיסמה אופסה בהצלחה! תוכל כעת להתחבר.', 'success');
         } else {
             showMessage('alert-reset-confirm', data.message || data.error || 'שגיאה בעדכון הסיסמה', 'error');
@@ -422,15 +417,15 @@ function updateDashboardUI() {
     document.getElementById('ui-user-phone').innerText = user.phone;
     
     const emailInput = document.getElementById('update_email');
-    if (document.activeElement !== emailInput) emailInput.value = user.email || '';
+    if (emailInput && document.activeElement !== emailInput) emailInput.value = user.email || '';
     
-    const badge = document.getElementById('ui-tzintuk-badge');
+    const tzIcon = document.getElementById('ui-tzintuk-icon');
     const isConnected = (user.connectedToTzintukim === 'yes' || user.connectedToTzintukim === true || user.connectedToTzintukim === '1');
-    if(badge) {
+    if(tzIcon) {
         if (isConnected) {
-            badge.innerHTML = '<span class="status-ok"><i class="fa-solid fa-shield-check"></i> מחובר לצינתוקים</span>';
+            tzIcon.innerHTML = '<i class="fa-solid fa-shield-check" style="color: var(--success);" title="מחובר לצינתוקים"></i>';
         } else {
-            badge.innerHTML = '<span class="status-bad"><i class="fa-solid fa-triangle-exclamation"></i> מנותק מצינתוקים</span>';
+            tzIcon.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="color: var(--danger);" title="מנותק מצינתוקים"></i>';
         }
     }
 
@@ -457,6 +452,21 @@ function updateDashboardUI() {
     }
 }
 
+function openUserSettingsModal() {
+    const user = state.currentUser;
+    if (!user) return;
+    document.getElementById('update_email').value = user.email || '';
+    document.getElementById('update_new_pass').value = '';
+    document.getElementById('update_old_pass').value = '';
+    const alertBox = document.getElementById('alert-settings');
+    if (alertBox) alertBox.style.display = 'none';
+    document.getElementById('userSettingsModal').classList.add('active');
+}
+
+function closeUserSettingsModal() {
+    document.getElementById('userSettingsModal').classList.remove('active');
+}
+
 async function updateUserProfile(e) {
     if (e) e.preventDefault();
     const oldPassword = document.getElementById('update_old_pass').value;
@@ -475,7 +485,7 @@ async function updateUserProfile(e) {
                 logout();
                 return;
             }
-            showMessage('alert-dash', data.message || data.error || 'שגיאה בעדכון', 'error');
+            showMessage('alert-settings', data.message || data.error || 'שגיאה בעדכון', 'error');
             return;
         }
 
@@ -486,11 +496,15 @@ async function updateUserProfile(e) {
         }
 
         state.currentUser.email = newEmail;
-        showMessage('alert-dash', 'הגדרות החשבון עודכנו בהצלחה!', 'success');
+        showMessage('alert-settings', 'הגדרות החשבון עודכנו בהצלחה!', 'success');
         document.getElementById('update_old_pass').value = '';
+        document.getElementById('update_new_pass').value = '';
+        setTimeout(() => {
+            closeUserSettingsModal();
+        }, 1500);
     } catch (err) {
         setLoading('btn-update', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
-        showMessage('alert-dash', 'שגיאה בשליחת העדכון לשרת', 'error');
+        showMessage('alert-settings', 'שגיאה בשליחת העדכון לשרת', 'error');
     }
 }
 
@@ -517,15 +531,12 @@ let recordingSeconds = 0;
 
 let tzintukTimerInterval = null;
 let tzintukSecondsLeft = 90;
+
 function resetRecordingUI() {
-    const pauseBtn = document.getElementById('btn-pause-resume');
-    if (pauseBtn) {
-        pauseBtn.innerHTML = '<span class="icon-wrap"><i class="fa-solid fa-pause"></i></span> השהה';
-    }
+    const btn = document.getElementById('btn-pause-resume');
+    if (btn) btn.innerHTML = '<span class="icon-wrap"><i class="fa-solid fa-pause"></i></span> השהה';
     const visualizer = document.querySelector('.recording-visualizer');
-    if (visualizer) {
-        visualizer.classList.remove('paused');
-    }
+    if (visualizer) visualizer.classList.remove('paused');
     stopRecordingTimer();
 }
 
@@ -614,595 +625,4 @@ function handleFileUpload(event) {
     
     pendingBlob = file;
     pendingFileName = file.name;
-    document.getElementById('review-title').innerHTML = '<i class="fa-solid fa-file-audio"></i> אישור קובץ';
-    showPreviewUI();
-    document.getElementById('uploadReviewModal').classList.add('active');
-    event.target.value = '';
-}
-
-function showPreviewUI() {
-    document.getElementById('recording-ui').style.display = 'none';
-    document.getElementById('upload-success-ui').style.display = 'none';
-    document.getElementById('preview-ui').style.display = 'block';
-    if (document.getElementById('review-title').innerText.includes('מקליט')) {
-        document.getElementById('review-title').innerHTML = '<i class="fa-solid fa-headphones"></i> האזנה ואישור';
-    }
-    
-    const audioEl = document.getElementById('preview-audio');
-    audioEl.src = URL.createObjectURL(pendingBlob);
-    const sizeKb = (pendingBlob.size / 1024).toFixed(1);
-    document.getElementById('file-info').innerText = `${pendingFileName} (${sizeKb} KB)`;
-}
-
-function closeUploadModal() {
-    document.getElementById('uploadReviewModal').classList.remove('active');
-    const audioEl = document.getElementById('preview-audio');
-    audioEl.pause();
-    audioEl.src = '';
-    
-    pendingBlob = null;
-    pendingFileName = "";
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-        mediaRecorder.stop();
-        mediaRecorder.stream.getTracks().forEach(track => track.stop());
-    }
-    
-    resetRecordingUI();
-    if (tzintukTimerInterval) clearInterval(tzintukTimerInterval);
-    
-    const confirmBtn = document.getElementById('btn-confirm-send');
-    if (confirmBtn) {
-        confirmBtn.disabled = false;
-        confirmBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> שלח הודעה';
-    }
-
-    const tzintukActionBtns = document.getElementById('tzintuk-action-buttons');
-    if (tzintukActionBtns) tzintukActionBtns.style.display = 'flex';
-    
-    const tzintukBtn = document.getElementById('btn-send-tzintuk');
-    if (tzintukBtn) {
-        tzintukBtn.disabled = false;
-        tzintukBtn.innerHTML = '<i class="fa-solid fa-phone-volume" style="margin-left: 5px;"></i> צינתוק עכשיו';
-    }
-
-    const statusMsg = document.getElementById('tzintuk-status-msg');
-    if (statusMsg) statusMsg.style.display = 'none';
-}
-
-async function confirmUpload() {
-    if (!pendingBlob) return;
-    
-    const confirmBtn = document.getElementById('btn-confirm-send');
-    confirmBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מעלה...';
-    confirmBtn.disabled = true;
-
-    const audioEl = document.getElementById('preview-audio');
-    audioEl.pause();
-    
-    const typeOfUpload = pendingFileName.startsWith('recording.') ? 'record' : 'file';
-    
-    const formData = new FormData();
-    formData.append('userToken', state.userToken);
-    formData.append('file', pendingBlob, pendingFileName);
-    formData.append('uploadType', typeOfUpload);
-    try {
-        const res = await fetch(`${API_BASE_URL}/messages/upload`, {
-            method: 'POST', body: formData
-        });
-        const result = await res.json();
-        
-        if (res.ok && result.success) {
-            showUploadSuccessUI();
-            loadMessages(); 
-        } else {
-            alert(`שגיאה בהעלאה: ${result.message || result.error || 'נכשל'}`);
-            confirmBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> שלח הודעה';
-            confirmBtn.disabled = false;
-        }
-    } catch (err) {
-        alert('שגיאת תקשורת בשליחה. אנא נסה שוב.');
-        confirmBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> שלח הודעה';
-        confirmBtn.disabled = false;
-    }
-}
-
-function showUploadSuccessUI() {
-    document.getElementById('recording-ui').style.display = 'none';
-    document.getElementById('preview-ui').style.display = 'none';
-    document.getElementById('upload-success-ui').style.display = 'block';
-    document.getElementById('review-title').innerHTML = '<i class="fa-solid fa-check"></i> הפעולה הצליחה';
-    
-    tzintukSecondsLeft = 90;
-    updateTzintukTimerDisplay();
-    
-    if (tzintukTimerInterval) clearInterval(tzintukTimerInterval);
-    tzintukTimerInterval = setInterval(() => {
-        tzintukSecondsLeft--;
-        updateTzintukTimerDisplay();
-        
-        if (tzintukSecondsLeft <= 0) {
-            closeUploadModal();
-        }
-    }, 1000);
-}
-
-function updateTzintukTimerDisplay() {
-    const el = document.getElementById('tzintuk-timer');
-    if (!el) return;
-    
-    const m = Math.floor(tzintukSecondsLeft / 60).toString().padStart(2, '0');
-    const s = (tzintukSecondsLeft % 60).toString().padStart(2, '0');
-    el.innerText = `${m}:${s}`;
-    if (tzintukSecondsLeft <= 10) {
-        el.classList.add('danger');
-    } else {
-        el.classList.remove('danger');
-    }
-}
-
-async function triggerTzintuk() {
-    clearInterval(tzintukTimerInterval);
-    const btn = document.getElementById('btn-send-tzintuk');
-    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> שולח פקודה...';
-    btn.disabled = true;
-    try {
-        const res = await fetch(`${API_BASE_URL}/messages/tzintuk`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userToken: state.userToken })
-        });
-        const data = await res.json();
-
-        document.getElementById('tzintuk-action-buttons').style.display = 'none';
-        const statusMsg = document.getElementById('tzintuk-status-msg');
-        statusMsg.style.display = 'block';
-        if (res.ok && data.success) {
-            statusMsg.className = 'tzintuk-status-msg success';
-            statusMsg.innerHTML = '<i class="fa-solid fa-check"></i> ' + data.message;
-        } else {
-            statusMsg.className = 'tzintuk-status-msg error';
-            statusMsg.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + (data.message || 'שגיאה בשליחה');
-        }
-
-        setTimeout(() => { closeUploadModal(); }, 5000);
-    } catch (err) {
-        document.getElementById('tzintuk-action-buttons').style.display = 'none';
-        const statusMsg = document.getElementById('tzintuk-status-msg');
-        statusMsg.style.display = 'block';
-        statusMsg.className = 'tzintuk-status-msg error';
-        statusMsg.innerHTML = '<i class="fa-solid fa-xmark"></i> תקלת רשת, לא ניתן לשלוח כרגע.';
-        setTimeout(() => { closeUploadModal(); }, 5000);
-    }
-}
-
-// ================= משיכת הודעות =================
-async function loadMessages() {
-    const token = state.userToken || localStorage.getItem('userToken');
-    if (!token) return;
-
-    const container = document.getElementById('messages-container');
-    if(!container) return;
-    
-    container.innerHTML = '<div class="loading-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען הודעות...</div>';
-    try {
-        const res = await fetch(`${API_BASE_URL}/messages/list`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userToken: token })
-        });
-        const data = await res.json();
-        
-        if (!res.ok) {
-            container.innerHTML = `<div class="loading-state" style="color:var(--danger);">${data.message || data.error || 'שגיאה בשליפה'}</div>`;
-            return;
-        }
-
-        if (!data.messages || data.messages.length === 0) {
-            container.innerHTML = '<div class="loading-state">אין הודעות להצגה כרגע.</div>';
-            return;
-        }
-
-        renderMessages(data.messages);
-    } catch (err) {
-        container.innerHTML = '<div class="loading-state" style="color:var(--danger);">תקלת תקשורת מול השרת.</div>';
-    }
-}
-
-function renderMessages(messages) {
-    const container = document.getElementById('messages-container');
-    container.innerHTML = ''; 
-
-    if(messages.length === 0) return;
-    let currentDateGroup = messages[0].mtime ? messages[0].mtime.split(" ")[0] : "-";
-
-    messages.forEach((msg, index) => {
-        const fullDateTime = msg.mtime || '-';
-        let datePart = "-", timePart = "-";
-        if(fullDateTime.includes(" ")) [datePart, timePart] = fullDateTime.split(" ");
-
-        if (datePart !== currentDateGroup) {
-             if (currentDateGroup !== "-") {
-                const divider = document.createElement('div');
-                divider.className = 'date-divider';
-                divider.innerHTML = `<span>${currentDateGroup}</span>`;
-                container.appendChild(divider);
-            }
-            currentDateGroup = datePart;
-        }
-
-        const isOut = msg.isOutgoing === true; 
-        const bubbleClass = isOut ? 'bubble-out' : 'bubble-in';
-        const fileId = msg.name.replace('.wav', '').replace('.mp3', '');
-        const senderName = msg.valName || 'מערכת';
-        const durationText = msg.durationStr || '00:00';
-
-        const fileIdGroup = isOut ? `
-            <div class="file-id-group">
-                <span class="file-id">ID: ${fileId}</span>
-                <button id="del-btn-${fileId}" class="delete-msg-btn" onclick="attemptDeleteMessage('${msg.name}', '${fileId}')" title="מחק הודעה"><i class="fa-solid fa-trash-can"></i></button>
-            </div>
-        ` : `<span class="file-id">ID: ${fileId}</span>`;
-        const bubble = document.createElement('div');
-        bubble.className = `bubble ${bubbleClass}`;
-        bubble.innerHTML = `
-            <div class="msg-top">
-                <span class="sender-name">${senderName}</span>
-                ${fileIdGroup}
-            </div>
-            <div class="audio-player">
-                <button class="play-btn-circle" id="btn-${fileId}" onclick="togglePlay('${fileId}')">
-                    <i class="fa-solid fa-play"></i>
-                </button>
-                <div class="player-track-container">
-                    <input type="range" id="slider-${fileId}" min="0" max="100" value="0" oninput="seekAudio('${fileId}', this.value)">
-                    <div class="track-fill" id="fill-${fileId}"></div>
-                    <div class="player-times">
-                        <span id="current-${fileId}">0:00</span>
-                        <span>${durationText}</span>
-                    </div>
-                </div>
-            </div>
-            <div class="msg-bottom-time">
-                <span dir="ltr">${fullDateTime}</span>
-                ${isOut ? '<i class="fa-solid fa-check-double" style="color:#16a34a; font-size:0.8rem; margin-right:4px;"></i>' : ''}
-            </div>
-        `;
-        container.appendChild(bubble);
-
-        if (index === messages.length - 1) {
-            const divider = document.createElement('div');
-            divider.className = 'date-divider';
-            divider.innerHTML = `<span>${currentDateGroup}</span>`;
-            container.appendChild(divider);
-        }
-    });
-}
-
-function setupAudioListeners() {
-    globalAudio.addEventListener('timeupdate', () => {
-        if (!currentPlayingId) return;
-        const slider = document.getElementById(`slider-${currentPlayingId}`);
-        const fill = document.getElementById(`fill-${currentPlayingId}`);
-        const timeLabel = document.getElementById(`current-${currentPlayingId}`);
-
-        if(globalAudio.duration && slider) {
-            const percent = (globalAudio.currentTime / globalAudio.duration) * 100;
-            if(!slider.matches(':active')) { 
-                slider.value = percent;
-                fill.style.width = percent + '%';
-            }
-            
-            const m = Math.floor(globalAudio.currentTime / 60);
-            const s = Math.floor(globalAudio.currentTime % 60);
-            timeLabel.innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
-        }
-    });
-    globalAudio.addEventListener('ended', () => {
-        if (!currentPlayingId) return;
-        const btn = document.getElementById(`btn-${currentPlayingId}`);
-        if(btn) btn.querySelector('i').className = 'fa-solid fa-play';
-        const slider = document.getElementById(`slider-${currentPlayingId}`);
-        if(slider) {
-            slider.value = 0;
-            document.getElementById(`fill-${currentPlayingId}`).style.width = '0%';
-            document.getElementById(`current-${currentPlayingId}`).innerText = '0:00';
-        }
-        currentPlayingId = null;
-    });
-}
-
-function togglePlay(fileId) {
-    const btn = document.getElementById(`btn-${fileId}`);
-    const icon = btn.querySelector('i');
-    if (currentPlayingId === fileId) {
-        if (globalAudio.paused) {
-            globalAudio.play();
-            icon.className = 'fa-solid fa-pause';
-        } else {
-            globalAudio.pause();
-            icon.className = 'fa-solid fa-play';
-        }
-        return;
-    }
-
-    if (currentPlayingId) {
-        const oldBtn = document.getElementById(`btn-${currentPlayingId}`);
-        if(oldBtn) oldBtn.querySelector('i').className = 'fa-solid fa-play';
-    }
-
-    currentPlayingId = fileId;
-    icon.className = 'fa-solid fa-circle-notch fa-spin';
-    const token = state.userToken || localStorage.getItem('userToken');
-    const streamUrl = `${API_BASE_URL}/messages/stream?fileId=${encodeURIComponent(fileId)}&userToken=${encodeURIComponent(token)}`;
-    
-    globalAudio.src = streamUrl;
-    globalAudio.play().then(() => {
-        icon.className = 'fa-solid fa-pause';
-    }).catch(err => {
-        icon.className = 'fa-solid fa-triangle-exclamation';
-    });
-}
-
-function seekAudio(fileId, percentValue) {
-    const fill = document.getElementById(`fill-${fileId}`);
-    if(fill) fill.style.width = percentValue + '%';
-    if (currentPlayingId === fileId && globalAudio.duration) {
-        globalAudio.currentTime = (percentValue / 100) * globalAudio.duration;
-    }
-}
-
-// ================= מחיקת הודעה חכמה =================
-let pendingDeleteFileName = null;
-
-async function attemptDeleteMessage(fileName, fileId) {
-    if (globalAudio && !globalAudio.paused) globalAudio.pause();
-    const btn = document.getElementById(`del-btn-${fileId}`);
-    let originalHtml = '';
-    
-    if (btn) {
-        originalHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
-        btn.disabled = true;
-    }
-
-    try {
-        const res = await fetch(`${API_BASE_URL}/messages/check-delete`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userToken: state.userToken, fileName: fileName })
-        });
-        const data = await res.json();
-        
-        if (btn) {
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
-        }
-
-        if (res.ok && data.success) {
-            pendingDeleteFileName = fileName;
-            document.getElementById('delete-status-msg').style.display = 'none';
-            document.getElementById('delete-action-buttons').style.display = 'flex';
-            document.getElementById('delete-modal-texts').style.display = 'block';
-            document.getElementById('deleteConfirmModal').classList.add('active');
-        } else {
-            showErrorModal("לא ניתן למחוק", (data.message || 'סיבה לא ידועה.'));
-        }
-    } catch (err) {
-        if (btn) {
-            btn.innerHTML = originalHtml;
-            btn.disabled = false;
-        }
-        showErrorModal("שגיאת תקשורת", "אירעה שגיאה בבדיקת הרשאת המחיקה.");
-    }
-}
-
-function closeDeleteModal() {
-    document.getElementById('deleteConfirmModal').classList.remove('active');
-    pendingDeleteFileName = null;
-    const btn = document.getElementById('btn-confirm-delete');
-    if(btn) {
-        btn.innerHTML = 'כן, מחק הודעה';
-        btn.disabled = false;
-    }
-}
-
-async function confirmDeleteMessage() {
-    if (!pendingDeleteFileName) return;
-    
-    const btn = document.getElementById('btn-confirm-delete');
-    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מוחק...';
-    btn.disabled = true;
-    try {
-        const res = await fetch(`${API_BASE_URL}/messages/delete`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userToken: state.userToken, fileName: pendingDeleteFileName })
-        });
-        const data = await res.json();
-        
-        const statusMsg = document.getElementById('delete-status-msg');
-        document.getElementById('delete-action-buttons').style.display = 'none';
-        document.getElementById('delete-modal-texts').style.display = 'none';
-        statusMsg.style.display = 'block';
-        if (res.ok && data.success) {
-            statusMsg.className = 'tzintuk-status-msg success';
-            statusMsg.innerHTML = '<i class="fa-solid fa-check"></i> ' + data.message;
-            
-            loadMessages(); 
-            setTimeout(() => { closeDeleteModal(); }, 3000);
-        } else {
-            statusMsg.className = 'tzintuk-status-msg error';
-            statusMsg.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + (data.message || 'הפעולה נכשלה');
-            setTimeout(() => { closeDeleteModal(); }, 5000);
-        }
-    } catch (err) {
-        const statusMsg = document.getElementById('delete-status-msg');
-        document.getElementById('delete-action-buttons').style.display = 'none';
-        document.getElementById('delete-modal-texts').style.display = 'none';
-        statusMsg.style.display = 'block';
-        statusMsg.className = 'tzintuk-status-msg error';
-        statusMsg.innerHTML = '<i class="fa-solid fa-xmark"></i> שגיאת תקשורת מול השרת.';
-        
-        setTimeout(() => { closeDeleteModal(); }, 3000);
-    }
-}
-
-function showErrorModal(title, text) {
-    document.getElementById('errorModalTitle').innerHTML = title;
-    document.getElementById('errorModalText').innerHTML = text;
-    document.getElementById('errorAlertModal').classList.add('active');
-}
-
-function closeErrorModal() {
-    document.getElementById('errorAlertModal').classList.remove('active');
-}
-
-// ================= תהליכי מנהל =================
-async function adminLogin(e) {
-    if (e) e.preventDefault();
-    const username = document.getElementById('admin_user').value;
-    const password = document.getElementById('admin_pass').value;
-
-    setLoading('btn-admin-login', true);
-    try {
-        const res = await fetch(`${API_BASE_URL}/admin/login`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ username, password })
-        });
-        const data = await res.json();
-        setLoading('btn-admin-login', false, 'התחברות מאובטחת');
-
-        if (!res.ok) {
-            showMessage('alert-admin-login', data.message || data.error || 'פרטי מנהל שגויים', 'error');
-            return;
-        }
-
-        state.adminToken = data.adminToken;
-        localStorage.setItem('adminToken', data.adminToken);
-        
-        showView('admin-dash-view');
-        loadAdminUsers();
-    } catch (err) {
-        setLoading('btn-admin-login', false, 'התחברות מאובטחת');
-        showMessage('alert-admin-login', 'שגיאת תקשורת. השרת לא זמין.', 'error');
-    }
-}
-
-async function loadAdminUsers() {
-    if (!state.adminToken) return;
-    const tbody = document.getElementById('admin-users-table-body');
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען נתונים...</td></tr>';
-    setLoading('btn-refresh-users', true);
-    try {
-        const res = await fetch(`${API_BASE_URL}/admin/users`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ adminToken: state.adminToken })
-        });
-        const data = await res.json();
-        setLoading('btn-refresh-users', false, '<i class="fa-solid fa-rotate-right"></i> רענן נתונים');
-        if (!res.ok) {
-            if (res.status === 401 || res.status === 403) {
-                logout();
-                return;
-            }
-            showMessage('alert-admin-dash', data.message || data.error || 'שגיאה', 'error');
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-state" style="color:var(--danger);">שגיאה בטעינה</td></tr>';
-            return;
-        }
-
-        tbody.innerHTML = '';
-        if(data.users.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">אין משתמשים.</td></tr>';
-            return;
-        }
-
-        data.users.forEach(user => {
-            const isTz = (user.connectedToTzintukim === 'yes' || user.connectedToTzintukim === true || user.connectedToTzintukim === '1');
-            const badgeHtml = isTz ? '<span class="status-ok">פעיל</span>' : '<span class="status-bad">מנותק</span>';
-            const recordHtml = user.canRecord ? '<span class="status-ok">מורשה</span>' : '<span class="status-bad">חסום</span>';
-            const uploadHtml = user.canUpload ? '<span class="status-ok">מורשה</span>' : '<span class="status-bad">חסום</span>';
-            
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td style="font-weight:700; direction:ltr; text-align:right;">${user.phone}</td>
-                <td>${user.name || ''}</td>
-                <td dir="ltr" style="text-align:right;">${user.email || '-'}</td>
-                <td>${badgeHtml}</td>
-                <td>${recordHtml}</td>
-                <td>${uploadHtml}</td>
-                <td><button class="actions-btn" onclick="openAdminModal('${user.phone}', '${user.email || ''}', ${user.canUpload}, ${user.canRecord})"><i class="fa-solid fa-pen"></i> עריכה</button></td>
-            `;
-            tbody.appendChild(tr);
-        });
-    } catch (err) {
-        setLoading('btn-refresh-users', false, '<i class="fa-solid fa-rotate-right"></i> רענן נתונים');
-        showMessage('alert-admin-dash', 'שגיאת שרת', 'error');
-    }
-}
-
-function openAdminModal(phone, email, canUpload, canRecord) {
-    document.getElementById('modal_phone').value = phone;
-    document.getElementById('modal_email').value = email;
-    document.getElementById('modal_password').value = '';
-    
-    const checkUpload = document.getElementById('modal_can_upload');
-    if(checkUpload) checkUpload.checked = canUpload;
-    
-    const checkRecord = document.getElementById('modal_can_record');
-    if(checkRecord) checkRecord.checked = canRecord;
-    
-    document.getElementById('alert-modal').style.display = 'none';
-    document.getElementById('adminEditModal').classList.add('active');
-}
-
-function closeAdminModal() {
-    document.getElementById('adminEditModal').classList.remove('active');
-}
-
-async function submitAdminUpdate(e) {
-    if (e) e.preventDefault();
-    const phone = document.getElementById('modal_phone').value;
-    const newEmail = document.getElementById('modal_email').value;
-    const newPassword = document.getElementById('modal_password').value;
-    
-    const checkUpload = document.getElementById('modal_can_upload');
-    const canUpload = checkUpload ? checkUpload.checked : false;
-
-    const checkRecord = document.getElementById('modal_can_record');
-    const canRecord = checkRecord ? checkRecord.checked : true;
-
-    setLoading('btn-modal-save', true);
-    try {
-        const res = await fetch(`${API_BASE_URL}/admin/update-user`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ adminToken: state.adminToken, phone, newEmail, newPassword, canUpload, canRecord })
-        });
-        const data = await res.json();
-        setLoading('btn-modal-save', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
-        if (!res.ok) {
-            showMessage('alert-modal', data.message || data.error || 'עדכון נכשל', 'error');
-            return;
-        }
-
-        closeAdminModal();
-        showMessage('alert-admin-dash', 'המשתמש עודכן בהצלחה!', 'success');
-        loadAdminUsers();
-    } catch (err) {
-        setLoading('btn-modal-save', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
-        showMessage('alert-modal', 'שגיאת רשת', 'error');
-    }
-}
-
-function logout() {
-    state = { userToken: null, currentUser: null, adminToken: null, tempIdentifier: null, sessionId: null, resetToken: null };
-    localStorage.removeItem('userToken');
-    localStorage.removeItem('adminToken');
-    if (pollingInterval) clearInterval(pollingInterval);
-    
-    document.querySelectorAll('input').forEach(input => input.value = ''); 
-    if(globalAudio) { globalAudio.pause(); globalAudio.src = ''; }
-    
-    const path = window.location.pathname;
-    if (path.includes('/admin')) {
-        showView('admin-login-view');
-    } else {
-        showView('init-view');
-    }
-}
+    document.getElementById('review-title').innerHTML = '<i class="fa-solid fa-file-audio">
