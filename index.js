@@ -183,14 +183,12 @@ const htmlContent = `<!DOCTYPE html>
                     <div class="user-profile-wrap">
                         <div class="avatar"><i class="fa-solid fa-user"></i></div>
                         <div class="user-details">
-                            <div style="display: flex; align-items: center; gap: 6px;">
-                                <h2 id="ui-user-name">טוען...</h2>
-                                <span id="ui-tzintuk-icon" style="font-size: 0.85rem;"></span>
-                            </div>
+                            <h2 id="ui-user-name">טוען...</h2>
                             <p id="ui-user-phone">---</p>
                         </div>
                     </div>
                     <div class="sidebar-actions">
+                        <span id="ui-tzintuk-icon" style="font-size: 1.15rem; display: flex; align-items: center; margin-left: 8px;"></span>
                         <button title="הגדרות חשבון" onclick="openUserSettingsModal()"><i class="fa-solid fa-gear"></i></button>
                         <button title="התנתק" class="logout-btn" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
                     </div>
