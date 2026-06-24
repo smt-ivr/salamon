@@ -425,9 +425,9 @@ function updateDashboardUI() {
     const isConnected = (user.connectedToTzintukim === 'yes' || user.connectedToTzintukim === true || user.connectedToTzintukim === '1');
     if(tzIcon) {
         if (isConnected) {
-            tzIcon.innerHTML = '<i class="fa-solid fa-shield-check" style="color: var(--success);" title="מחובר לצינתוקים"></i>';
+            tzIcon.innerHTML = '<i class="fa-solid fa-phone-volume" style="color: var(--success); cursor: help;" title="מחובר לצינתוקים"></i>';
         } else {
-            tzIcon.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="color: var(--danger);" title="מנותק מצינתוקים"></i>';
+            tzIcon.innerHTML = '<i class="fa-solid fa-phone-slash" style="color: var(--danger); cursor: help;" title="מנותק מצינתוקים"></i>';
         }
     }
 
@@ -482,12 +482,10 @@ async function updateUserProfile(e) {
         });
         const data = await res.json();
         setLoading('btn-update', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
+        
         if (!res.ok) {
-            if(res.status === 401 || res.status === 403) {
-                logout();
-                return;
-            }
-            showMessage('alert-settings', data.message || data.error || 'שגיאה בעדכון', 'error');
+            // התיקון: הצגת שגיאה ברורה במקום ניתוק המשתמש
+            showMessage('alert-settings', data.message || data.error || 'שגיאה בעדכון - ייתכן שהסיסמה הנוכחית שגויה', 'error');
             return;
         }
 
