@@ -24,7 +24,7 @@ const cssContent = `:root {
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
 
 body { 
-    height: 100vh; width: 100vw; overflow: hidden; 
+    height: 100vh; height: 100dvh; width: 100vw; overflow: hidden; 
     background-color: var(--border-color); color: var(--text-main); 
 }
 
@@ -259,7 +259,7 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
     .scrollable-tab { padding: 20px 15px; } 
     #messages-container { padding: 15px 10px; } 
     .bubble { max-width: 90%; min-width: 240px; }
-    .chat-upload-area { padding: 8px 10px; gap: 8px; min-height: 60px; }
+    .chat-upload-area { padding: 8px 10px calc(8px + env(safe-area-inset-bottom)) 10px; gap: 8px; min-height: calc(60px + env(safe-area-inset-bottom)); }
     .chat-input-wrapper { padding: 4px 10px; gap: 6px; }
     .professional-modal { max-width: 90%; border-radius: 12px; }
     
