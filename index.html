@@ -10,6 +10,30 @@
     
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     
+    <style>
+        @media (min-width: 769px) {
+            .mobile-announcement-btn { display: none !important; }
+        }
+        @media (max-width: 768px) {
+            .mobile-announcement-btn { 
+                display: inline-flex !important; 
+                align-items: center; 
+                justify-content: center;
+                background-color: var(--surface, #fff);
+                color: var(--text-main, #333);
+                border: 1px solid var(--border-color, #ccc);
+                border-radius: 8px;
+                padding: 6px 12px;
+                font-size: 0.9rem;
+                cursor: pointer;
+            }
+            .mobile-announcement-btn.active-btn {
+                border-color: var(--secondary, #3b82f6);
+                color: var(--secondary, #3b82f6);
+            }
+        }
+    </style>
+
     <script src="/salamon/client-main.js" defer></script>
     <script src="/salamon/client-auth.js" defer></script>
     <script src="/salamon/client-messages.js" defer></script>
@@ -29,11 +53,20 @@
 
         <main id="auth-layout" class="view-section">
             <div class="auth-container">
+                
                 <section id="init-view" class="auth-card">
                     <div class="auth-logo"><img src="https://smt-tel-manager.netlify.app/salamon-logo.png" class="protected-logo" draggable="false"></div>
                     <h2>ברוכים הבאים</h2>
-                    <p class="subtitle">אנא הזן טלפון או אימייל כדי להתחיל</p>
+                    <p class="subtitle">אנא התחבר כדי להתחיל</p>
                     <div id="alert-init" class="alert-box"></div>
+                    
+                    <div id="googleSignInContainer" style="display: flex; justify-content: center; margin-bottom: 15px; margin-top: 15px;"></div>
+                    
+                    <div class="divider" style="text-align: center; margin: 15px 0; color: var(--text-light); font-size: 0.9rem; position: relative;">
+                        <span style="background: var(--surface); padding: 0 10px; position: relative; z-index: 1;">או באמצעות טלפון / אימייל</span>
+                        <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--border-color); z-index: 0;"></div>
+                    </div>
+
                     <form onsubmit="event.preventDefault(); checkIdentifier(event);">
                         <div class="form-group"><input type="text" id="init_id" required placeholder="מספר טלפון או אימייל" class="center-text ltr-input input-modern"></div>
                         <button type="submit" id="btn-init" class="btn-primary">המשך <i class="fa-solid fa-arrow-left"></i></button>
@@ -46,12 +79,6 @@
                     <p class="subtitle">הזן את סיסמתך כדי להיכנס למערכת</p>
                     <div id="alert-login" class="alert-box"></div>
                     <div class="locked-input-container"><span id="login_display_id"></span><button type="button" onclick="goBackToInit()"><i class="fa-solid fa-pen"></i> שנה</button></div>
-                    
-                    <div id="googleSignInContainer" style="display: flex; justify-content: center; margin-bottom: 15px; margin-top: 10px;"></div>
-                    <div class="divider" style="text-align: center; margin: 15px 0; color: var(--text-light); font-size: 0.9rem; position: relative;">
-                        <span style="background: var(--surface); padding: 0 10px; position: relative; z-index: 1;">או באמצעות סיסמה</span>
-                        <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--border-color); z-index: 0;"></div>
-                    </div>
 
                     <form onsubmit="event.preventDefault(); userLogin(event);">
                         <div class="form-group"><input type="password" id="login_pass" required placeholder="הזן סיסמה" class="input-modern center-text ltr-input"></div>
