@@ -1,10 +1,8 @@
 async function silentLogin(token) {
     try {
-        // מתאים למערכת הטוקנים החדשה - פונה ל-API שמזהה טוקן קיים
         let url = `${API_BASE_URL}/user`;
         let bodyData = { userToken: token };
 
-        // תמיכה במידה וזה משתמש עם טוקן מהגרסה הישנה (טלפון:סיסמה)
         if (token.includes(':')) {
             const [identifier, password] = token.split(':');
             url = `${API_BASE_URL}/login`;
@@ -307,28 +305,39 @@ function logout() {
 }
 
 // ==========================================
-// פונקציות גוגל (יעבדו כשנכין את השרת)
+// פונקציות גוגל (טעינה חכמה)
 // ==========================================
 function renderGoogleButton() {
-    if (window.google && document.getElementById("googleSignInContainer")) {
+    const container = document.getElementById("googleSignInContainer");
+    if (!container) return;
+
+    // מוודא שהסקריפט של גוגל כבר נטען בהצלחה בדפדפן
+    if (window.google) {
         google.accounts.id.initialize({
             // חובה להחליף מול המסוף של גוגל:
             client_id: "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com", 
             callback: handleGoogleLoginResponse
         });
 
-        google.accounts.id.renderButton(
-            document.getElementById("googleSignInContainer"),
-            { theme: "outline", size: "large", width: "100%", text: "continue_with" }
-        );
+        google.accounts.id.renderButton(container, { 
+            theme: "outline", 
+            size: "large", 
+            width: "100%", 
+            text: "continue_with" 
+        });
 
         google.accounts.id.prompt();
+    } else {
+        // במידה והסקריפט עדיין בטעינה, מנסה שוב בעוד חצי שנייה
+        setTimeout(renderGoogleButton, 500);
     }
 }
 
 async function handleGoogleLoginResponse(response) {
     const googleToken = response.credential;
-    showMessage('alert-login', '<i class="fa-solid fa-circle-notch fa-spin"></i> מאמת מול גוגל...', 'info');
+    
+    // מציגים התראות במסך ה-init כיוון ששם ממוקם עכשיו הכפתור
+    showMessage('alert-init', '<i class="fa-solid fa-circle-notch fa-spin"></i> מאמת מול גוגל...', 'info');
 
     try {
         const res = await fetch(`${API_BASE_URL}/login/google`, {
@@ -338,7 +347,7 @@ async function handleGoogleLoginResponse(response) {
         const data = await res.json();
 
         if (!res.ok) {
-            showMessage('alert-login', data.message || data.error || 'שגיאת התחברות עם גוגל', 'error');
+            showMessage('alert-init', data.message || data.error || 'שגיאת התחברות עם גוגל', 'error');
             return;
         }
 
@@ -352,6 +361,6 @@ async function handleGoogleLoginResponse(response) {
         if(typeof loadSystemMessage === 'function') loadSystemMessage();
         startPolling();
     } catch (err) {
-        showMessage('alert-login', 'שגיאת תקשורת עם השרת', 'error');
+        showMessage('alert-init', 'שגיאת תקשורת מול השרת', 'error');
     }
 }
