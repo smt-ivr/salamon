@@ -1,11 +1,17 @@
-async function loadMessages() {
+async function loadMessages(isSilent = false) {
     const token = state.userToken || localStorage.getItem('userToken');
     if (!token) return;
+
+    // הגנה קריטית: לא לעשות רענון למסך אם המשתמש שומע עכשיו הודעה
+    if (isSilent && currentPlayingId) return;
 
     const container = document.getElementById('messages-container');
     if(!container) return;
     
-    container.innerHTML = '<div class="loading-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען הודעות...</div>';
+    if (!isSilent) {
+        container.innerHTML = '<div class="loading-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען הודעות...</div>';
+    }
+
     try {
         const res = await fetch(`${API_BASE_URL}/messages/list`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -14,18 +20,18 @@ async function loadMessages() {
         const data = await res.json();
         
         if (!res.ok) {
-            container.innerHTML = `<div class="loading-state" style="color:var(--danger);">${data.message || data.error || 'שגיאה בשליפה'}</div>`;
+            if (!isSilent) container.innerHTML = `<div class="loading-state" style="color:var(--danger);">${data.message || data.error || 'שגיאה בשליפה'}</div>`;
             return;
         }
 
         if (!data.messages || data.messages.length === 0) {
-            container.innerHTML = '<div class="loading-state">אין הודעות להצגה כרגע.</div>';
+            if (!isSilent) container.innerHTML = '<div class="loading-state">אין הודעות להצגה כרגע.</div>';
             return;
         }
 
         renderMessages(data.messages);
     } catch (err) {
-        container.innerHTML = '<div class="loading-state" style="color:var(--danger);">תקלת תקשורת מול השרת.</div>';
+        if (!isSilent) container.innerHTML = '<div class="loading-state" style="color:var(--danger);">תקלת תקשורת מול השרת.</div>';
     }
 }
 
