@@ -142,6 +142,7 @@
                 <nav class="nav-menu">
                     <div class="nav-item active" id="tab-btn-messages" onclick="switchUserTab('messages')"><i class="fa-solid fa-comments"></i> <span style="margin-right: 5px;">הודעות</span></div>
                 </nav>
+                <div id="desktop-announcement" class="desktop-announcement-box"></div>
             </aside>
 
             <div class="app-main-area">
@@ -151,7 +152,10 @@
                             <div class="header-icon"><img src="https://smt-tel-manager.netlify.app/salamon-logo.png" class="protected-logo" draggable="false"></div>
                             <div class="header-title"><h3>עכשיו סלומון</h3><p>מחובר</p></div>
                         </div>
-                        <button class="icon-btn" onclick="loadMessages()" title="רענן"><i class="fa-solid fa-rotate-right"></i></button>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <button class="mobile-announcement-btn" id="mobile-announcement-btn-id" onclick="openAnnouncementModal()"><i class="fa-solid fa-bullhorn"></i> <span style="margin-right:4px;">מודעה</span></button>
+                            <button class="icon-btn" onclick="loadMessages()" title="רענן"><i class="fa-solid fa-rotate-right"></i></button>
+                        </div>
                     </div>
                     <div id="messages-container"></div>
                     
@@ -326,6 +330,17 @@
             <h3 id="errorModalTitle" style="margin-bottom: 10px; color: var(--text-dark); font-size: 1.3rem;">שגיאה</h3>
             <p id="errorModalText" style="font-size: 0.95rem; color: var(--text-light); margin-bottom: 25px; line-height: 1.5;"></p>
             <button id="errorModalBtn" class="btn-primary" onclick="closeErrorModal()" style="background: #ef4444;">הבנתי, תודה</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="announcementModal">
+        <div class="modal-content professional-modal">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-bullhorn" style="color:var(--secondary);"></i> הודעת מערכת</h2>
+                <button class="close-modal-btn" onclick="closeAnnouncementModal()" title="סגור"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div style="padding: 20px; overflow-y: auto; max-height: 70vh;" id="mobile-announcement-content">
+                </div>
         </div>
     </div>
 
