@@ -7,6 +7,10 @@ import audioJs from './client-audio.js';
 import settingsJs from './client-settings.js';
 import adminJs from './client-admin.js';
 
+// ייבוא הקבצים החדשים
+import adsJs from './client-ads.js';
+import adminAdsJs from './client-admin-ads.js';
+
 export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
@@ -35,6 +39,13 @@ export default {
         }
         if (path === '/salamon/client-admin.js') {
             return new Response(adminJs, { headers: { 'Content-Type': 'application/javascript; charset=utf-8' } });
+        }
+        // ניתוב הקבצים החדשים למסך
+        if (path === '/salamon/client-ads.js') {
+            return new Response(adsJs, { headers: { 'Content-Type': 'application/javascript; charset=utf-8' } });
+        }
+        if (path === '/salamon/client-admin-ads.js') {
+            return new Response(adminAdsJs, { headers: { 'Content-Type': 'application/javascript; charset=utf-8' } });
         }
 
         return new Response('Not Found', { status: 404 });
