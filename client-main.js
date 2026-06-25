@@ -51,6 +51,40 @@ function startPolling() {
     }, 30000);
 }
 
+// ==== הפונקציה החדשה לשליפת הודעת המערכת מהשרת ====
+async function loadSystemMessage() {
+    try {
+        const res = await fetch(`${API_BASE_URL}/system-message`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userToken: state.userToken || localStorage.getItem('userToken') })
+        });
+        const data = await res.json();
+        
+        const desktopBox = document.getElementById('desktop-announcement');
+        const mobileBox = document.getElementById('mobile-announcement-content');
+        const mobileBtn = document.getElementById('mobile-announcement-btn-id');
+        
+        if (res.ok && data.success && data.htmlContent) {
+            if(desktopBox) desktopBox.innerHTML = data.htmlContent;
+            if(mobileBox) mobileBox.innerHTML = data.htmlContent;
+            if(mobileBtn) mobileBtn.classList.add('active-btn');
+        } else {
+            if(desktopBox) desktopBox.innerHTML = '';
+            if(mobileBox) mobileBox.innerHTML = '';
+            if(mobileBtn) mobileBtn.classList.remove('active-btn');
+        }
+    } catch (e) {
+        console.error('לא ניתן לטעון את הודעת המערכת');
+        const desktopBox = document.getElementById('desktop-announcement');
+        const mobileBtn = document.getElementById('mobile-announcement-btn-id');
+        if(desktopBox) desktopBox.innerHTML = '';
+        if(mobileBtn) mobileBtn.classList.remove('active-btn');
+    }
+}
+
+function openAnnouncementModal() { document.getElementById('announcementModal').classList.add('active'); }
+function closeAnnouncementModal() { document.getElementById('announcementModal').classList.remove('active'); }
+
 function showMessage(containerId, msg, type = 'info') {
     const box = document.getElementById(containerId);
     if (!box) return;
