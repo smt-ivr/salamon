@@ -1,4 +1,4 @@
-const mainJsContent = `const API_BASE_URL = 'https://smti.uk/salamon/api';
+const API_BASE_URL = 'https://smti.uk/salamon/api';
 let state = { userToken: null, currentUser: null, adminToken: null, tempIdentifier: null, sessionId: null, resetToken: null };
 let activeAlertId = null;
 let globalAudio = document.createElement('audio');
@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const htmlAudio = document.getElementById('global-audio-player');
     if (htmlAudio) globalAudio = htmlAudio;
-    setupAudioListeners();
+    if(typeof setupAudioListeners === 'function') setupAudioListeners();
 });
 
 function startPolling() {
@@ -38,14 +38,14 @@ function startPolling() {
         if (!state.userToken) return;
         try {
             const [identifier, password] = state.userToken.split(':');
-            const res = await fetch(\`\${API_BASE_URL}/login\`, {
+            const res = await fetch(`${API_BASE_URL}/login`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ identifier, password })
             });
             const data = await res.json();
             if (res.ok && data.user) {
                 state.currentUser = data.user;
-                updateDashboardUI(); 
+                if(typeof updateDashboardUI === 'function') updateDashboardUI(); 
             }
         } catch (e) {}
     }, 30000);
@@ -54,7 +54,7 @@ function startPolling() {
 function showMessage(containerId, msg, type = 'info') {
     const box = document.getElementById(containerId);
     if (!box) return;
-    box.className = \`alert-box \${type}\`;
+    box.className = `alert-box ${type}`;
     box.innerHTML = msg;
     box.style.display = 'block';
     activeAlertId = containerId;
@@ -104,7 +104,7 @@ function switchAdminTab(tabName) {
     const btn = document.getElementById('tab-btn-' + tabName);
     if(btn) btn.classList.add('active');
 
-    if (tabName === 'users') loadAdminUsers();
+    if (tabName === 'users' && typeof loadAdminUsers === 'function') loadAdminUsers();
     if (tabName === 'tzintuk' && typeof refreshTzintukData === 'function') { 
         refreshTzintukData();
     }
@@ -141,6 +141,4 @@ function showErrorModal(title, text) {
 
 function closeErrorModal() {
     document.getElementById('errorAlertModal').classList.remove('active');
-}\`;
-
-export default mainJsContent;
+}
