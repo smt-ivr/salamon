@@ -1,27 +1,33 @@
 async function silentLogin(token) {
     try {
-        let url = `${API_BASE_URL}/user`;
-        let bodyData = { userToken: token };
+        let actualToken = token;
 
+        // תמיכה בטוקנים ישנים - ממיר טלפון:סיסמה לטוקן חדש
         if (token.includes(':')) {
             const [identifier, password] = token.split(':');
-            url = `${API_BASE_URL}/login`;
-            bodyData = { identifier, password };
+            const loginRes = await fetch(`${API_BASE_URL}/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ identifier, password, rememberMe: true })
+            });
+            const loginData = await loginRes.json();
+            if (!loginRes.ok) throw new Error("Login failed");
+            actualToken = loginData.token;
         }
 
-        const res = await fetch(url, {
+        // חובה לעבור דרך בדיקת /user כדי להשלים התחברות
+        const res = await fetch(`${API_BASE_URL}/user`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(bodyData)
+            body: JSON.stringify({ userToken: actualToken })
         });
         const data = await res.json();
         
-        if (res.ok) {
-            if (data.token) {
-                state.userToken = data.token;
-                localStorage.setItem('userToken', data.token);
-            }
+        if (res.ok && data.user) {
+            state.userToken = actualToken;
+            localStorage.setItem('userToken', actualToken);
             state.currentUser = data.user;
+
             if(typeof updateDashboardUI === 'function') updateDashboardUI();
             showView('user-dash-view');
             if(typeof loadMessages === 'function') loadMessages();
@@ -179,21 +185,39 @@ async function userLogin(e) {
     setLoading('btn-login', true);
     
     try {
-        const res = await fetch(`${API_BASE_URL}/login`, {
+        // שלב 1: משיכת טוקן בלבד
+        const loginRes = await fetch(`${API_BASE_URL}/login`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ identifier: state.tempIdentifier, password, rememberMe })
         });
-        const data = await res.json();
-        setLoading('btn-login', false, 'היכנס למערכת');
+        const loginData = await loginRes.json();
         
-        if (!res.ok) {
-            showMessage('alert-login', data.message || data.error || 'שגיאת התחברות', 'error');
+        if (!loginRes.ok) {
+            setLoading('btn-login', false, 'היכנס למערכת');
+            showMessage('alert-login', loginData.message || loginData.error || 'שגיאת התחברות', 'error');
             return;
         }
 
-        state.userToken = data.token;
-        state.currentUser = data.user;
-        localStorage.setItem('userToken', data.token);
+        const tempToken = loginData.token;
+
+        // שלב 2: אימות חובה מול נתיב היוזר כדי לקבל את פרטי המשתמש
+        const userRes = await fetch(`${API_BASE_URL}/user`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userToken: tempToken })
+        });
+        const userData = await userRes.json();
+        
+        setLoading('btn-login', false, 'היכנס למערכת');
+
+        if (!userRes.ok || !userData.user) {
+            showMessage('alert-login', userData.message || userData.error || 'שגיאה במשיכת נתוני החשבון', 'error');
+            return;
+        }
+
+        // שלב 3: הכל תקין, מתחברים סופית
+        state.userToken = tempToken;
+        state.currentUser = userData.user;
+        localStorage.setItem('userToken', tempToken);
 
         if(typeof updateDashboardUI === 'function') updateDashboardUI();
         showView('user-dash-view');
@@ -304,17 +328,12 @@ function logout() {
     }
 }
 
-// ==========================================
-// פונקציות גוגל (טעינה חכמה)
-// ==========================================
 function renderGoogleButton() {
     const container = document.getElementById("googleSignInContainer");
     if (!container) return;
 
-    // מוודא שהסקריפט של גוגל כבר נטען בהצלחה בדפדפן
     if (window.google) {
         google.accounts.id.initialize({
-            // חובה להחליף מול המסוף של גוגל:
             client_id: "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com", 
             callback: handleGoogleLoginResponse
         });
@@ -328,7 +347,6 @@ function renderGoogleButton() {
 
         google.accounts.id.prompt();
     } else {
-        // במידה והסקריפט עדיין בטעינה, מנסה שוב בעוד חצי שנייה
         setTimeout(renderGoogleButton, 500);
     }
 }
@@ -336,24 +354,39 @@ function renderGoogleButton() {
 async function handleGoogleLoginResponse(response) {
     const googleToken = response.credential;
     
-    // מציגים התראות במסך ה-init כיוון ששם ממוקם עכשיו הכפתור
     showMessage('alert-init', '<i class="fa-solid fa-circle-notch fa-spin"></i> מאמת מול גוגל...', 'info');
 
     try {
-        const res = await fetch(`${API_BASE_URL}/login/google`, {
+        // שלב 1: משיכת טוקן מהשרת
+        const loginRes = await fetch(`${API_BASE_URL}/login/google`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ token: googleToken })
         });
-        const data = await res.json();
+        const loginData = await loginRes.json();
 
-        if (!res.ok) {
-            showMessage('alert-init', data.message || data.error || 'שגיאת התחברות עם גוגל', 'error');
+        if (!loginRes.ok) {
+            showMessage('alert-init', loginData.message || loginData.error || 'שגיאת התחברות עם גוגל', 'error');
             return;
         }
 
-        state.userToken = data.token;
-        state.currentUser = data.user;
-        localStorage.setItem('userToken', data.token);
+        const tempToken = loginData.token;
+
+        // שלב 2: אימות חובה מול נתיב היוזר
+        const userRes = await fetch(`${API_BASE_URL}/user`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userToken: tempToken })
+        });
+        const userData = await userRes.json();
+
+        if (!userRes.ok || !userData.user) {
+            showMessage('alert-init', userData.message || userData.error || 'שגיאה במשיכת נתוני החשבון', 'error');
+            return;
+        }
+
+        // שלב 3: הכל תקין, מתחברים סופית
+        state.userToken = tempToken;
+        state.currentUser = userData.user;
+        localStorage.setItem('userToken', tempToken);
 
         if(typeof updateDashboardUI === 'function') updateDashboardUI();
         showView('user-dash-view');
