@@ -23,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
             state.userToken = savedUserToken;
             silentLogin(savedUserToken);
         } else {
+            // טעינת מסך הפתיחה הראשוני (עם גוגל)
             showView('init-view');
         }
     }
@@ -34,14 +35,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function startPolling() {
     if (pollingInterval) clearInterval(pollingInterval);
-    // הרענון השקט פועל בדיוק כל 60 שניות (דקה)
     pollingInterval = setInterval(async () => {
         if (!state.userToken) return;
 
-        // רענון שקט של ההודעות
         if(typeof loadMessages === 'function') loadMessages(true);
 
-        // וידוא חיבור וטוקן
         try {
             const res = await fetch(`${API_BASE_URL}/user`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -52,13 +50,12 @@ function startPolling() {
                 state.currentUser = data.user;
                 if(typeof updateDashboardUI === 'function') updateDashboardUI(); 
             } else {
-                logout(); // טוקן שגוי או פג תוקף - מנתקים
+                logout(); 
             }
         } catch (e) {}
     }, 60000); 
 }
 
-// ==== הפונקציה לשליפת הודעת המערכת מהשרת ====
 async function loadSystemMessage() {
     try {
         const res = await fetch(`${API_BASE_URL}/system-message`, {
@@ -120,9 +117,9 @@ function showView(viewId) {
         document.querySelectorAll('.auth-card').forEach(card => card.classList.remove('active'));
         document.getElementById(viewId).classList.add('active');
 
-        // אם אנחנו במסך לוגין - נרנדר את כפתור גוגל
-        if (viewId === 'login-view' && typeof renderGoogleButton === 'function') {
-            renderGoogleButton();
+        // הבטחה שגוגל מתרנדר במסך הראשון (init-view)
+        if (viewId === 'init-view' && typeof renderGoogleButton === 'function') {
+            setTimeout(renderGoogleButton, 100); 
         }
     } else {
         document.getElementById(viewId).classList.add('active');
