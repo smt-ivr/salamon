@@ -1,7 +1,7 @@
-const authJsContent = \`async function silentLogin(token) {
+async function silentLogin(token) {
     try {
         const [identifier, password] = token.split(':');
-        const res = await fetch(\`\${API_BASE_URL}/login\`, {
+        const res = await fetch(`${API_BASE_URL}/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ identifier, password })
@@ -10,9 +10,9 @@ const authJsContent = \`async function silentLogin(token) {
         
         if (res.ok) {
             state.currentUser = data.user;
-            updateDashboardUI();
+            if(typeof updateDashboardUI === 'function') updateDashboardUI();
             showView('user-dash-view');
-            loadMessages();
+            if(typeof loadMessages === 'function') loadMessages();
             startPolling(); 
         } else {
             logout();
@@ -29,7 +29,7 @@ async function checkIdentifier(e) {
     
     setLoading('btn-init', true);
     try {
-        const res = await fetch(\`\${API_BASE_URL}/check-identifier\`, {
+        const res = await fetch(`${API_BASE_URL}/check-identifier`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ identifier })
         });
@@ -62,7 +62,7 @@ async function approveVerification() {
 
 async function initiateVerification(phone) {
     try {
-        const res = await fetch(\`\${API_BASE_URL}/verify/send\`, {
+        const res = await fetch(`${API_BASE_URL}/verify/send`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone: phone, intent: 'register' })
         });
@@ -87,7 +87,7 @@ async function verifyPhoneCode(e) {
     const code = document.getElementById('verify_code').value.trim();
     setLoading('btn-verify', true);
     try {
-        const res = await fetch(\`\${API_BASE_URL}/verify/check\`, {
+        const res = await fetch(`${API_BASE_URL}/verify/check`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sessionId: state.sessionId, phone: state.tempIdentifier, code: code })
         });
@@ -112,7 +112,7 @@ async function resendVerification() {
     if (!state.tempIdentifier) return;
     showMessage('alert-verify', '<i class="fa-solid fa-circle-notch fa-spin"></i> שולח שיחה שוב...', 'info');
     try {
-        const res = await fetch(\`\${API_BASE_URL}/verify/send\`, {
+        const res = await fetch(`${API_BASE_URL}/verify/send`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone: state.tempIdentifier, intent: 'register' })
         });
@@ -137,7 +137,7 @@ async function userRegister(e) {
 
     setLoading('btn-register', true);
     try {
-        const res = await fetch(\`\${API_BASE_URL}/register\`, {
+        const res = await fetch(`${API_BASE_URL}/register`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone, email, password, passwordConfirm, sessionId: state.sessionId })
         });
@@ -163,7 +163,7 @@ async function userLogin(e) {
     setLoading('btn-login', true);
     
     try {
-        const res = await fetch(\`\${API_BASE_URL}/login\`, {
+        const res = await fetch(`${API_BASE_URL}/login`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ identifier: state.tempIdentifier, password })
         });
@@ -179,9 +179,9 @@ async function userLogin(e) {
         state.currentUser = data.user;
         localStorage.setItem('userToken', data.token);
 
-        updateDashboardUI();
+        if(typeof updateDashboardUI === 'function') updateDashboardUI();
         showView('user-dash-view');
-        loadMessages();
+        if(typeof loadMessages === 'function') loadMessages();
         startPolling(); 
     } catch (err) {
         setLoading('btn-login', false, 'היכנס למערכת');
@@ -193,7 +193,7 @@ async function forgotPassword() {
     setLoading('btn-forgot-pass', true);
     showMessage('alert-login', '<i class="fa-solid fa-circle-notch fa-spin"></i> שולח בקשה למערכת...', 'info');
     try {
-        const res = await fetch(\`\${API_BASE_URL}/verify/send\`, {
+        const res = await fetch(`${API_BASE_URL}/verify/send`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ identifier: state.tempIdentifier, intent: 'reset' })
         });
@@ -219,7 +219,7 @@ async function verifyResetCode(e) {
     const code = document.getElementById('reset_verify_code').value.trim();
     setLoading('btn-reset-verify', true);
     try {
-        const res = await fetch(\`\${API_BASE_URL}/verify/check\`, {
+        const res = await fetch(`${API_BASE_URL}/verify/check`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sessionId: state.sessionId, phone: state.tempIdentifier, code: code })
         });
@@ -251,7 +251,7 @@ async function confirmNewPassword(e) {
 
     setLoading('btn-reset-confirm', true);
     try {
-        const res = await fetch(\`\${API_BASE_URL}/reset-password/confirm\`, {
+        const res = await fetch(`${API_BASE_URL}/reset-password/confirm`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phone: state.tempIdentifier, password: password, passwordConfirm: passwordConfirm, token: state.resetToken })
         });
@@ -285,6 +285,4 @@ function logout() {
     } else {
         showView('init-view');
     }
-}\`;
-
-export default authJsContent;
+}
