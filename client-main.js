@@ -23,7 +23,6 @@ document.addEventListener('DOMContentLoaded', () => {
             state.userToken = savedUserToken;
             silentLogin(savedUserToken);
         } else {
-            // טעינת מסך הפתיחה הראשוני (עם גוגל)
             showView('init-view');
         }
     }
@@ -35,11 +34,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function startPolling() {
     if (pollingInterval) clearInterval(pollingInterval);
+    
+    // הרענון השקט והבדיקה ירוצו כל חצי דקה (30000 מילישניות)
     pollingInterval = setInterval(async () => {
         if (!state.userToken) return;
 
+        // רענון שקט של ההודעות
         if(typeof loadMessages === 'function') loadMessages(true);
 
+        // וידוא חיבור תקין מול שרת המשתמשים כל חצי דקה
         try {
             const res = await fetch(`${API_BASE_URL}/user`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -50,10 +53,10 @@ function startPolling() {
                 state.currentUser = data.user;
                 if(typeof updateDashboardUI === 'function') updateDashboardUI(); 
             } else {
-                logout(); 
+                logout(); // אם השרת סירב לטוקן - התנתקות אוטומטית
             }
         } catch (e) {}
-    }, 60000); 
+    }, 30000); 
 }
 
 async function loadSystemMessage() {
@@ -117,7 +120,6 @@ function showView(viewId) {
         document.querySelectorAll('.auth-card').forEach(card => card.classList.remove('active'));
         document.getElementById(viewId).classList.add('active');
 
-        // הבטחה שגוגל מתרנדר במסך הראשון (init-view)
         if (viewId === 'init-view' && typeof renderGoogleButton === 'function') {
             setTimeout(renderGoogleButton, 100); 
         }
