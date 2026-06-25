@@ -1,19 +1,33 @@
 async function silentLogin(token) {
     try {
-        const [identifier, password] = token.split(':');
-        const res = await fetch(`${API_BASE_URL}/login`, {
+        // מתאים למערכת הטוקנים החדשה - פונה ל-API שמזהה טוקן קיים
+        let url = `${API_BASE_URL}/user`;
+        let bodyData = { userToken: token };
+
+        // תמיכה במידה וזה משתמש עם טוקן מהגרסה הישנה (טלפון:סיסמה)
+        if (token.includes(':')) {
+            const [identifier, password] = token.split(':');
+            url = `${API_BASE_URL}/login`;
+            bodyData = { identifier, password };
+        }
+
+        const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ identifier, password })
+            body: JSON.stringify(bodyData)
         });
         const data = await res.json();
         
         if (res.ok) {
+            if (data.token) {
+                state.userToken = data.token;
+                localStorage.setItem('userToken', data.token);
+            }
             state.currentUser = data.user;
             if(typeof updateDashboardUI === 'function') updateDashboardUI();
             showView('user-dash-view');
             if(typeof loadMessages === 'function') loadMessages();
-            if(typeof loadSystemMessage === 'function') loadSystemMessage(); // קריאה להודעה
+            if(typeof loadSystemMessage === 'function') loadSystemMessage(); 
             startPolling(); 
         } else {
             logout();
@@ -161,12 +175,15 @@ async function userRegister(e) {
 async function userLogin(e) {
     if (e) e.preventDefault();
     const password = document.getElementById('login_pass').value;
+    const rememberCheckbox = document.getElementById('login_remember');
+    const rememberMe = rememberCheckbox ? rememberCheckbox.checked : false;
+
     setLoading('btn-login', true);
     
     try {
         const res = await fetch(`${API_BASE_URL}/login`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ identifier: state.tempIdentifier, password })
+            body: JSON.stringify({ identifier: state.tempIdentifier, password, rememberMe })
         });
         const data = await res.json();
         setLoading('btn-login', false, 'היכנס למערכת');
@@ -183,7 +200,7 @@ async function userLogin(e) {
         if(typeof updateDashboardUI === 'function') updateDashboardUI();
         showView('user-dash-view');
         if(typeof loadMessages === 'function') loadMessages();
-        if(typeof loadSystemMessage === 'function') loadSystemMessage(); // קריאה להודעה
+        if(typeof loadSystemMessage === 'function') loadSystemMessage();
         startPolling(); 
     } catch (err) {
         setLoading('btn-login', false, 'היכנס למערכת');
@@ -286,5 +303,55 @@ function logout() {
         showView('admin-login-view');
     } else {
         showView('init-view');
+    }
+}
+
+// ==========================================
+// פונקציות גוגל (יעבדו כשנכין את השרת)
+// ==========================================
+function renderGoogleButton() {
+    if (window.google && document.getElementById("googleSignInContainer")) {
+        google.accounts.id.initialize({
+            // חובה להחליף מול המסוף של גוגל:
+            client_id: "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com", 
+            callback: handleGoogleLoginResponse
+        });
+
+        google.accounts.id.renderButton(
+            document.getElementById("googleSignInContainer"),
+            { theme: "outline", size: "large", width: "100%", text: "continue_with" }
+        );
+
+        google.accounts.id.prompt();
+    }
+}
+
+async function handleGoogleLoginResponse(response) {
+    const googleToken = response.credential;
+    showMessage('alert-login', '<i class="fa-solid fa-circle-notch fa-spin"></i> מאמת מול גוגל...', 'info');
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/login/google`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: googleToken })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            showMessage('alert-login', data.message || data.error || 'שגיאת התחברות עם גוגל', 'error');
+            return;
+        }
+
+        state.userToken = data.token;
+        state.currentUser = data.user;
+        localStorage.setItem('userToken', data.token);
+
+        if(typeof updateDashboardUI === 'function') updateDashboardUI();
+        showView('user-dash-view');
+        if(typeof loadMessages === 'function') loadMessages();
+        if(typeof loadSystemMessage === 'function') loadSystemMessage();
+        startPolling();
+    } catch (err) {
+        showMessage('alert-login', 'שגיאת תקשורת עם השרת', 'error');
     }
 }
