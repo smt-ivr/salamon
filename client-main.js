@@ -34,24 +34,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function startPolling() {
     if (pollingInterval) clearInterval(pollingInterval);
+    // הרענון השקט פועל בדיוק כל 60 שניות (דקה)
     pollingInterval = setInterval(async () => {
         if (!state.userToken) return;
+
+        // רענון שקט של ההודעות
+        if(typeof loadMessages === 'function') loadMessages(true);
+
+        // וידוא חיבור וטוקן
         try {
-            const [identifier, password] = state.userToken.split(':');
-            const res = await fetch(`${API_BASE_URL}/login`, {
+            const res = await fetch(`${API_BASE_URL}/user`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ identifier, password })
+                body: JSON.stringify({ userToken: state.userToken })
             });
             const data = await res.json();
             if (res.ok && data.user) {
                 state.currentUser = data.user;
                 if(typeof updateDashboardUI === 'function') updateDashboardUI(); 
+            } else {
+                logout(); // טוקן שגוי או פג תוקף - מנתקים
             }
         } catch (e) {}
-    }, 30000);
+    }, 60000); 
 }
 
-// ==== הפונקציה החדשה לשליפת הודעת המערכת מהשרת ====
+// ==== הפונקציה לשליפת הודעת המערכת מהשרת ====
 async function loadSystemMessage() {
     try {
         const res = await fetch(`${API_BASE_URL}/system-message`, {
@@ -112,6 +119,11 @@ function showView(viewId) {
         document.getElementById('auth-layout').classList.add('active');
         document.querySelectorAll('.auth-card').forEach(card => card.classList.remove('active'));
         document.getElementById(viewId).classList.add('active');
+
+        // אם אנחנו במסך לוגין - נרנדר את כפתור גוגל
+        if (viewId === 'login-view' && typeof renderGoogleButton === 'function') {
+            renderGoogleButton();
+        }
     } else {
         document.getElementById(viewId).classList.add('active');
     }
