@@ -7,8 +7,12 @@ const htmlContent = `<!DOCTYPE html>
     <link rel="icon" href="https://smt-tel-manager.netlify.app/salamon-logo.png" type="image/png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/salamon/style.css">
-    <script src="/salamon/frontend.js" defer></script>
-    <script src="/salamon/admin-tzintuk.txt" defer></script>
+    <script src="/salamon/main.js" defer></script>
+    <script src="/salamon/auth.js" defer></script>
+    <script src="/salamon/messages.js" defer></script>
+    <script src="/salamon/audio-actions.js" defer></script>
+    <script src="/salamon/settings.js" defer></script>
+    <script src="/salamon/admin.js" defer></script>
 </head>
 <body>
 
@@ -556,6 +560,6 @@ const htmlContent = `<!DOCTYPE html>
         };
     </script>
 </body>
-</html>`;
+</html>\`;
 
 export default htmlContent;
