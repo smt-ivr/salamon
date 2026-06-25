@@ -13,6 +13,7 @@ async function silentLogin(token) {
             if(typeof updateDashboardUI === 'function') updateDashboardUI();
             showView('user-dash-view');
             if(typeof loadMessages === 'function') loadMessages();
+            if(typeof loadSystemMessage === 'function') loadSystemMessage(); // קריאה להודעה
             startPolling(); 
         } else {
             logout();
@@ -182,6 +183,7 @@ async function userLogin(e) {
         if(typeof updateDashboardUI === 'function') updateDashboardUI();
         showView('user-dash-view');
         if(typeof loadMessages === 'function') loadMessages();
+        if(typeof loadSystemMessage === 'function') loadSystemMessage(); // קריאה להודעה
         startPolling(); 
     } catch (err) {
         setLoading('btn-login', false, 'היכנס למערכת');
