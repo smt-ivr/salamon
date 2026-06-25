@@ -1,211 +1,393 @@
-// worker.js
-
-import { 
-    handleCheckIdentifier, 
-    handleRegister, 
-    handleLogin, 
-    handleGoogleLogin,   // ייבוא פונקציית גוגל החדשה
-    handleGetProfile,    
-    handleUpdateProfile,
-    handleResetPasswordConfirm,
-    handleLogout,         
-    authenticateUser      
-} from './auth.js';
-
-import {
-    handleAdminLogin,
-    handleAdminGetUsers,
-    handleAdminUpdateUser
-} from './admin.js';
-
-import { VerificationSystem } from './verification.js';
-import { handleGetMessages, handleStreamMessage } from './messages.js';
-import { handleUploadMessage } from './upload.js';
-import { processTzintukRequest } from './tzintuk.js';
-import { handleCheckDeleteEligibility, handleDeleteMessage } from './delete.js';
-import { handleGetSystemMessage, handleAdminUpdateSystemMessage } from './systemMessage.js';
-
-export default {
-    async fetch(request, env, ctx) {
-        const corsHeaders = {
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET,HEAD,POST,OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type",
-        };
-
-        if (request.method === "OPTIONS") {
-            return new Response(null, { headers: corsHeaders });
-        }
-
-        const url = new URL(request.url);
-        const pathname = url.pathname.replace(/\/$/, "");
-        const userIp = request.headers.get('cf-connecting-ip') || '0.0.0.0';
-
-        try {
-            let response;
-            const verifySystem = new VerificationSystem(env.DB, env.YEMOT_TOKEN);
-            
-            // מודעות מערכת (System Message)
-            if (request.method === "POST" && pathname.endsWith("/api/system-message")) {
-                response = await handleGetSystemMessage(request, env);
-            }
-            else if (request.method === "POST" && pathname.endsWith("/api/admin/system-message/update")) {
-                response = await handleAdminUpdateSystemMessage(request, env);
-            }
-            
-            // מערכת הודעות קוליות
-            else if (request.method === "POST" && pathname.endsWith("/api/messages/list")) {
-                response = await handleGetMessages(request, env);
-            }
-            else if (request.method === "POST" && pathname.endsWith("/api/messages/upload")) {
-                response = await handleUploadMessage(request, env);
-            }
-            else if (request.method === "GET" && pathname.endsWith("/api/messages/stream")) {
-                response = await handleStreamMessage(request, env);
-            }
-            else if (request.method === "POST" && pathname.endsWith("/api/messages/tzintuk")) {
-                const body = await request.json().catch(() => ({}));
-                if (!body.userToken) {
-                    response = Response.json({ error: "חסר אימות משתמש" }, { status: 401 });
-                } else {
-                    const user = await authenticateUser(env.DB, body.userToken);
-                    if (!user) {
-                        response = Response.json({ error: "הרשאות משתמש לא חוקיות או פג תוקף" }, { status: 403 });
-                    } else {
-                        const result = await processTzintukRequest(env, user.phone, env.YEMOT_TOKEN);
-                        response = Response.json(result, { status: result.success ? 200 : 400 });
-                    }
-                }
-            }
-            else if (request.method === "POST" && pathname.endsWith("/api/messages/check-delete")) {
-                response = await handleCheckDeleteEligibility(request, env);
-            }
-            else if (request.method === "POST" && pathname.endsWith("/api/messages/delete")) {
-                response = await handleDeleteMessage(request, env, userIp); 
-            }
-
-            // מערכת האימות - צינתוקים ומיילים
-            else if (request.method === "POST" && pathname.endsWith("/api/verify/send")) {
-                const body = await request.json().catch(() => ({}));
-                if (body.intent === 'reset') {
-                    const identifier = body.identifier || body.phone;
-                    if (!identifier) {
-                        response = Response.json({ error: "חסר מזהה משתמש (טלפון או אימייל)" }, { status: 400 });
-                    } else {
-                        const result = await verifySystem.requestPasswordReset(identifier, userIp, env);
-                        response = Response.json(result, { status: result.success ? 200 : 400 });
-                    }
-                } else {
-                    if (!body.phone) {
-                        response = Response.json({ error: "חסר מספר טלפון" }, { status: 400 });
-                    } else {
-                        const result = await verifySystem.requestVerification(body.phone, userIp, body.intent || 'register');
-                        response = Response.json(result, { status: result.success ? 200 : 400 });
-                    }
-                }
-            }
-            else if (request.method === "POST" && pathname.endsWith("/api/verify/check")) {
-                const body = await request.json().catch(() => ({}));
-                if (!body.sessionId || !body.phone || !body.code) {
-                    response = Response.json({ error: "חסרים פרטי אימות (sessionId, phone, code)" }, { status: 400 });
-                } else {
-                    const result = await verifySystem.verifyCode(body.sessionId, body.phone, userIp, body.code);
-                    response = Response.json(result, { status: result.success ? 200 : 400 });
-                }
-            }
-
-            // מנהל - Admin
-            else if (pathname.includes("/api/verify/admin/")) {
-                if (request.method !== "POST") {
-                    response = Response.json({ error: "מתודה לא מורשית" }, { status: 405 });
-                } else {
-                    const body = await request.json().catch(() => ({}));
-                    const adminToken = body.adminToken;
-                    
-                    if (!adminToken || !adminToken.includes(':')) {
-                        response = Response.json({ error: "חסר אימות מנהל או פורמט שגוי" }, { status: 401 });
-                    } else {
-                        const [username, adminPass] = adminToken.split(':');
-                        const admin = await env.DB.prepare("SELECT 1 FROM admins WHERE username = ? AND password = ?").bind(username, adminPass).first();
-                        
-                        if (!admin) {
-                            response = Response.json({ error: "הרשאות מנהל לא חוקיות" }, { status: 403 });
-                        } else {
-                            if (pathname.endsWith("/api/verify/admin/logs")) {
-                                const limit = body.limit || 100;
-                                const offset = body.offset || 0;
-                                response = Response.json(await verifySystem.getLogs(limit, offset));
-                            }
-                            else if (pathname.endsWith("/api/verify/admin/blocks")) {
-                                response = Response.json(await verifySystem.getBlocks());
-                            }
-                            else if (pathname.endsWith("/api/verify/admin/block")) {
-                                response = Response.json(await verifySystem.blockTarget(body.type, body.value, body.reason, body.durationValue, body.durationUnit, userIp));
-                            }
-                            else if (pathname.endsWith("/api/verify/admin/unblock")) {
-                                response = Response.json(await verifySystem.unblockTarget(body.target, userIp));
-                            }
-                            else if (pathname.endsWith("/api/verify/admin/clean")) {
-                                response = Response.json(await verifySystem.cleanOldLogs());
-                            } else {
-                                response = Response.json({ error: "נתיב ניהול לא נמצא" }, { status: 404 });
-                            }
-                        }
-                    }
-                }
-            }
-
-            // נתיבי משתמשים (User Management)
-            else if (request.method === "POST" && pathname.endsWith("/api/check-identifier")) {
-                response = await handleCheckIdentifier(request, env);
-            } 
-            else if (request.method === "POST" && pathname.endsWith("/api/register")) {
-                response = await handleRegister(request, env);
-            } 
-            else if (request.method === "POST" && pathname.endsWith("/api/login")) {
-                response = await handleLogin(request, env);
-            } 
-            else if (request.method === "POST" && pathname.endsWith("/api/login/google")) { // ניתוב התחברות גוגל החדש
-                response = await handleGoogleLogin(request, env);
-            }
-            else if (request.method === "POST" && pathname.endsWith("/api/user")) { 
-                response = await handleGetProfile(request, env);
-            }
-            else if (request.method === "POST" && pathname.endsWith("/api/logout")) { 
-                response = await handleLogout(request, env);
-            }
-            else if (request.method === "POST" && pathname.endsWith("/api/update-profile")) {
-                response = await handleUpdateProfile(request, env);
-            }
-            else if (request.method === "POST" && pathname.endsWith("/api/reset-password/confirm")) {
-                response = await handleResetPasswordConfirm(request, env);
-            }
-            
-            // ממשק מנהל לניהול משתמשים
-            else if (request.method === "POST" && pathname.endsWith("/api/admin/login")) {
-                response = await handleAdminLogin(request, env);
-            }
-            else if (request.method === "POST" && pathname.endsWith("/api/admin/users")) {
-                response = await handleAdminGetUsers(request, env);
-            }
-            else if (request.method === "POST" && pathname.endsWith("/api/admin/update-user")) {
-                response = await handleAdminUpdateUser(request, env);
-            }
-            else {
-                response = Response.json({ error: "נתיב לא נמצא" }, { status: 404 });
-            }
-
-            const newResponse = new Response(response.body, response);
-            for (let [key, value] of Object.entries(corsHeaders)) {
-                newResponse.headers.set(key, value);
-            }
-            return newResponse;
-
-        } catch (error) {
-            return Response.json({ error: error.message }, { 
-                status: 500, 
-                headers: corsHeaders 
-            });
-        }
+async function silentLogin(token) {
+    // חסימה ומחיקה של משתמשים עם פורמט הסיסמאות הישן (דורש התחברות אחת מחדש)
+    if (token.includes(':')) {
+        logout();
+        return;
     }
-};
+
+    try {
+        // פנייה ישירה לאימות הטוקן בלבד!
+        const res = await fetch(`${API_BASE_URL}/user`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userToken: token })
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.user) {
+            state.userToken = token;
+            state.currentUser = data.user;
+
+            if(typeof updateDashboardUI === 'function') updateDashboardUI();
+            showView('user-dash-view');
+            if(typeof loadMessages === 'function') loadMessages();
+            if(typeof loadSystemMessage === 'function') loadSystemMessage(); 
+            startPolling(); 
+        } else {
+            logout(); // הטוקן פג תוקף או שגוי מול השרת
+        }
+    } catch (err) {
+        logout(); // שגיאת רשת
+    }
+}
+
+async function checkIdentifier(e) {
+    if (e) e.preventDefault();
+    const identifier = document.getElementById('init_id').value.trim();
+    if(!identifier) return;
+    
+    setLoading('btn-init', true);
+    try {
+        const res = await fetch(`${API_BASE_URL}/check-identifier`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier })
+        });
+        const data = await res.json();
+        setLoading('btn-init', false, 'המשך <i class="fa-solid fa-arrow-left"></i>');
+        if (data.isRegistered) {
+            state.tempIdentifier = data.identifier;
+            document.getElementById('login_display_id').innerText = data.identifier;
+            showView('login-view');
+            document.getElementById('login_pass').focus();
+        } else if (data.authorized) {
+            state.tempIdentifier = data.phone;
+            document.getElementById('reg_name').value = data.name || 'משתמש לא מזוהה';
+            document.getElementById('pre_verify_phone').innerText = data.phone;
+            showView('pre-verify-view');
+        } else {
+            showMessage('alert-init', data.message || data.error || 'אירעה שגיאה בבדיקה', 'error');
+        }
+    } catch (err) {
+        setLoading('btn-init', false, 'המשך <i class="fa-solid fa-arrow-left"></i>');
+        showMessage('alert-init', 'שגיאת תקשורת עם השרת', 'error');
+    }
+}
+
+async function approveVerification() {
+    setLoading('btn-approve-tzintuk', true);
+    await initiateVerification(state.tempIdentifier);
+    setLoading('btn-approve-tzintuk', false, 'שלח צינתוק עכשיו <i class="fa-solid fa-phone-volume"></i>');
+}
+
+async function initiateVerification(phone) {
+    try {
+        const res = await fetch(`${API_BASE_URL}/verify/send`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: phone, intent: 'register' })
+        });
+        const data = await res.json();
+
+        if (res.ok && data.success) {
+            state.sessionId = data.sessionId;
+            document.getElementById('verify_display_phone').innerText = phone;
+            showView('verify-view');
+            showMessage('alert-verify', 'השיחה נשלחה, נא להזין 4 ספרות אחרונות.', 'info');
+            setTimeout(() => document.getElementById('verify_code').focus(), 100);
+        } else {
+            showMessage('alert-pre-verify', data.message || data.error || 'שגיאה בהוצאת שיחה', 'error');
+        }
+    } catch (err) {
+        showMessage('alert-pre-verify', 'שגיאת תקשורת', 'error');
+    }
+}
+
+async function verifyPhoneCode(e) {
+    if (e) e.preventDefault();
+    const code = document.getElementById('verify_code').value.trim();
+    setLoading('btn-verify', true);
+    try {
+        const res = await fetch(`${API_BASE_URL}/verify/check`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId: state.sessionId, phone: state.tempIdentifier, code: code })
+        });
+        const data = await res.json();
+        setLoading('btn-verify', false, 'אמת והמשך <i class="fa-solid fa-shield-check"></i>');
+        if (res.ok && data.success) {
+            document.getElementById('reg_display_phone').innerText = state.tempIdentifier;
+            showView('register-view');
+            showMessage('alert-register', 'אומת בהצלחה! הגדר סיסמה.', 'success');
+            document.getElementById('reg_password').focus();
+        } else {
+            showMessage('alert-verify', data.message || data.error || 'קוד שגוי', 'error');
+            document.getElementById('verify_code').value = '';
+        }
+    } catch (err) {
+        setLoading('btn-verify', false, 'אמת והמשך <i class="fa-solid fa-shield-check"></i>');
+        showMessage('alert-verify', 'שגיאת תקשורת', 'error');
+    }
+}
+
+async function resendVerification() {
+    if (!state.tempIdentifier) return;
+    showMessage('alert-verify', '<i class="fa-solid fa-circle-notch fa-spin"></i> שולח שיחה שוב...', 'info');
+    try {
+        const res = await fetch(`${API_BASE_URL}/verify/send`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: state.tempIdentifier, intent: 'register' })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            state.sessionId = data.sessionId;
+            showMessage('alert-verify', 'קוד חדש נשלח אליך.', 'success');
+        } else {
+            showMessage('alert-verify', data.message || data.error || 'שגיאה בשליחה', 'error');
+        }
+    } catch (e) {
+        showMessage('alert-verify', 'שגיאת רשת', 'error');
+    }
+}
+
+async function userRegister(e) {
+    if (e) e.preventDefault();
+    const phone = state.tempIdentifier;
+    const email = document.getElementById('reg_email').value;
+    const password = document.getElementById('reg_password').value;
+    const passwordConfirm = document.getElementById('reg_password_confirm').value;
+
+    setLoading('btn-register', true);
+    try {
+        const res = await fetch(`${API_BASE_URL}/register`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone, email, password, passwordConfirm, sessionId: state.sessionId })
+        });
+        const data = await res.json();
+        setLoading('btn-register', false, 'סיום הרשמה <i class="fa-solid fa-check"></i>');
+        if (!res.ok) {
+            showMessage('alert-register', data.message || data.error || 'שגיאה ברישום', 'error');
+            return;
+        }
+
+        document.getElementById('login_display_id').innerText = phone;
+        showView('login-view');
+        showMessage('alert-login', 'החשבון נפתח בהצלחה! התחבר כעת.', 'success');
+    } catch (err) {
+        setLoading('btn-register', false, 'סיום הרשמה <i class="fa-solid fa-check"></i>');
+        showMessage('alert-register', 'שגיאת רשת במהלך הרישום', 'error');
+    }
+}
+
+async function userLogin(e) {
+    if (e) e.preventDefault();
+    const password = document.getElementById('login_pass').value;
+    const rememberCheckbox = document.getElementById('login_remember');
+    const rememberMe = rememberCheckbox ? rememberCheckbox.checked : false;
+
+    setLoading('btn-login', true);
+    
+    try {
+        // שלב 1: משיכת טוקן בלבד
+        const loginRes = await fetch(`${API_BASE_URL}/login`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier: state.tempIdentifier, password, rememberMe })
+        });
+        const loginData = await loginRes.json();
+        
+        if (!loginRes.ok) {
+            setLoading('btn-login', false, 'היכנס למערכת');
+            showMessage('alert-login', loginData.message || loginData.error || 'שגיאת התחברות', 'error');
+            return;
+        }
+
+        const tempToken = loginData.token;
+
+        // שלב 2: אימות חובה מול נתיב היוזר כדי לקבל את פרטי המשתמש
+        const userRes = await fetch(`${API_BASE_URL}/user`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userToken: tempToken })
+        });
+        const userData = await userRes.json();
+        
+        setLoading('btn-login', false, 'היכנס למערכת');
+
+        if (!userRes.ok || !userData.user) {
+            showMessage('alert-login', userData.message || userData.error || 'שגיאה במשיכת נתוני החשבון', 'error');
+            return;
+        }
+
+        // שלב 3: הכל תקין, מתחברים סופית
+        state.userToken = tempToken;
+        state.currentUser = userData.user;
+        localStorage.setItem('userToken', tempToken);
+
+        if(typeof updateDashboardUI === 'function') updateDashboardUI();
+        showView('user-dash-view');
+        if(typeof loadMessages === 'function') loadMessages();
+        if(typeof loadSystemMessage === 'function') loadSystemMessage();
+        startPolling(); 
+    } catch (err) {
+        setLoading('btn-login', false, 'היכנס למערכת');
+        showMessage('alert-login', 'שגיאת תקשורת עם השרת', 'error');
+    }
+}
+
+async function forgotPassword() {
+    setLoading('btn-forgot-pass', true);
+    showMessage('alert-login', '<i class="fa-solid fa-circle-notch fa-spin"></i> שולח בקשה למערכת...', 'info');
+    try {
+        const res = await fetch(`${API_BASE_URL}/verify/send`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ identifier: state.tempIdentifier, intent: 'reset' })
+        });
+        const data = await res.json();
+        setLoading('btn-forgot-pass', false, '<i class="fa-solid fa-unlock-keyhole"></i> שכחת סיסמה? איפוס דרך אימייל');
+        if (res.ok && data.success) {
+            state.sessionId = data.sessionId;
+            state.tempIdentifier = data.phone; 
+            document.getElementById('reset_display_id').innerText = data.phone;
+            showView('reset-verify-view');
+            showMessage('alert-reset-verify', data.message || 'קוד נשלח לאימייל המעודכן בחשבונך', 'success');
+        } else {
+            showMessage('alert-login', data.message || data.error || 'שגיאה בשליחת אימייל לאיפוס', 'error');
+        }
+    } catch (e) {
+        setLoading('btn-forgot-pass', false, '<i class="fa-solid fa-unlock-keyhole"></i> שכחת סיסמה? איפוס דרך אימייל');
+        showMessage('alert-login', 'שגיאת תקשורת עם השרת', 'error');
+    }
+}
+
+async function verifyResetCode(e) {
+    if (e) e.preventDefault();
+    const code = document.getElementById('reset_verify_code').value.trim();
+    setLoading('btn-reset-verify', true);
+    try {
+        const res = await fetch(`${API_BASE_URL}/verify/check`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId: state.sessionId, phone: state.tempIdentifier, code: code })
+        });
+        const data = await res.json();
+        setLoading('btn-reset-verify', false, 'אמת קוד אימייל <i class="fa-solid fa-shield-check"></i>');
+        if (res.ok && data.success) {
+            state.resetToken = data.token;
+            showView('reset-confirm-view');
+            showMessage('alert-reset-confirm', 'האימייל אומת! כעת תוכל להגדיר סיסמה חדשה.', 'success');
+        } else {
+            showMessage('alert-reset-verify', data.message || data.error || 'קוד אימות שגוי', 'error');
+            document.getElementById('reset_verify_code').value = '';
+        }
+    } catch (err) {
+        setLoading('btn-reset-verify', false, 'אמת קוד אימייל <i class="fa-solid fa-shield-check"></i>');
+        showMessage('alert-reset-verify', 'שגיאת תקשורת', 'error');
+    }
+}
+
+async function confirmNewPassword(e) {
+    if (e) e.preventDefault();
+    const password = document.getElementById('new_reset_pass').value;
+    const passwordConfirm = document.getElementById('new_reset_pass_confirm').value;
+    
+    if (password !== passwordConfirm) {
+        showMessage('alert-reset-confirm', 'הסיסמאות החדשות שהוזנו אינן תואמות.', 'error');
+        return;
+    }
+
+    setLoading('btn-reset-confirm', true);
+    try {
+        const res = await fetch(`${API_BASE_URL}/reset-password/confirm`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: state.tempIdentifier, password: password, passwordConfirm: passwordConfirm, token: state.resetToken })
+        });
+        const data = await res.json();
+        setLoading('btn-reset-confirm', false, 'החלף סיסמה <i class="fa-solid fa-floppy-disk"></i>');
+        if (res.ok && data.success) {
+            showView('login-view');
+            document.getElementById('login_pass').value = '';
+            showMessage('alert-login', data.message || 'הסיסמה אופסה בהצלחה! תוכל כעת להתחבר.', 'success');
+        } else {
+            showMessage('alert-reset-confirm', data.message || data.error || 'שגיאה בעדכון הסיסמה', 'error');
+        }
+    } catch (e) {
+        setLoading('btn-reset-confirm', false, 'החלף סיסמה <i class="fa-solid fa-floppy-disk"></i>');
+        showMessage('alert-reset-confirm', 'שגיאת תקשורת עם השרת', 'error');
+    }
+}
+
+function logout() {
+    state = { userToken: null, currentUser: null, adminToken: null, tempIdentifier: null, sessionId: null, resetToken: null };
+    localStorage.removeItem('userToken');
+    localStorage.removeItem('adminToken');
+    if (pollingInterval) clearInterval(pollingInterval);
+    
+    document.querySelectorAll('input').forEach(input => input.value = ''); 
+    if(globalAudio) { globalAudio.pause(); globalAudio.src = ''; }
+    
+    const path = window.location.pathname;
+    if (path.includes('/admin')) {
+        showView('admin-login-view');
+    } else {
+        showView('init-view');
+    }
+}
+
+// ==========================================
+// פונקציות גוגל (טעינה חכמה)
+// ==========================================
+function renderGoogleButton() {
+    const container = document.getElementById("googleSignInContainer");
+    if (!container) return;
+
+    if (window.google) {
+        google.accounts.id.initialize({
+            // עודכן עם ה-Client ID האמיתי שנשלף מתוך ה-JSON
+            client_id: "89500817024-tbvsuu4dci6bqh173l65ua9lc65pe24p.apps.googleusercontent.com", 
+            callback: handleGoogleLoginResponse
+        });
+
+        google.accounts.id.renderButton(container, { 
+            theme: "outline", 
+            size: "large", 
+            width: "100%", 
+            text: "continue_with" 
+        });
+
+        google.accounts.id.prompt();
+    } else {
+        setTimeout(renderGoogleButton, 500);
+    }
+}
+
+async function handleGoogleLoginResponse(response) {
+    const googleToken = response.credential;
+    
+    showMessage('alert-init', '<i class="fa-solid fa-circle-notch fa-spin"></i> מאמת מול גוגל...', 'info');
+
+    try {
+        // שלב 1: משיכת טוקן מהשרת
+        const loginRes = await fetch(`${API_BASE_URL}/login/google`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: googleToken })
+        });
+        const loginData = await loginRes.json();
+
+        if (!loginRes.ok) {
+            showMessage('alert-init', loginData.message || loginData.error || 'שגיאת התחברות עם גוגל', 'error');
+            return;
+        }
+
+        const tempToken = loginData.token;
+
+        // שלב 2: אימות חובה מול נתיב היוזר
+        const userRes = await fetch(`${API_BASE_URL}/user`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userToken: tempToken })
+        });
+        const userData = await userRes.json();
+
+        if (!userRes.ok || !userData.user) {
+            showMessage('alert-init', userData.message || userData.error || 'שגיאה במשיכת נתוני החשבון', 'error');
+            return;
+        }
+
+        // שלב 3: הכל תקין, מתחברים סופית
+        state.userToken = tempToken;
+        state.currentUser = userData.user;
+        localStorage.setItem('userToken', tempToken);
+
+        if(typeof updateDashboardUI === 'function') updateDashboardUI();
+        showView('user-dash-view');
+        if(typeof loadMessages === 'function') loadMessages();
+        if(typeof loadSystemMessage === 'function') loadSystemMessage();
+        startPolling();
+    } catch (err) {
+        showMessage('alert-init', 'שגיאת תקשורת מול השרת', 'error');
+    }
+}
