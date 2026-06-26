@@ -30,8 +30,48 @@ async function loadMessages(isSilent = false) {
         }
 
         renderMessages(data.messages);
+
+        // טעינת סטטיסטיקות האזנה אסינכרונית כדי לא לעכב את טעינת האתר
+        fetchAllStats(data.messages, token);
+
     } catch (err) {
         if (!isSilent) container.innerHTML = '<div class="loading-state" style="color:var(--danger);">תקלת תקשורת מול השרת.</div>';
+    }
+}
+
+// פונקציה לטעינת כל הסטטיסטיקות בקבוצות קטנות (Batching) למניעת עומס
+async function fetchAllStats(messages, token) {
+    for (let i = 0; i < messages.length; i += 5) {
+        const batch = messages.slice(i, i + 5);
+        await Promise.all(batch.map(msg => {
+            const fileId = msg.name.replace('.wav', '').replace('.mp3', '');
+            return fetchMessageStats(fileId, token);
+        }));
+    }
+}
+
+// פונקציה ממוקדת לשליפת סטטיסטיקה לקובץ בודד והזרקתה ל-UI
+async function fetchMessageStats(fileId, token) {
+    const container = document.getElementById(`stats-${fileId}`);
+    if (!container) return;
+    try {
+        const res = await fetch(`${API_BASE_URL}/messages/stats`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userToken: token, fileId: fileId })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            const s = data.stats;
+            container.innerHTML = `
+                <span title="האזנות באתר"><i class="fa-solid fa-globe"></i> ${s.webListens}</span>
+                <span style="color:#cbd5e1; margin: 0 3px;">|</span>
+                <span title="האזנות בטלפון"><i class="fa-solid fa-phone"></i> ${s.phoneListens}</span>
+            `;
+        } else {
+            container.innerHTML = `<span style="color:var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i> שגיאה</span>`;
+        }
+    } catch (err) {
+        container.innerHTML = `<span style="color:var(--danger);"><i class="fa-solid fa-wifi"></i> נכשל</span>`;
     }
 }
 
@@ -69,6 +109,7 @@ function renderMessages(messages) {
                 <button id="del-btn-${fileId}" class="delete-msg-btn" onclick="attemptDeleteMessage('${msg.name}', '${fileId}')" title="מחק הודעה"><i class="fa-solid fa-trash-can"></i></button>
             </div>
         ` : `<span class="file-id">ID: ${fileId}</span>`;
+        
         const bubble = document.createElement('div');
         bubble.className = `bubble ${bubbleClass}`;
         bubble.innerHTML = `
@@ -89,9 +130,14 @@ function renderMessages(messages) {
                     </div>
                 </div>
             </div>
-            <div class="msg-bottom-time">
-                <span dir="ltr">${fullDateTime}</span>
-                ${isOut ? '<i class="fa-solid fa-check-double" style="color:#16a34a; font-size:0.8rem; margin-right:4px;"></i>' : ''}
+            <div class="msg-bottom-row">
+                <div class="msg-stats-badge" id="stats-${fileId}">
+                    <i class="fa-solid fa-circle-notch fa-spin"></i> טוען צפיות...
+                </div>
+                <div class="msg-bottom-time">
+                    <span dir="ltr">${fullDateTime}</span>
+                    ${isOut ? '<i class="fa-solid fa-check-double" style="color:#16a34a; font-size:0.8rem; margin-right:4px;"></i>' : ''}
+                </div>
             </div>
         `;
         container.appendChild(bubble);
@@ -138,6 +184,7 @@ function setupAudioListeners() {
 }
 
 function togglePlay(fileId) {
+    const token = state.userToken || localStorage.getItem('userToken');
     const btn = document.getElementById(`btn-${fileId}`);
     const icon = btn.querySelector('i');
     if (currentPlayingId === fileId) {
@@ -158,12 +205,19 @@ function togglePlay(fileId) {
 
     currentPlayingId = fileId;
     icon.className = 'fa-solid fa-circle-notch fa-spin';
-    const token = state.userToken || localStorage.getItem('userToken');
     const streamUrl = `${API_BASE_URL}/messages/stream?fileId=${encodeURIComponent(fileId)}&userToken=${encodeURIComponent(token)}`;
     
     globalAudio.src = streamUrl;
     globalAudio.play().then(() => {
         icon.className = 'fa-solid fa-pause';
+        
+        // רענון הסטטיסטיקה 2 שניות לאחר תחילת הניגון (כדי שהצפייה הנוכחית תיכנס לחישוב)
+        if (!window.playedFiles) window.playedFiles = new Set();
+        if (!window.playedFiles.has(fileId)) {
+            window.playedFiles.add(fileId);
+            setTimeout(() => fetchMessageStats(fileId, token), 2000);
+        }
+        
     }).catch(err => {
         icon.className = 'fa-solid fa-triangle-exclamation';
     });
