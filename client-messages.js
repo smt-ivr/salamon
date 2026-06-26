@@ -1,8 +1,11 @@
+// משתנה גלובלי לשמירת מצב ההודעות (כדי למנוע ריצוד ברענון שקט)
+let currentRenderedMessagesHash = '';
+
 async function loadMessages(isSilent = false) {
     const token = state.userToken || localStorage.getItem('userToken');
     if (!token) return;
 
-    // הגנה קריטית: לא לעשות רענון למסך אם המשתמש שומע עכשיו הודעה
+    // הגנה קריטית: לא לעשות רענון למסך (גם לא שקט) אם המשתמש שומע עכשיו הודעה
     if (isSilent && currentPlayingId) return;
 
     const container = document.getElementById('messages-container');
@@ -26,13 +29,26 @@ async function loadMessages(isSilent = false) {
 
         if (!data.messages || data.messages.length === 0) {
             if (!isSilent) container.innerHTML = '<div class="loading-state">אין הודעות להצגה כרגע.</div>';
+            currentRenderedMessagesHash = ''; // איפוס
             return;
         }
 
+        // יצירת חותמת לבדיקה האם רשימת ההודעות השתנתה (כמות או קבצים חדשים)
+        const newMessagesHash = data.messages.map(m => m.name).join('|');
+
+        // אם זו קריאה שקטה ושום הודעה לא נוספה/נמחקה, אנחנו מדלגים על בניית הממשק!
+        if (isSilent && newMessagesHash === currentRenderedMessagesHash) {
+            // שולחים בקשה שקטה רק לעדכון המספרים של המונה, בלי לרנדר ספינרים
+            fetchAllStats(data.messages, token, true);
+            return;
+        }
+
+        // אם יש שינוי בהודעות (או שזו טעינה ראשונית) - מעדכנים את החותמת ובונים מחדש
+        currentRenderedMessagesHash = newMessagesHash;
         renderMessages(data.messages);
 
-        // טעינת סטטיסטיקות האזנה אסינכרונית כדי לא לעכב את טעינת האתר
-        fetchAllStats(data.messages, token);
+        // טעינת סטטיסטיקות האזנה (לא שקטה - תאפשר לספינר להופיע בטעינה הראשונית של ההודעה)
+        fetchAllStats(data.messages, token, false);
 
     } catch (err) {
         if (!isSilent) container.innerHTML = '<div class="loading-state" style="color:var(--danger);">תקלת תקשורת מול השרת.</div>';
@@ -40,38 +56,44 @@ async function loadMessages(isSilent = false) {
 }
 
 // פונקציה לטעינת כל הסטטיסטיקות בקבוצות קטנות (Batching) למניעת עומס
-async function fetchAllStats(messages, token) {
+async function fetchAllStats(messages, token, isSilentRefresh = false) {
     for (let i = 0; i < messages.length; i += 5) {
         const batch = messages.slice(i, i + 5);
         await Promise.all(batch.map(msg => {
             const fileId = msg.name.replace('.wav', '').replace('.mp3', '');
-            return fetchMessageStats(fileId, token);
+            return fetchMessageStats(fileId, token, isSilentRefresh);
         }));
     }
 }
 
-// פונקציה ממוקדת לשליפת סטטיסטיקה לקובץ בודד והזרקתה ל-UI
-async function fetchMessageStats(fileId, token) {
+// פונקציה ממוקדת לשליפת סטטיסטיקה לקובץ בודד והזרקתה ל-UI באופן חלק
+async function fetchMessageStats(fileId, token, isSilentRefresh = false) {
     const container = document.getElementById(`stats-${fileId}`);
     if (!container) return;
+    
     try {
         const res = await fetch(`${API_BASE_URL}/messages/stats`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userToken: token, fileId: fileId })
         });
         const data = await res.json();
+        
         if (res.ok && data.success) {
             const s = data.stats;
+            // עדכון חלק ומהיר לתוך האלמנט בלי לגרום להבהוב
             container.innerHTML = `
                 <span title="האזנות באתר"><i class="fa-solid fa-globe"></i> ${s.webListens}</span>
                 <span style="color:#cbd5e1; margin: 0 3px;">|</span>
                 <span title="האזנות בטלפון"><i class="fa-solid fa-phone"></i> ${s.phoneListens}</span>
             `;
-        } else {
+        } else if (!isSilentRefresh) {
+            // נציג שגיאה רק אם זו לא טעינה שקטה ברקע
             container.innerHTML = `<span style="color:var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i> שגיאה</span>`;
         }
     } catch (err) {
-        container.innerHTML = `<span style="color:var(--danger);"><i class="fa-solid fa-wifi"></i> נכשל</span>`;
+        if (!isSilentRefresh) {
+            container.innerHTML = `<span style="color:var(--danger);"><i class="fa-solid fa-wifi"></i> נכשל</span>`;
+        }
     }
 }
 
@@ -187,6 +209,7 @@ function togglePlay(fileId) {
     const token = state.userToken || localStorage.getItem('userToken');
     const btn = document.getElementById(`btn-${fileId}`);
     const icon = btn.querySelector('i');
+    
     if (currentPlayingId === fileId) {
         if (globalAudio.paused) {
             globalAudio.play();
@@ -211,11 +234,11 @@ function togglePlay(fileId) {
     globalAudio.play().then(() => {
         icon.className = 'fa-solid fa-pause';
         
-        // רענון הסטטיסטיקה 2 שניות לאחר תחילת הניגון (כדי שהצפייה הנוכחית תיכנס לחישוב)
+        // רענון הסטטיסטיקה 2 שניות לאחר תחילת הניגון בצורה חלקה ושקטה
         if (!window.playedFiles) window.playedFiles = new Set();
         if (!window.playedFiles.has(fileId)) {
             window.playedFiles.add(fileId);
-            setTimeout(() => fetchMessageStats(fileId, token), 2000);
+            setTimeout(() => fetchMessageStats(fileId, token, true), 2000);
         }
         
     }).catch(err => {
