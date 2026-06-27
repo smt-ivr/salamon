@@ -1,61 +1,101 @@
-// משתנה גלובלי לשמירת מצב ההודעות (כדי למנוע ריצוד ברענון שקט)
+// client-messages.js
 let currentRenderedMessagesHash = '';
+let allLoadedMessages = [];
+let currentFilesFrom = 0;
+const FILES_LIMIT = 40;
+let isFetchingMessages = false;
 
-async function loadMessages(isSilent = false) {
+async function loadMessages(isSilent = false, loadMore = false) {
+    if (isFetchingMessages) return;
     const token = state.userToken || localStorage.getItem('userToken');
     if (!token) return;
 
-    // הגנה קריטית: לא לעשות רענון למסך (גם לא שקט) אם המשתמש שומע עכשיו הודעה
+    // מניעת רענון המסך בעת האזנה פעילה
     if (isSilent && currentPlayingId) return;
 
     const container = document.getElementById('messages-container');
-    if(!container) return;
-    
-    if (!isSilent) {
+    if (!container) return;
+
+    // איפוס אם זו טעינה רגילה מאפס
+    if (!loadMore && !isSilent) {
+        currentFilesFrom = 0;
+        allLoadedMessages = [];
         container.innerHTML = '<div class="loading-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען הודעות...</div>';
     }
 
+    isFetchingMessages = true;
+
+    if (loadMore) {
+        const btn = document.getElementById('load-more-btn');
+        if (btn) btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> טוען הודעות קודמות...';
+    }
+
     try {
+        const fetchFrom = loadMore ? currentFilesFrom + FILES_LIMIT : 0;
+        
         const res = await fetch(`${API_BASE_URL}/messages/list`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userToken: token })
+            body: JSON.stringify({ userToken: token, filesLimit: FILES_LIMIT, filesFrom: fetchFrom })
         });
         const data = await res.json();
         
+        isFetchingMessages = false;
+
         if (!res.ok) {
             if (!isSilent) container.innerHTML = `<div class="loading-state" style="color:var(--danger);">${data.message || data.error || 'שגיאה בשליפה'}</div>`;
             return;
         }
 
         if (!data.messages || data.messages.length === 0) {
-            if (!isSilent) container.innerHTML = '<div class="loading-state">אין הודעות להצגה כרגע.</div>';
-            currentRenderedMessagesHash = ''; // איפוס
+            if (!isSilent && !loadMore) container.innerHTML = '<div class="loading-state">אין הודעות להצגה כרגע.</div>';
+            if (loadMore) {
+                const btn = document.getElementById('load-more-btn');
+                if (btn) {
+                    btn.innerHTML = '<i class="fa-solid fa-check"></i> הוצגו כל ההודעות';
+                    btn.disabled = true;
+                }
+            }
+            if (!loadMore) currentRenderedMessagesHash = '';
             return;
         }
 
-        // יצירת חותמת לבדיקה האם רשימת ההודעות השתנתה (כמות או קבצים חדשים)
-        const newMessagesHash = data.messages.map(m => m.name).join('|');
+        // חיבור ההודעות החדשות למערך ההודעות הקיים
+        if (loadMore) {
+            currentFilesFrom = fetchFrom;
+            allLoadedMessages = [...allLoadedMessages, ...data.messages];
+        } else {
+            currentFilesFrom = 0;
+            allLoadedMessages = data.messages;
+        }
 
-        // אם זו קריאה שקטה ושום הודעה לא נוספה/נמחקה, אנחנו מדלגים על בניית הממשק!
-        if (isSilent && newMessagesHash === currentRenderedMessagesHash) {
-            // שולחים בקשה שקטה רק לעדכון המספרים של המונה, בלי לרנדר ספינרים
+        const newMessagesHash = allLoadedMessages.map(m => m.name).join('|');
+
+        // אם זו קריאה שקטה ושום הודעה לא נוספה/נמחקה, רק מעדכנים סטטיסטיקות
+        if (isSilent && !loadMore && newMessagesHash === currentRenderedMessagesHash) {
             fetchAllStats(data.messages, token, true);
             return;
         }
 
-        // אם יש שינוי בהודעות (או שזו טעינה ראשונית) - מעדכנים את החותמת ובונים מחדש
         currentRenderedMessagesHash = newMessagesHash;
-        renderMessages(data.messages);
-
-        // טעינת סטטיסטיקות האזנה (לא שקטה - תאפשר לספינר להופיע בטעינה הראשונית של ההודעה)
-        fetchAllStats(data.messages, token, false);
+        const hasMore = data.messages.length === FILES_LIMIT; // אם קיבלנו 40 מדויק, כנראה יש עוד.
+        
+        renderMessages(allLoadedMessages, hasMore);
+        
+        // טעינת סטטיסטיקות רק להודעות החדשות שנמשכו כדי לחסוך עומס
+        const messagesToFetchStats = loadMore ? data.messages : allLoadedMessages;
+        fetchAllStats(messagesToFetchStats, token, false);
 
     } catch (err) {
-        if (!isSilent) container.innerHTML = '<div class="loading-state" style="color:var(--danger);">תקלת תקשורת מול השרת.</div>';
+        isFetchingMessages = false;
+        if (!isSilent && !loadMore) container.innerHTML = '<div class="loading-state" style="color:var(--danger);">תקלת תקשורת מול השרת.</div>';
+        if (loadMore) {
+            const btn = document.getElementById('load-more-btn');
+            if (btn) btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> שגיאה, נסה שוב';
+        }
     }
 }
 
-// פונקציה לטעינת כל הסטטיסטיקות בקבוצות קטנות (Batching) למניעת עומס
+// פונקציה לטעינת כל הסטטיסטיקות בקבוצות קטנות
 async function fetchAllStats(messages, token, isSilentRefresh = false) {
     for (let i = 0; i < messages.length; i += 5) {
         const batch = messages.slice(i, i + 5);
@@ -66,7 +106,6 @@ async function fetchAllStats(messages, token, isSilentRefresh = false) {
     }
 }
 
-// פונקציה ממוקדת לשליפת סטטיסטיקה לקובץ בודד והזרקתה ל-UI באופן חלק
 async function fetchMessageStats(fileId, token, isSilentRefresh = false) {
     const container = document.getElementById(`stats-${fileId}`);
     if (!container) return;
@@ -80,14 +119,12 @@ async function fetchMessageStats(fileId, token, isSilentRefresh = false) {
         
         if (res.ok && data.success) {
             const s = data.stats;
-            // עדכון חלק ומהיר לתוך האלמנט בלי לגרום להבהוב
             container.innerHTML = `
                 <span title="האזנות באתר"><i class="fa-solid fa-globe"></i> ${s.webListens}</span>
                 <span style="color:#cbd5e1; margin: 0 3px;">|</span>
                 <span title="האזנות בטלפון"><i class="fa-solid fa-phone"></i> ${s.phoneListens}</span>
             `;
         } else if (!isSilentRefresh) {
-            // נציג שגיאה רק אם זו לא טעינה שקטה ברקע
             container.innerHTML = `<span style="color:var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i> שגיאה</span>`;
         }
     } catch (err) {
@@ -97,7 +134,7 @@ async function fetchMessageStats(fileId, token, isSilentRefresh = false) {
     }
 }
 
-function renderMessages(messages) {
+function renderMessages(messages, hasMore) {
     const container = document.getElementById('messages-container');
     container.innerHTML = ''; 
 
@@ -125,10 +162,8 @@ function renderMessages(messages) {
         const senderName = msg.valName || 'מערכת';
         const durationText = msg.durationStr || '00:00';
 
-        // בניית האייקונים החכמים לפי סוג המקור
         let sourceIndicator = '';
         if (msg.fromWebType) {
-            // אם זה קובץ שעלה ולא הוקלט במקום, נוסיף גם סמל אטב קטן
             let extraIcon = msg.fromWebType === 'file' ? 
                 `<i class="fa-solid fa-paperclip" style="font-size: 11px; color: #64748b; margin-left: 4px;" title="הועלה כקובץ דרך האתר"></i>` : '';
 
@@ -140,7 +175,6 @@ function renderMessages(messages) {
                 ${extraIcon}
             `;
         } else {
-            // עיצוב למצב רגיל שזה מהטלפון
             sourceIndicator = `
                 <span title="ההודעה הוקלטה דרך הטלפון" style="display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin-right: 6px; border-radius: 50%; background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; flex-shrink: 0;">
                     <i class="fa-solid fa-phone" style="font-size: 9px;"></i>
@@ -194,6 +228,21 @@ function renderMessages(messages) {
             container.appendChild(divider);
         }
     });
+
+    // הוספת כפתור "טען הודעות קודמות" בסוף הקונטיינר (שמופיע בראש המסך עקב עיצוב flex column-reverse)
+    if (hasMore) {
+        const loadMoreContainer = document.createElement('div');
+        loadMoreContainer.className = 'load-more-wrapper';
+        
+        const loadMoreBtn = document.createElement('button');
+        loadMoreBtn.id = 'load-more-btn';
+        loadMoreBtn.className = 'btn-load-more';
+        loadMoreBtn.innerHTML = '<i class="fa-solid fa-clock-rotate-left"></i> טען הודעות קודמות';
+        loadMoreBtn.onclick = () => loadMessages(false, true);
+        
+        loadMoreContainer.appendChild(loadMoreBtn);
+        container.appendChild(loadMoreContainer);
+    }
 }
 
 function setupAudioListeners() {
@@ -257,7 +306,6 @@ function togglePlay(fileId) {
     globalAudio.play().then(() => {
         icon.className = 'fa-solid fa-pause';
         
-        // רענון הסטטיסטיקה 2 שניות לאחר תחילת הניגון בצורה חלקה ושקטה
         if (!window.playedFiles) window.playedFiles = new Set();
         if (!window.playedFiles.has(fileId)) {
             window.playedFiles.add(fileId);
