@@ -177,12 +177,13 @@
         <main id="user-dash-view" class="view-section app-layout">
             <aside class="app-sidebar">
                 <div class="sidebar-header">
-                    <div class="user-profile-wrap">
-                        <div class="avatar"><i class="fa-solid fa-user"></i></div>
-                        <div class="user-details" style="display: flex; flex-direction: column; justify-content: center;">
-                            <h2 id="ui-user-name" style="margin-bottom: 2px;">טוען...</h2>
-                            <span id="ui-user-phone" dir="ltr" style="font-family: monospace; font-size: 0.9rem; font-weight: 600; color: var(--text-light); text-align: right; margin-bottom: 6px;">---</span>
-                            <div id="ui-auth-badges" style="display:flex; flex-wrap: wrap; gap:4px;"></div>
+                    <!-- סידור קשיח ומונע שבירות של הפרופיל -->
+                    <div class="user-profile-wrap" style="display: flex; align-items: center; gap: 12px; width: 100%; overflow: hidden;">
+                        <div class="avatar" style="flex-shrink: 0;"><i class="fa-solid fa-user"></i></div>
+                        <div class="user-details" style="display: flex; flex-direction: column; justify-content: center; gap: 3px; overflow: hidden; width: 100%;">
+                            <h2 id="ui-user-name" style="margin: 0; font-size: 1rem; font-weight: 800; color: var(--text-main); line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">טוען...</h2>
+                            <span id="ui-user-phone" dir="ltr" style="margin: 0; font-size: 0.9rem; font-family: monospace; color: var(--text-light); text-align: right; line-height: 1.1; font-weight: 600;">---</span>
+                            <div id="ui-auth-badges" style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px;"></div>
                         </div>
                     </div>
                     <div class="sidebar-actions">
@@ -212,6 +213,14 @@
                             <button class="icon-btn" onclick="loadMessages(); loadSystemStats();" title="רענן"><i class="fa-solid fa-rotate-right"></i></button>
                         </div>
                     </div>
+                    
+                    <!-- כפתור מרחף לטעינת הודעות (מופיע רק כשיש צורך) -->
+                    <div id="floating-load-more" style="display: none; position: absolute; top: 80px; left: 50%; transform: translateX(-50%); z-index: 100;">
+                        <button id="btn-load-more" class="btn-floating-load" onclick="loadMessages(false, true)">
+                            <i class="fa-solid fa-clock-rotate-left"></i> טען הודעות קודמות
+                        </button>
+                    </div>
+
                     <div id="messages-container"></div>
                     
                     <div id="chat-upload-area" class="chat-upload-area">
@@ -226,6 +235,7 @@
             </div>
         </main>
 
+        <!-- (אזור פאנל מנהל) -->
         <main id="admin-dash-view" class="view-section app-layout">
             <aside class="app-sidebar" style="border-top: 4px solid var(--secondary);">
                 <div class="sidebar-header">
@@ -319,6 +329,7 @@
         </div>
     </div>
 
+    <!-- מודלים של עריכה, שגיאה והקלטות שנותרו ללא שינוי -->
     <div class="modal-overlay" id="uploadReviewModal">
         <div class="modal-content professional-modal">
             <div class="modal-header">
@@ -398,7 +409,7 @@
         </div>
     </div>
 
-    <!-- אזור ההגדרות החדש - מותאם למניעת גלילה מיותרת -->
+    <!-- אזור ההגדרות -->
     <div class="modal-overlay" id="userSettingsModal">
         <div class="modal-content professional-modal" style="max-width: 550px; display: flex; flex-direction: column; max-height: 90vh;">
             <div class="modal-header" style="flex-shrink: 0;">
