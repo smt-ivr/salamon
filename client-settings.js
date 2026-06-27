@@ -7,14 +7,14 @@ function updateDashboardUI() {
     document.getElementById('ui-user-name').innerText = user.name || 'אורח';
     document.getElementById('ui-user-phone').innerText = user.phone;
     
-    // יצירת אייקוני התחברות חכמים עם Tooltips המופעלים במעבר עכבר (מרחפים)
+    // יצירת אייקוני התחברות חכמים עם Tooltips המופעלים במעבר עכבר (מרחפים) - אייקונים משופרים
     const authIcon = user.authMethod === 'google' 
         ? `<span class="auth-badge text-google" title="התחברות מאובטחת דרך חשבון Google"><i class="fa-brands fa-google"></i></span>`
-        : `<span class="auth-badge text-password" title="התחברות רגילה באמצעות סיסמה"><i class="fa-solid fa-key"></i></span>`;
+        : `<span class="auth-badge text-password" title="התחברות רגילה באמצעות סיסמה"><i class="fa-solid fa-lock"></i></span>`;
         
     const tokenIcon = user.tokenType === 'permanent' 
-        ? `<span class="auth-badge text-perm" title="טוקן התחברות קבוע ('זכור אותי' פעיל)"><i class="fa-solid fa-infinity"></i></span>`
-        : `<span class="auth-badge text-temp" title="טוקן התחברות זמני (יפוג בניתוק הקרוב)"><i class="fa-solid fa-stopwatch"></i></span>`;
+        ? `<span class="auth-badge text-perm" title="טוקן התחברות קבוע ('זכור אותי' פעיל)"><i class="fa-solid fa-thumbtack"></i></span>`
+        : `<span class="auth-badge text-temp" title="טוקן התחברות זמני (יפוג בניתוק הקרוב)"><i class="fa-solid fa-hourglass-half"></i></span>`;
 
     const badgeContainer = document.getElementById('ui-auth-badges');
     if (badgeContainer) badgeContainer.innerHTML = `${authIcon} ${tokenIcon}`;
@@ -154,7 +154,7 @@ async function updateUserProfile(e) {
     }
 }
 
-// שינוי סיסמה (לשונית 2) - משתמש בנתיב החדש בשרת
+// שינוי סיסמה (לשונית 2) - נתיב מאובטח
 async function updatePassword(e) {
     if (e) e.preventDefault();
     
@@ -196,7 +196,7 @@ async function updatePassword(e) {
         if (logoutAllDevices) {
             setTimeout(() => {
                 closeUserSettingsModal();
-                logout(); // אם הוא בחר לנתק את כולם, גם הנוכחי מתנתק
+                logout(); // אם הוא בחר לנתק את כולם, ינותק מיידית ויוחזר למסך התחברות
             }, 2500);
         } else {
             setTimeout(() => closeUserSettingsModal(), 2000);
