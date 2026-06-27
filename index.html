@@ -71,7 +71,7 @@
                     </div>
 
                     <form onsubmit="event.preventDefault(); checkIdentifier(event);">
-                        <div class="form-group"><input type="text" id="init_id" required placeholder="מספר טלפון או אימייל" class="center-text ltr-input input-modern"></div>
+                        <div class="form-group"><input type="text" id="init_id" autocomplete="username" required placeholder="מספר טלפון או אימייל" class="center-text ltr-input input-modern"></div>
                         <button type="submit" id="btn-init" class="btn-primary">המשך <i class="fa-solid fa-arrow-left"></i></button>
                     </form>
                 </section>
@@ -84,7 +84,7 @@
                     <div class="locked-input-container"><span id="login_display_id"></span><button type="button" onclick="goBackToInit()"><i class="fa-solid fa-pen"></i> שנה</button></div>
 
                     <form onsubmit="event.preventDefault(); userLogin(event);">
-                        <div class="form-group"><input type="password" id="login_pass" required placeholder="הזן סיסמה" class="input-modern center-text ltr-input"></div>
+                        <div class="form-group"><input type="password" id="login_pass" autocomplete="current-password" required placeholder="הזן סיסמה" class="input-modern center-text ltr-input"></div>
                         
                         <div class="form-group" style="display: flex; align-items: center; justify-content: flex-start; gap: 8px; flex-direction: row-reverse; margin-bottom: 20px;">
                             <label for="login_remember" style="margin: 0; cursor: pointer; color: var(--text-main); font-weight: 600; font-size: 0.9rem;">
@@ -115,7 +115,7 @@
                     <div id="alert-verify" class="alert-box"></div>
                     <div class="locked-input-container"><span id="verify_display_phone" dir="ltr" style="color: var(--play-out);"></span><button type="button" onclick="goBackToInit()"><i class="fa-solid fa-pen"></i> שנה</button></div>
                     <form onsubmit="event.preventDefault(); verifyPhoneCode(event);">
-                        <div class="form-group"><input type="text" id="verify_code" required placeholder="הזן קוד (4 ספרות)" class="center-text ltr-input input-modern" maxlength="6"></div>
+                        <div class="form-group"><input type="text" id="verify_code" autocomplete="one-time-code" required placeholder="הזן קוד (4 ספרות)" class="center-text ltr-input input-modern" maxlength="6"></div>
                         <button type="submit" id="btn-verify" class="btn-primary">אמת קוד והמשך <i class="fa-solid fa-shield-check"></i></button>
                     </form>
                     <button type="button" class="btn-text" onclick="resendVerification()"><i class="fa-solid fa-phone-volume"></i> לא קיבלת שיחה? נסה שוב</button>
@@ -128,10 +128,10 @@
                     <div id="alert-register" class="alert-box"></div>
                     <div class="locked-input-container" style="background: #f0fdf4; border-color: #bbf7d0;"><span id="reg_display_phone"></span><span style="font-size: 0.85rem; color: #15803d; font-weight:bold;"><i class="fa-solid fa-circle-check"></i> מאומת</span></div>
                     <form onsubmit="event.preventDefault(); userRegister(event);">
-                        <div class="form-group"><label>שם המשתמש</label><input type="text" id="reg_name" readonly class="input-modern" style="background:#f1f5f9; color:#64748b; cursor:not-allowed;"></div>
-                        <div class="form-group"><label>אימייל לגיבוי ואיפוס סיסמה (מומלץ)</label><input type="email" id="reg_email" placeholder="email@example.com" class="ltr-input input-modern"></div>
-                        <div class="form-group"><label>בחר סיסמה חדשה (4-10 ספרות)</label><input type="password" id="reg_password" required placeholder="****" class="input-modern center-text ltr-input"></div>
-                        <div class="form-group"><label>אימות סיסמה</label><input type="password" id="reg_password_confirm" required placeholder="הזן שוב את הסיסמה" class="input-modern center-text ltr-input"></div>
+                        <div class="form-group"><label>שם המשתמש</label><input type="text" id="reg_name" autocomplete="name" readonly class="input-modern" style="background:#f1f5f9; color:#64748b; cursor:not-allowed;"></div>
+                        <div class="form-group"><label>אימייל לגיבוי ואיפוס סיסמה (מומלץ)</label><input type="email" id="reg_email" autocomplete="email" placeholder="email@example.com" class="ltr-input input-modern"></div>
+                        <div class="form-group"><label>בחר סיסמה חדשה (4-10 ספרות)</label><input type="password" id="reg_password" autocomplete="new-password" required placeholder="****" class="input-modern center-text ltr-input"></div>
+                        <div class="form-group"><label>אימות סיסמה</label><input type="password" id="reg_password_confirm" autocomplete="new-password" required placeholder="הזן שוב את הסיסמה" class="input-modern center-text ltr-input"></div>
                         <button type="submit" id="btn-register" class="btn-primary">סיים הרשמה <i class="fa-solid fa-check"></i></button>
                     </form>
                 </section>
@@ -143,7 +143,7 @@
                     <div id="alert-reset-verify" class="alert-box"></div>
                     <div class="locked-input-container"><span id="reset_display_id" dir="ltr"></span><button type="button" onclick="goBackToInit()"><i class="fa-solid fa-xmark"></i> ביטול</button></div>
                     <form onsubmit="event.preventDefault(); verifyResetCode(event);">
-                        <div class="form-group"><input type="text" id="reset_verify_code" required placeholder="הזן קוד מהאימייל (6 ספרות)" class="center-text ltr-input input-modern" maxlength="6"></div>
+                        <div class="form-group"><input type="text" id="reset_verify_code" autocomplete="one-time-code" required placeholder="הזן קוד מהאימייל (6 ספרות)" class="center-text ltr-input input-modern" maxlength="6"></div>
                         <button type="submit" id="btn-reset-verify" class="btn-primary" style="background: var(--secondary);">אמת קוד אימייל <i class="fa-solid fa-shield-check"></i></button>
                     </form>
                 </section>
@@ -154,8 +154,8 @@
                     <p class="subtitle">האימייל אומת בהצלחה! בחר סיסמה חדשה</p>
                     <div id="alert-reset-confirm" class="alert-box"></div>
                     <form onsubmit="event.preventDefault(); confirmNewPassword(event);">
-                        <div class="form-group"><label>סיסמה חדשה (4-10 ספרות)</label><input type="password" id="new_reset_pass" required placeholder="****" class="input-modern center-text ltr-input"></div>
-                        <div class="form-group"><label>אישור סיסמה חדשה</label><input type="password" id="new_reset_pass_confirm" required placeholder="הזן שוב את הסיסמה" class="input-modern center-text ltr-input"></div>
+                        <div class="form-group"><label>סיסמה חדשה (4-10 ספרות)</label><input type="password" id="new_reset_pass" autocomplete="new-password" required placeholder="****" class="input-modern center-text ltr-input"></div>
+                        <div class="form-group"><label>אישור סיסמה חדשה</label><input type="password" id="new_reset_pass_confirm" autocomplete="new-password" required placeholder="הזן שוב את הסיסמה" class="input-modern center-text ltr-input"></div>
                         <button type="submit" id="btn-reset-confirm" class="btn-primary" style="background: var(--secondary);">החלף סיסמה <i class="fa-solid fa-floppy-disk"></i></button>
                     </form>
                 </section>
@@ -166,8 +166,8 @@
                     <p class="subtitle">גישה מאובטחת לצוות הניהול בלבד</p>
                     <div id="alert-admin-login" class="alert-box"></div>
                     <form onsubmit="event.preventDefault(); adminLogin(event);">
-                        <div class="form-group"><input type="text" id="admin_user" required placeholder="שם משתמש" class="ltr-input input-modern"></div>
-                        <div class="form-group"><input type="password" id="admin_pass" required placeholder="סיסמה" class="input-modern ltr-input"></div>
+                        <div class="form-group"><input type="text" id="admin_user" autocomplete="username" required placeholder="שם משתמש" class="ltr-input input-modern"></div>
+                        <div class="form-group"><input type="password" id="admin_pass" autocomplete="current-password" required placeholder="סיסמה" class="input-modern ltr-input"></div>
                         <button type="submit" id="btn-admin-login" class="btn-primary" style="background: var(--secondary);">התחברות מאובטחת</button>
                     </form>
                 </section>
@@ -177,16 +177,18 @@
         <main id="user-dash-view" class="view-section app-layout">
             <aside class="app-sidebar">
                 <div class="sidebar-header">
-                    <!-- סידור קשיח ומונע שבירות של הפרופיל -->
-                    <div class="user-profile-wrap" style="display: flex; align-items: center; gap: 12px; width: 100%; overflow: hidden;">
+                    <!-- סידור קשיח ואמין של הפרופיל כך שהאייקונים יהיו משמאל למספר -->
+                    <div class="user-profile-wrap" style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
                         <div class="avatar" style="flex-shrink: 0;"><i class="fa-solid fa-user"></i></div>
-                        <div class="user-details" style="display: flex; flex-direction: column; justify-content: center; gap: 3px; overflow: hidden; width: 100%;">
-                            <h2 id="ui-user-name" style="margin: 0; font-size: 1rem; font-weight: 800; color: var(--text-main); line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">טוען...</h2>
-                            <span id="ui-user-phone" dir="ltr" style="margin: 0; font-size: 0.9rem; font-family: monospace; color: var(--text-light); text-align: right; line-height: 1.1; font-weight: 600;">---</span>
-                            <div id="ui-auth-badges" style="display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px;"></div>
+                        <div style="display: flex; flex-direction: column; justify-content: center; min-width: 0;">
+                            <h2 id="ui-user-name" style="margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right;">טוען...</h2>
+                            <div class="phone-and-badges">
+                                <div id="ui-auth-badges" class="badges-row"></div>
+                                <span id="ui-user-phone" dir="ltr" style="font-family: monospace; font-size: 0.95rem; font-weight: 600; color: var(--text-light);">---</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="sidebar-actions">
+                    <div class="sidebar-actions" style="flex-shrink: 0;">
                         <span id="ui-tzintuk-icon" style="font-size: 1.15rem; display: flex; align-items: center; margin-left: 8px;"></span>
                         <button title="הגדרות חשבון מתקדמות" onclick="openUserSettingsModal()"><i class="fa-solid fa-gear"></i></button>
                         <button title="התנתק" class="logout-btn" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
@@ -210,17 +212,10 @@
                         </div>
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <button class="mobile-announcement-btn" id="mobile-announcement-btn-id" onclick="openAnnouncementModal()"><i class="fa-solid fa-bullhorn"></i> <span style="margin-right:4px;">מודעה</span></button>
-                            <button class="icon-btn" onclick="loadMessages(); loadSystemStats();" title="רענן"><i class="fa-solid fa-rotate-right"></i></button>
+                            <button class="icon-btn" onclick="loadMessages(false, false)" title="רענן"><i class="fa-solid fa-rotate-right"></i></button>
                         </div>
                     </div>
                     
-                    <!-- כפתור מרחף לטעינת הודעות (מופיע רק כשיש צורך) -->
-                    <div id="floating-load-more" style="display: none; position: absolute; top: 80px; left: 50%; transform: translateX(-50%); z-index: 100;">
-                        <button id="btn-load-more" class="btn-floating-load" onclick="loadMessages(false, true)">
-                            <i class="fa-solid fa-clock-rotate-left"></i> טען הודעות קודמות
-                        </button>
-                    </div>
-
                     <div id="messages-container"></div>
                     
                     <div id="chat-upload-area" class="chat-upload-area">
@@ -235,7 +230,6 @@
             </div>
         </main>
 
-        <!-- (אזור פאנל מנהל) -->
         <main id="admin-dash-view" class="view-section app-layout">
             <aside class="app-sidebar" style="border-top: 4px solid var(--secondary);">
                 <div class="sidebar-header">
@@ -317,8 +311,8 @@
             <div id="alert-modal" class="alert-box"></div>
             <form onsubmit="event.preventDefault(); submitAdminUpdate(event);">
                 <div class="form-group"><label>טלפון</label><input type="text" id="modal_phone" readonly class="input-modern" style="background:#f0f2f5; color:#94a3b8; direction:ltr; text-align:right;"></div>
-                <div class="form-group"><label>אימייל</label><input type="email" id="modal_email" class="ltr-input input-modern"></div>
-                <div class="form-group"><label>סיסמה חדשה</label><input type="text" id="modal_password" class="ltr-input input-modern"></div>
+                <div class="form-group"><label>אימייל</label><input type="email" id="modal_email" autocomplete="email" class="ltr-input input-modern"></div>
+                <div class="form-group"><label>סיסמה חדשה</label><input type="text" id="modal_password" autocomplete="new-password" class="ltr-input input-modern"></div>
                 <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 15px; padding: 10px; background: #f8fafc; border-radius: 8px;"><input type="checkbox" id="modal_can_record" style="width: 20px; height: 20px; cursor: pointer;"><label for="modal_can_record" style="margin: 0; font-size: 0.95rem; cursor: pointer; color: var(--text-main);">מורשה להקליט הודעות</label></div>
                 <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 10px; background: #f8fafc; border-radius: 8px;"><input type="checkbox" id="modal_can_upload" style="width: 20px; height: 20px; cursor: pointer;"><label for="modal_can_upload" style="margin: 0; font-size: 0.95rem; cursor: pointer; color: var(--text-main);">מורשה להעלות קבצים חיצונים</label></div>
                 <div style="margin-top: 30px; display: flex; gap: 10px;">
@@ -409,7 +403,7 @@
         </div>
     </div>
 
-    <!-- אזור ההגדרות -->
+    <!-- אזור ההגדרות החדש - מותאם למניעת גלילה מיותרת -->
     <div class="modal-overlay" id="userSettingsModal">
         <div class="modal-content professional-modal" style="max-width: 550px; display: flex; flex-direction: column; max-height: 90vh;">
             <div class="modal-header" style="flex-shrink: 0;">
@@ -430,7 +424,7 @@
                         <h3>פרטי קשר</h3>
                         <div class="form-group">
                             <label>כתובת אימייל (מומלץ לגיבוי)</label>
-                            <input type="email" id="update_email" class="ltr-input input-modern">
+                            <input type="email" id="update_email" autocomplete="email" class="ltr-input input-modern">
                         </div>
                         
                         <h3 style="margin-top:25px;">התראות ואבטחה</h3>
@@ -459,7 +453,7 @@
 
                         <div id="profile_password_auth" class="form-group" style="margin-top: 25px; border-top: 1px solid var(--border-color); padding-top: 20px;">
                             <label style="color: var(--danger); font-size: 0.95rem;"><i class="fa-solid fa-lock"></i> סיסמה נוכחית (חובה לאימות שינויים)</label>
-                            <input type="password" id="update_auth_pass" placeholder="הזן את סיסמתך הנוכחית לאישור" class="input-modern center-text ltr-input">
+                            <input type="password" id="update_auth_pass" autocomplete="current-password" placeholder="הזן את סיסמתך הנוכחית לאישור" class="input-modern center-text ltr-input">
                         </div>
 
                         <button type="submit" id="btn-update-profile" class="btn-primary" style="margin-top: 15px;">שמור העדפות <i class="fa-solid fa-floppy-disk"></i></button>
@@ -469,9 +463,9 @@
                 <form id="settings-security-form" style="display:none;" onsubmit="event.preventDefault(); updatePassword(event);">
                     <div class="settings-card-advanced">
                         <h3>שינוי סיסמה</h3>
-                        <div class="form-group"><label>סיסמה נוכחית</label><input type="password" id="change_old_pass" required placeholder="****" class="input-modern center-text ltr-input"></div>
-                        <div class="form-group"><label>סיסמה חדשה (4-10 ספרות)</label><input type="password" id="change_new_pass" required placeholder="****" class="input-modern center-text ltr-input"></div>
-                        <div class="form-group"><label>אימות סיסמה חדשה</label><input type="password" id="change_new_pass_confirm" required placeholder="****" class="input-modern center-text ltr-input"></div>
+                        <div class="form-group"><label>סיסמה נוכחית</label><input type="password" id="change_old_pass" autocomplete="current-password" required placeholder="****" class="input-modern center-text ltr-input"></div>
+                        <div class="form-group"><label>סיסמה חדשה (4-10 ספרות)</label><input type="password" id="change_new_pass" autocomplete="new-password" required placeholder="****" class="input-modern center-text ltr-input"></div>
+                        <div class="form-group"><label>אימות סיסמה חדשה</label><input type="password" id="change_new_pass_confirm" autocomplete="new-password" required placeholder="****" class="input-modern center-text ltr-input"></div>
                         
                         <div class="toggle-row" style="margin-top: 25px; border-top: 1px solid var(--border-color); padding-top: 15px;">
                             <div class="toggle-info">
