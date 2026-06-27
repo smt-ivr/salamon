@@ -7,17 +7,17 @@ function updateDashboardUI() {
     document.getElementById('ui-user-name').innerText = user.name || 'אורח';
     document.getElementById('ui-user-phone').innerText = user.phone;
     
-    // יצירת אייקוני התחברות (Badges מקצועיים) 
+    // אייקונים עגולים ונקיים בלבד ללא טקסט
     const authIcon = user.authMethod === 'google' 
-        ? `<span class="auth-badge auth-google" title="התחברות מאובטחת באמצעות חשבון Google"><i class="fa-brands fa-google"></i> אימות גוגל</span>`
-        : `<span class="auth-badge auth-pass" title="חיבור מוצפן באמצעות סיסמה"><i class="fa-solid fa-shield-halved"></i> מאובטח</span>`;
+        ? `<div class="auth-icon-circle google" title="התחברות מאובטחת באמצעות חשבון Google"><i class="fa-brands fa-google"></i></div>`
+        : `<div class="auth-icon-circle password" title="התחברות רגילה (סיסמה)"><i class="fa-solid fa-lock"></i></div>`;
         
     const tokenIcon = user.tokenType === 'permanent' 
-        ? `<span class="auth-badge auth-perm" title="מכשיר זה נשמר ומוכר למערכת"><i class="fa-solid fa-laptop-code"></i> מוכר</span>`
-        : `<span class="auth-badge auth-temp" title="חיבור זמני (ינותק בעת סגירה)"><i class="fa-solid fa-hourglass-half"></i> זמני</span>`;
+        ? `<div class="auth-icon-circle perm" title="מכשיר מוכר (זכור אותי פעיל)"><i class="fa-solid fa-infinity"></i></div>`
+        : `<div class="auth-icon-circle temp" title="חיבור זמני"><i class="fa-solid fa-hourglass-half"></i></div>`;
 
     const badgeContainer = document.getElementById('ui-auth-badges');
-    if (badgeContainer) badgeContainer.innerHTML = `${authIcon} ${tokenIcon}`;
+    if (badgeContainer) badgeContainer.innerHTML = `${authIcon}${tokenIcon}`;
 
     const tzIcon = document.getElementById('ui-tzintuk-icon');
     const isConnected = (user.connectedToTzintukim === 'yes' || user.connectedToTzintukim === true || user.connectedToTzintukim === '1');
