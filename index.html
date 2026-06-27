@@ -198,11 +198,14 @@
                     <div class="chat-header-fixed">
                         <div class="header-title-group">
                             <div class="header-icon"><img src="https://smt-tel-manager.netlify.app/salamon-logo.png" class="protected-logo" draggable="false"></div>
-                            <div class="header-title"><h3>עכשיו סלומון</h3><p>מחובר</p></div>
+                            <div class="header-title">
+                                <h3>עכשיו סלומון</h3>
+                                <p id="header-system-stats" style="color: var(--text-light); font-size: 0.8rem; display: flex; align-items: center;"><i class="fa-solid fa-circle-notch fa-spin" style="margin-left: 4px;"></i> טוען משתתפים...</p>
+                            </div>
                         </div>
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <button class="mobile-announcement-btn" id="mobile-announcement-btn-id" onclick="openAnnouncementModal()"><i class="fa-solid fa-bullhorn"></i> <span style="margin-right:4px;">מודעה</span></button>
-                            <button class="icon-btn" onclick="loadMessages()" title="רענן"><i class="fa-solid fa-rotate-right"></i></button>
+                            <button class="icon-btn" onclick="loadMessages(); loadSystemStats();" title="רענן"><i class="fa-solid fa-rotate-right"></i></button>
                         </div>
                     </div>
                     <div id="messages-container"></div>
