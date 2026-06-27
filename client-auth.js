@@ -21,6 +21,7 @@ async function silentLogin(token) {
             if(typeof updateDashboardUI === 'function') updateDashboardUI();
             showView('user-dash-view');
             if(typeof loadMessages === 'function') loadMessages();
+            if(typeof loadSystemStats === 'function') loadSystemStats(); // טעינת המשתתפים
             if(typeof loadSystemMessage === 'function') loadSystemMessage(); 
             startPolling(); 
         } else {
@@ -212,6 +213,7 @@ async function userLogin(e) {
         if(typeof updateDashboardUI === 'function') updateDashboardUI();
         showView('user-dash-view');
         if(typeof loadMessages === 'function') loadMessages();
+        if(typeof loadSystemStats === 'function') loadSystemStats(); // טעינת המשתתפים
         if(typeof loadSystemMessage === 'function') loadSystemMessage();
         startPolling(); 
     } catch (err) {
@@ -327,7 +329,6 @@ function renderGoogleButton() {
 
     if (window.google) {
         google.accounts.id.initialize({
-            // עודכן עם ה-Client ID האמיתי שנשלף מתוך ה-JSON
             client_id: "89500817024-tbvsuu4dci6bqh173l65ua9lc65pe24p.apps.googleusercontent.com", 
             callback: handleGoogleLoginResponse
         });
@@ -385,6 +386,7 @@ async function handleGoogleLoginResponse(response) {
         if(typeof updateDashboardUI === 'function') updateDashboardUI();
         showView('user-dash-view');
         if(typeof loadMessages === 'function') loadMessages();
+        if(typeof loadSystemStats === 'function') loadSystemStats(); // טעינת המשתתפים
         if(typeof loadSystemMessage === 'function') loadSystemMessage();
         startPolling();
     } catch (err) {
