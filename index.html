@@ -179,13 +179,10 @@
                 <div class="sidebar-header">
                     <div class="user-profile-wrap">
                         <div class="avatar"><i class="fa-solid fa-user"></i></div>
-                        <div class="user-details">
-                            <h2 id="ui-user-name">טוען...</h2>
-                            <div style="display: flex; align-items: center; gap: 10px;">
-                                <!-- מספר טלפון לימין, אייקונים לשמאל -->
-                                <span id="ui-user-phone" dir="ltr" style="font-family: monospace; font-size: 0.95rem; font-weight: 600; color: var(--text-light); margin-top: 2px;">---</span>
-                                <span id="ui-auth-badges" style="display:flex; gap:6px;"></span>
-                            </div>
+                        <div class="user-details" style="display: flex; flex-direction: column; justify-content: center;">
+                            <h2 id="ui-user-name" style="margin-bottom: 2px;">טוען...</h2>
+                            <span id="ui-user-phone" dir="ltr" style="font-family: monospace; font-size: 0.9rem; font-weight: 600; color: var(--text-light); text-align: right; margin-bottom: 6px;">---</span>
+                            <div id="ui-auth-badges" style="display:flex; flex-wrap: wrap; gap:4px;"></div>
                         </div>
                     </div>
                     <div class="sidebar-actions">
@@ -215,7 +212,6 @@
                             <button class="icon-btn" onclick="loadMessages(); loadSystemStats();" title="רענן"><i class="fa-solid fa-rotate-right"></i></button>
                         </div>
                     </div>
-                    <!-- רשימת ההודעות -->
                     <div id="messages-container"></div>
                     
                     <div id="chat-upload-area" class="chat-upload-area">
@@ -323,7 +319,6 @@
         </div>
     </div>
 
-    <!-- מודלים של עריכה, שגיאה והקלטות שנותרו ללא שינוי -->
     <div class="modal-overlay" id="uploadReviewModal">
         <div class="modal-content professional-modal">
             <div class="modal-header">
@@ -403,7 +398,7 @@
         </div>
     </div>
 
-    <!-- אזור ההגדרות החדש - משודרג ומתקדם! מותאם למניעת גלילה מיותרת -->
+    <!-- אזור ההגדרות החדש - מותאם למניעת גלילה מיותרת -->
     <div class="modal-overlay" id="userSettingsModal">
         <div class="modal-content professional-modal" style="max-width: 550px; display: flex; flex-direction: column; max-height: 90vh;">
             <div class="modal-header" style="flex-shrink: 0;">
@@ -416,13 +411,9 @@
                 <button class="settings-tab-btn" onclick="switchSettingsTab('security')"><i class="fa-solid fa-shield-halved"></i> אבטחה וסיסמה</button>
             </div>
 
-            <!-- הודעות יופיעו כאן באופן קבוע ולא יגלשו מחוץ למסך -->
             <div id="alert-settings" class="alert-box" style="margin: 15px 20px 0 20px; width: calc(100% - 40px); flex-shrink: 0;"></div>
 
-            <!-- שטח הגלילה רק לטפסים -->
             <div style="padding: 15px 20px 25px 20px; overflow-y: auto; background: #f8fafc; flex: 1;">
-                
-                <!-- Tab 1: Profile & Preferences -->
                 <form id="settings-profile-form" onsubmit="event.preventDefault(); updateUserProfile(event);">
                     <div class="settings-card-advanced">
                         <h3>פרטי קשר</h3>
@@ -455,7 +446,6 @@
                             </label>
                         </div>
 
-                        <!-- שדה זה מוסתר/מוצג באופן דינמי אם המשתמש התחבר מסיסמה -->
                         <div id="profile_password_auth" class="form-group" style="margin-top: 25px; border-top: 1px solid var(--border-color); padding-top: 20px;">
                             <label style="color: var(--danger); font-size: 0.95rem;"><i class="fa-solid fa-lock"></i> סיסמה נוכחית (חובה לאימות שינויים)</label>
                             <input type="password" id="update_auth_pass" placeholder="הזן את סיסמתך הנוכחית לאישור" class="input-modern center-text ltr-input">
@@ -465,7 +455,6 @@
                     </div>
                 </form>
 
-                <!-- Tab 2: Security & Password Change -->
                 <form id="settings-security-form" style="display:none;" onsubmit="event.preventDefault(); updatePassword(event);">
                     <div class="settings-card-advanced">
                         <h3>שינוי סיסמה</h3>
@@ -476,7 +465,7 @@
                         <div class="toggle-row" style="margin-top: 25px; border-top: 1px solid var(--border-color); padding-top: 15px;">
                             <div class="toggle-info">
                                 <strong style="color:var(--danger);">נתק את כל המכשירים</strong>
-                                <span>מחיקת כל הטוקנים וניתוק של חשבונך מכל מכשיר אחר שמחובר למערכת.</span>
+                                <span>מחיקת כל הטוקנים וניתוק של חשבונך מכל מכשיר.</span>
                             </div>
                             <label class="modern-switch">
                                 <input type="checkbox" id="change_logout_devices">
