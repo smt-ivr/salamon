@@ -39,8 +39,9 @@ function startPolling() {
     pollingInterval = setInterval(async () => {
         if (!state.userToken) return;
 
-        // רענון שקט של ההודעות
+        // רענון שקט של ההודעות והסטטיסטיקות
         if(typeof loadMessages === 'function') loadMessages(true);
+        if(typeof loadSystemStats === 'function') loadSystemStats(true); 
 
         // וידוא חיבור תקין מול שרת המשתמשים כל חצי דקה
         try {
@@ -57,6 +58,37 @@ function startPolling() {
             }
         } catch (e) {}
     }, 30000); 
+}
+
+// פונקציה חדשה לטעינת נתוני המשתתפים במערכת
+async function loadSystemStats(isSilent = false) {
+    const token = state.userToken || localStorage.getItem('userToken');
+    if (!token) return;
+
+    const statsEl = document.getElementById('header-system-stats');
+    if (!statsEl) return;
+
+    if (!isSilent) {
+        statsEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> טוען משתתפים...';
+    }
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/stats/members`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userToken: token })
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.success && data.stats) {
+            const s = data.stats;
+            statsEl.innerHTML = `סה"כ ${s.total} משתתפים <span style="margin: 0 4px;">|</span> <i class="fa-solid fa-phone-volume" style="font-size: 0.75rem; color: var(--play-out); margin-left: 2px;"></i> ${s.active} <i class="fa-solid fa-phone-slash" style="font-size: 0.75rem; color: var(--danger); margin-right: 4px; margin-left: 2px;"></i> ${s.blocked}`;
+            statsEl.title = `${s.total} משתתפים רשומים במערכת: ${s.active} פעילים לקבלת צינתוקים, ו-${s.blocked} מנותקים.`;
+        } else if (!isSilent) {
+            statsEl.innerHTML = '<span style="color:var(--danger);">שגיאה בטעינת נתונים</span>';
+        }
+    } catch (err) {
+        if (!isSilent) statsEl.innerHTML = '<span style="color:var(--danger);">שגיאת תקשורת</span>';
+    }
 }
 
 async function loadSystemMessage() {
