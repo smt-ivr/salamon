@@ -1,3 +1,5 @@
+// client-settings.js
+
 function updateDashboardUI() {
     const user = state.currentUser;
     if (!user) return;
@@ -62,6 +64,7 @@ async function updateUserProfile(e) {
     const newPassword = document.getElementById('update_new_pass').value;
     const newEmail = document.getElementById('update_email').value;
     setLoading('btn-update', true);
+    
     try {
         const res = await fetch(`${API_BASE_URL}/update-profile`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -69,15 +72,10 @@ async function updateUserProfile(e) {
         });
         const data = await res.json();
         setLoading('btn-update', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
+        
         if (!res.ok) {
             showMessage('alert-settings', data.message || data.error || 'שגיאה בעדכון - ייתכן שהסיסמה הנוכחית שגויה', 'error');
             return;
-        }
-
-        if (newPassword) {
-            const newToken = `${state.currentUser.phone}:${newPassword}`;
-            state.userToken = newToken;
-            localStorage.setItem('userToken', newToken);
         }
 
         state.currentUser.email = newEmail;
@@ -85,6 +83,7 @@ async function updateUserProfile(e) {
         document.getElementById('update_old_pass').value = '';
         document.getElementById('update_new_pass').value = '';
         setTimeout(() => { closeUserSettingsModal(); }, 1500);
+        
     } catch (err) {
         setLoading('btn-update', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
         showMessage('alert-settings', 'שגיאה בשליחת העדכון לשרת', 'error');
