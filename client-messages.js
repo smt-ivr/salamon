@@ -125,13 +125,25 @@ function renderMessages(messages) {
         const senderName = msg.valName || 'מערכת';
         const durationText = msg.durationStr || '00:00';
 
-        // הוספת סמליל מיוחד במידה וההודעה הוקלטה דרך האתר
-        let webIndicator = '';
-        if (msg.fromWeb) {
-            webIndicator = `
-                <span title="הועלה מהאתר" style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; margin-right: 5px; border-radius: 50%; background: #f1f5f9; border: 1px solid #cbd5e1; overflow: hidden; flex-shrink: 0;">
-                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 9px; color: #94a3b8; position: absolute; z-index: 1;"></i>
-                    <img src="https://smt-tel-manager.netlify.app/salamon-logo.png" alt="W" style="width: 100%; height: 100%; object-fit: cover; position: absolute; z-index: 2;" onerror="this.style.display='none'">
+        // בניית האייקונים החכמים לפי סוג המקור
+        let sourceIndicator = '';
+        if (msg.fromWebType) {
+            // אם זה קובץ שעלה ולא הוקלט במקום, נוסיף גם סמל אטב קטן
+            let extraIcon = msg.fromWebType === 'file' ? 
+                `<i class="fa-solid fa-paperclip" style="font-size: 11px; color: #64748b; margin-left: 4px;" title="הועלה כקובץ דרך האתר"></i>` : '';
+
+            sourceIndicator = `
+                <span title="ההודעה הועלתה דרך אתר עכשיו סלומון" style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; margin-right: 6px; border-radius: 50%; background: #f1f5f9; border: 1px solid #cbd5e1; overflow: hidden; flex-shrink: 0;">
+                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 11px; color: #94a3b8; position: absolute; z-index: 1;"></i>
+                    <img src="https://smt-tel-manager.netlify.app/salamon-logo.png" alt="W" draggable="false" style="width: 100%; height: 100%; object-fit: cover; position: absolute; z-index: 2; pointer-events: none;" onerror="this.style.display='none'">
+                </span>
+                ${extraIcon}
+            `;
+        } else {
+            // עיצוב למצב רגיל שזה מהטלפון
+            sourceIndicator = `
+                <span title="ההודעה הוקלטה דרך הטלפון" style="display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin-right: 6px; border-radius: 50%; background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; flex-shrink: 0;">
+                    <i class="fa-solid fa-phone" style="font-size: 9px;"></i>
                 </span>
             `;
         }
@@ -147,7 +159,7 @@ function renderMessages(messages) {
         bubble.className = `bubble ${bubbleClass}`;
         bubble.innerHTML = `
             <div class="msg-top">
-                <span class="sender-name" style="display: flex; align-items: center;">${senderName}${webIndicator}</span>
+                <span class="sender-name" style="display: flex; align-items: center;">${senderName}${sourceIndicator}</span>
                 ${fileIdGroup}
             </div>
             <div class="audio-player">
