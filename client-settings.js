@@ -7,14 +7,14 @@ function updateDashboardUI() {
     document.getElementById('ui-user-name').innerText = user.name || 'אורח';
     document.getElementById('ui-user-phone').innerText = user.phone;
     
-    // יצירת אייקוני התחברות חכמים עם Tooltips המופעלים במעבר עכבר (מרחפים) - אייקונים משופרים
+    // יצירת אייקוני התחברות חכמים ומתקדמים
     const authIcon = user.authMethod === 'google' 
-        ? `<span class="auth-badge text-google" title="התחברות מאובטחת דרך חשבון Google"><i class="fa-brands fa-google"></i></span>`
-        : `<span class="auth-badge text-password" title="התחברות רגילה באמצעות סיסמה"><i class="fa-solid fa-lock"></i></span>`;
+        ? `<span class="auth-badge text-google" title="התחברות מאובטחת - Google"><i class="fa-brands fa-google"></i> אימות גוגל</span>`
+        : `<span class="auth-badge text-password" title="התחברות מאובטחת - סיסמה"><i class="fa-solid fa-user-lock"></i> מאובטח</span>`;
         
     const tokenIcon = user.tokenType === 'permanent' 
-        ? `<span class="auth-badge text-perm" title="טוקן התחברות קבוע ('זכור אותי' פעיל)"><i class="fa-solid fa-thumbtack"></i></span>`
-        : `<span class="auth-badge text-temp" title="טוקן התחברות זמני (יפוג בניתוק הקרוב)"><i class="fa-solid fa-hourglass-half"></i></span>`;
+        ? `<span class="auth-badge text-perm" title="מכשיר זה מוכר למערכת"><i class="fa-solid fa-laptop-code"></i> מכשיר מוכר</span>`
+        : `<span class="auth-badge text-temp" title="חיבור זמני עקב אבטחה"><i class="fa-solid fa-user-clock"></i> זמני</span>`;
 
     const badgeContainer = document.getElementById('ui-auth-badges');
     if (badgeContainer) badgeContainer.innerHTML = `${authIcon} ${tokenIcon}`;
@@ -30,7 +30,6 @@ function updateDashboardUI() {
         }
     }
 
-    // הגדרות הרשאות בממשק ההודעות
     const uploadArea = document.getElementById('chat-upload-area');
     const statusText = document.getElementById('chat-upload-status');
     const recordBtn = document.getElementById('chat-record-btn');
@@ -54,7 +53,6 @@ function updateDashboardUI() {
     }
 }
 
-// ניווט בין כרטיסיות ההגדרות
 function switchSettingsTab(tab) {
     document.querySelectorAll('.settings-tab-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById('settings-profile-form').style.display = 'none';
@@ -76,19 +74,16 @@ function openUserSettingsModal() {
     const user = state.currentUser;
     if (!user) return;
     
-    // מילוי הנתונים בכרטיסיית הפרופיל
     document.getElementById('update_email').value = user.email || '';
     document.getElementById('update_receive_emails').checked = user.receiveEmails;
     document.getElementById('update_google_only').checked = user.googleLoginOnly;
     document.getElementById('update_auth_pass').value = '';
     
-    // מילוי נתונים ריקים באבטחה
     document.getElementById('change_old_pass').value = '';
     document.getElementById('change_new_pass').value = '';
     document.getElementById('change_new_pass_confirm').value = '';
     document.getElementById('change_logout_devices').checked = false;
 
-    // הסתרה חכמה של בקשת הסיסמה אם המשתמש התחבר מגוגל
     const authPassSection = document.getElementById('profile_password_auth');
     if (user.authMethod === 'google') {
         authPassSection.style.display = 'none';
@@ -104,7 +99,6 @@ function closeUserSettingsModal() {
     document.getElementById('userSettingsModal').classList.remove('active');
 }
 
-// עדכון פרופיל והעדפות בלבד (לשונית 1)
 async function updateUserProfile(e) {
     if (e) e.preventDefault();
     
@@ -123,7 +117,6 @@ async function updateUserProfile(e) {
             googleLoginOnly: googleLoginOnly
         };
 
-        // הוספת סיסמה לאימות רק אם לא התחברנו דרך גוגל
         if (state.currentUser.authMethod === 'password') {
             payload.password = password;
         }
@@ -140,7 +133,6 @@ async function updateUserProfile(e) {
             return;
         }
 
-        // עדכון State המקומי
         state.currentUser.email = newEmail;
         state.currentUser.receiveEmails = receiveEmails;
         state.currentUser.googleLoginOnly = googleLoginOnly;
@@ -154,7 +146,6 @@ async function updateUserProfile(e) {
     }
 }
 
-// שינוי סיסמה (לשונית 2) - נתיב מאובטח
 async function updatePassword(e) {
     if (e) e.preventDefault();
     
@@ -196,7 +187,7 @@ async function updatePassword(e) {
         if (logoutAllDevices) {
             setTimeout(() => {
                 closeUserSettingsModal();
-                logout(); // אם הוא בחר לנתק את כולם, ינותק מיידית ויוחזר למסך התחברות
+                logout(); 
             }, 2500);
         } else {
             setTimeout(() => closeUserSettingsModal(), 2000);
