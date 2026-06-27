@@ -125,6 +125,17 @@ function renderMessages(messages) {
         const senderName = msg.valName || 'מערכת';
         const durationText = msg.durationStr || '00:00';
 
+        // הוספת סמליל מיוחד במידה וההודעה הוקלטה דרך האתר
+        let webIndicator = '';
+        if (msg.fromWeb) {
+            webIndicator = `
+                <span title="הועלה מהאתר" style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; margin-right: 5px; border-radius: 50%; background: #f1f5f9; border: 1px solid #cbd5e1; overflow: hidden; flex-shrink: 0;">
+                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 9px; color: #94a3b8; position: absolute; z-index: 1;"></i>
+                    <img src="https://smt-tel-manager.netlify.app/salamon-logo.png" alt="W" style="width: 100%; height: 100%; object-fit: cover; position: absolute; z-index: 2;" onerror="this.style.display='none'">
+                </span>
+            `;
+        }
+
         const fileIdGroup = isOut ? `
             <div class="file-id-group">
                 <span class="file-id">ID: ${fileId}</span>
@@ -136,7 +147,7 @@ function renderMessages(messages) {
         bubble.className = `bubble ${bubbleClass}`;
         bubble.innerHTML = `
             <div class="msg-top">
-                <span class="sender-name">${senderName}</span>
+                <span class="sender-name" style="display: flex; align-items: center;">${senderName}${webIndicator}</span>
                 ${fileIdGroup}
             </div>
             <div class="audio-player">
