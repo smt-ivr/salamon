@@ -180,14 +180,12 @@
                     <div class="user-profile-wrap">
                         <div class="avatar"><i class="fa-solid fa-user"></i></div>
                         <div class="user-details">
-                            <h2 id="ui-user-name" style="display:flex; align-items:center; gap:6px;">
-                                טוען... 
-                            </h2>
-                            <p style="display:flex; align-items:center; gap:8px;">
-                                <span id="ui-user-phone">---</span>
-                                <!-- האייקונים החכמים יוזרקו לכאן -->
-                                <span id="ui-auth-badges" style="display:flex; gap:4px;"></span>
-                            </p>
+                            <h2 id="ui-user-name">טוען...</h2>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <!-- מספר טלפון לימין, אייקונים לשמאל -->
+                                <span id="ui-user-phone" dir="ltr" style="font-family: monospace; font-size: 0.95rem; font-weight: 600; color: var(--text-light); margin-top: 2px;">---</span>
+                                <span id="ui-auth-badges" style="display:flex; gap:6px;"></span>
+                            </div>
                         </div>
                     </div>
                     <div class="sidebar-actions">
@@ -217,6 +215,7 @@
                             <button class="icon-btn" onclick="loadMessages(); loadSystemStats();" title="רענן"><i class="fa-solid fa-rotate-right"></i></button>
                         </div>
                     </div>
+                    <!-- רשימת ההודעות -->
                     <div id="messages-container"></div>
                     
                     <div id="chat-upload-area" class="chat-upload-area">
@@ -231,7 +230,6 @@
             </div>
         </main>
 
-        <!-- (כאן מתחיל אזור המנהל, הושאר ללא שינוי, דילגתי כדי לחסוך אורך אבל הוא קיים בקוד שלך) -->
         <main id="admin-dash-view" class="view-section app-layout">
             <aside class="app-sidebar" style="border-top: 4px solid var(--secondary);">
                 <div class="sidebar-header">
@@ -325,9 +323,9 @@
         </div>
     </div>
 
+    <!-- מודלים של עריכה, שגיאה והקלטות שנותרו ללא שינוי -->
     <div class="modal-overlay" id="uploadReviewModal">
         <div class="modal-content professional-modal">
-            <!-- אזור מודל ההקלטות הושאר ללא שינוי -->
             <div class="modal-header">
                 <h2 id="review-title"><i class="fa-solid fa-microphone"></i> הקלטת הודעה</h2>
                 <button class="close-modal-btn" onclick="closeUploadModal()" title="סגור"><i class="fa-solid fa-xmark"></i></button>
@@ -366,7 +364,6 @@
         </div>
     </div>
 
-    <!-- מודלים נוספים שנשארו ללא שינוי -->
     <div class="modal-overlay" id="deleteConfirmModal">
         <div class="modal-content professional-modal" style="max-width: 350px;">
             <div class="modal-header" style="background: #fef2f2; border-bottom: 1px solid #fecaca;">
@@ -406,21 +403,24 @@
         </div>
     </div>
 
-    <!-- אזור ההגדרות החדש - משודרג ומתקדם! -->
+    <!-- אזור ההגדרות החדש - משודרג ומתקדם! מותאם למניעת גלילה מיותרת -->
     <div class="modal-overlay" id="userSettingsModal">
-        <div class="modal-content professional-modal" style="max-width: 550px;">
-            <div class="modal-header">
+        <div class="modal-content professional-modal" style="max-width: 550px; display: flex; flex-direction: column; max-height: 90vh;">
+            <div class="modal-header" style="flex-shrink: 0;">
                 <h2><i class="fa-solid fa-sliders"></i> הגדרות חשבון מתקדמות</h2>
                 <button class="close-modal-btn" onclick="closeUserSettingsModal()" title="סגור"><i class="fa-solid fa-xmark"></i></button>
             </div>
             
-            <div class="settings-tabs">
+            <div class="settings-tabs" style="flex-shrink: 0;">
                 <button class="settings-tab-btn active" onclick="switchSettingsTab('profile')"><i class="fa-solid fa-user-pen"></i> העדפות מערכת</button>
                 <button class="settings-tab-btn" onclick="switchSettingsTab('security')"><i class="fa-solid fa-shield-halved"></i> אבטחה וסיסמה</button>
             </div>
 
-            <div style="padding: 20px; overflow-y: auto; max-height: 70vh; background: #f8fafc;">
-                <div id="alert-settings" class="alert-box"></div>
+            <!-- הודעות יופיעו כאן באופן קבוע ולא יגלשו מחוץ למסך -->
+            <div id="alert-settings" class="alert-box" style="margin: 15px 20px 0 20px; width: calc(100% - 40px); flex-shrink: 0;"></div>
+
+            <!-- שטח הגלילה רק לטפסים -->
+            <div style="padding: 15px 20px 25px 20px; overflow-y: auto; background: #f8fafc; flex: 1;">
                 
                 <!-- Tab 1: Profile & Preferences -->
                 <form id="settings-profile-form" onsubmit="event.preventDefault(); updateUserProfile(event);">
@@ -451,7 +451,7 @@
                             </div>
                             <label class="modern-switch">
                                 <input type="checkbox" id="update_google_only">
-                                <span class="slider"></span>
+                                <span class="slider danger-slider"></span>
                             </label>
                         </div>
 
