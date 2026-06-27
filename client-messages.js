@@ -10,13 +10,11 @@ async function loadMessages(isSilent = false, loadMore = false) {
     const token = state.userToken || localStorage.getItem('userToken');
     if (!token) return;
 
-    // מניעת רענון המסך בעת האזנה פעילה
     if (isSilent && currentPlayingId) return;
 
     const container = document.getElementById('messages-container');
     if (!container) return;
 
-    // איפוס אם זו טעינה רגילה מאפס
     if (!loadMore && !isSilent) {
         currentFilesFrom = 0;
         allLoadedMessages = [];
@@ -59,7 +57,6 @@ async function loadMessages(isSilent = false, loadMore = false) {
             return;
         }
 
-        // חיבור ההודעות החדשות למערך ההודעות הקיים
         if (loadMore) {
             currentFilesFrom = fetchFrom;
             allLoadedMessages = [...allLoadedMessages, ...data.messages];
@@ -70,18 +67,16 @@ async function loadMessages(isSilent = false, loadMore = false) {
 
         const newMessagesHash = allLoadedMessages.map(m => m.name).join('|');
 
-        // אם זו קריאה שקטה ושום הודעה לא נוספה/נמחקה, רק מעדכנים סטטיסטיקות
         if (isSilent && !loadMore && newMessagesHash === currentRenderedMessagesHash) {
             fetchAllStats(data.messages, token, true);
             return;
         }
 
         currentRenderedMessagesHash = newMessagesHash;
-        const hasMore = data.messages.length === FILES_LIMIT; // אם קיבלנו 40 מדויק, כנראה יש עוד.
+        const hasMore = data.messages.length === FILES_LIMIT; 
         
         renderMessages(allLoadedMessages, hasMore);
         
-        // טעינת סטטיסטיקות רק להודעות החדשות שנמשכו כדי לחסוך עומס
         const messagesToFetchStats = loadMore ? data.messages : allLoadedMessages;
         fetchAllStats(messagesToFetchStats, token, false);
 
@@ -95,7 +90,6 @@ async function loadMessages(isSilent = false, loadMore = false) {
     }
 }
 
-// פונקציה לטעינת כל הסטטיסטיקות בקבוצות קטנות
 async function fetchAllStats(messages, token, isSilentRefresh = false) {
     for (let i = 0; i < messages.length; i += 5) {
         const batch = messages.slice(i, i + 5);
@@ -229,7 +223,6 @@ function renderMessages(messages, hasMore) {
         }
     });
 
-    // הוספת כפתור "טען הודעות קודמות" בסוף הקונטיינר (שמופיע בראש המסך עקב עיצוב flex column-reverse)
     if (hasMore) {
         const loadMoreContainer = document.createElement('div');
         loadMoreContainer.className = 'load-more-wrapper';
