@@ -1,319 +1,199 @@
-// client-messages.js
-let currentRenderedMessagesHash = '';
-let allLoadedMessages = [];
-let currentFilesFrom = 0;
-const FILES_LIMIT = 40;
-let isFetchingMessages = false;
+// client-settings.js
 
-async function loadMessages(isSilent = false, loadMore = false) {
-    if (isFetchingMessages) return;
-    const token = state.userToken || localStorage.getItem('userToken');
-    if (!token) return;
-
-    if (isSilent && currentPlayingId) return;
-
-    const container = document.getElementById('messages-container');
-    if (!container) return;
-
-    if (!loadMore && !isSilent) {
-        currentFilesFrom = 0;
-        allLoadedMessages = [];
-        container.innerHTML = '<div class="loading-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען הודעות...</div>';
-    }
-
-    isFetchingMessages = true;
-
-    if (loadMore) {
-        const btn = document.getElementById('load-more-btn');
-        if (btn) btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> טוען הודעות קודמות...';
-    }
-
-    try {
-        const fetchFrom = loadMore ? currentFilesFrom + FILES_LIMIT : 0;
+function updateDashboardUI() {
+    const user = state.currentUser;
+    if (!user) return;
+    
+    document.getElementById('ui-user-name').innerText = user.name || 'אורח';
+    document.getElementById('ui-user-phone').innerText = user.phone;
+    
+    // יצירת אייקוני התחברות (Badges מקצועיים) 
+    const authIcon = user.authMethod === 'google' 
+        ? `<span class="auth-badge auth-google" title="התחברות מאובטחת באמצעות חשבון Google"><i class="fa-brands fa-google"></i> אימות גוגל</span>`
+        : `<span class="auth-badge auth-pass" title="חיבור מוצפן באמצעות סיסמה"><i class="fa-solid fa-shield-halved"></i> מאובטח</span>`;
         
-        const res = await fetch(`${API_BASE_URL}/messages/list`, {
+    const tokenIcon = user.tokenType === 'permanent' 
+        ? `<span class="auth-badge auth-perm" title="מכשיר זה נשמר ומוכר למערכת"><i class="fa-solid fa-laptop-code"></i> מוכר</span>`
+        : `<span class="auth-badge auth-temp" title="חיבור זמני (ינותק בעת סגירה)"><i class="fa-solid fa-hourglass-half"></i> זמני</span>`;
+
+    const badgeContainer = document.getElementById('ui-auth-badges');
+    if (badgeContainer) badgeContainer.innerHTML = `${authIcon} ${tokenIcon}`;
+
+    const tzIcon = document.getElementById('ui-tzintuk-icon');
+    const isConnected = (user.connectedToTzintukim === 'yes' || user.connectedToTzintukim === true || user.connectedToTzintukim === '1');
+    if(tzIcon) {
+        if (isConnected) {
+            tzIcon.innerHTML = '<i class="fa-solid fa-phone-volume" style="color: var(--success); cursor: help;" title="מחובר לצינתוקים"></i>';
+        } else {
+            tzIcon.innerHTML = '<i class="fa-solid fa-phone-slash" style="color: var(--danger); cursor: help;" title="מנותק מצינתוקים"></i>';
+        }
+    }
+
+    const uploadArea = document.getElementById('chat-upload-area');
+    const statusText = document.getElementById('chat-upload-status');
+    const recordBtn = document.getElementById('chat-record-btn');
+    const attachBtn = document.getElementById('chat-attach-btn');
+    if (uploadArea && statusText && recordBtn && attachBtn) {
+        uploadArea.classList.remove('disabled');
+        recordBtn.classList.remove('disabled');
+        attachBtn.classList.remove('disabled');
+
+        if (user.canRecord) {
+            statusText.innerText = 'הקלט או בחר קובץ להעלאה';
+        } else {
+            recordBtn.classList.add('disabled');
+            statusText.innerText = 'הקלטה חסומה (ניתן להעלות קובץ)';
+        }
+
+        if (!user.canRecord && !user.canUpload) {
+            uploadArea.classList.add('disabled');
+            statusText.innerText = 'אין לך הרשאות כתיבה או העלאה למערכת';
+        }
+    }
+}
+
+function switchSettingsTab(tab) {
+    document.querySelectorAll('.settings-tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('settings-profile-form').style.display = 'none';
+    document.getElementById('settings-security-form').style.display = 'none';
+    
+    if (tab === 'profile') {
+        document.querySelectorAll('.settings-tab-btn')[0].classList.add('active');
+        document.getElementById('settings-profile-form').style.display = 'block';
+    } else {
+        document.querySelectorAll('.settings-tab-btn')[1].classList.add('active');
+        document.getElementById('settings-security-form').style.display = 'block';
+    }
+    
+    const alertBox = document.getElementById('alert-settings');
+    if (alertBox) alertBox.style.display = 'none';
+}
+
+function openUserSettingsModal() {
+    const user = state.currentUser;
+    if (!user) return;
+    
+    document.getElementById('update_email').value = user.email || '';
+    document.getElementById('update_receive_emails').checked = user.receiveEmails;
+    document.getElementById('update_google_only').checked = user.googleLoginOnly;
+    document.getElementById('update_auth_pass').value = '';
+    
+    document.getElementById('change_old_pass').value = '';
+    document.getElementById('change_new_pass').value = '';
+    document.getElementById('change_new_pass_confirm').value = '';
+    document.getElementById('change_logout_devices').checked = false;
+
+    const authPassSection = document.getElementById('profile_password_auth');
+    if (user.authMethod === 'google') {
+        authPassSection.style.display = 'none';
+    } else {
+        authPassSection.style.display = 'block';
+    }
+
+    switchSettingsTab('profile');
+    document.getElementById('userSettingsModal').classList.add('active');
+}
+
+function closeUserSettingsModal() {
+    document.getElementById('userSettingsModal').classList.remove('active');
+}
+
+async function updateUserProfile(e) {
+    if (e) e.preventDefault();
+    
+    const newEmail = document.getElementById('update_email').value;
+    const receiveEmails = document.getElementById('update_receive_emails').checked;
+    const googleLoginOnly = document.getElementById('update_google_only').checked;
+    const password = document.getElementById('update_auth_pass').value;
+
+    setLoading('btn-update-profile', true);
+    
+    try {
+        const payload = {
+            userToken: state.userToken,
+            newEmail: newEmail,
+            receiveEmails: receiveEmails,
+            googleLoginOnly: googleLoginOnly
+        };
+
+        if (state.currentUser.authMethod === 'password') {
+            payload.password = password;
+        }
+
+        const res = await fetch(`${API_BASE_URL}/update-profile`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userToken: token, filesLimit: FILES_LIMIT, filesFrom: fetchFrom })
+            body: JSON.stringify(payload)
         });
         const data = await res.json();
+        setLoading('btn-update-profile', false, 'שמור העדפות <i class="fa-solid fa-floppy-disk"></i>');
         
-        isFetchingMessages = false;
-
         if (!res.ok) {
-            if (!isSilent) container.innerHTML = `<div class="loading-state" style="color:var(--danger);">${data.message || data.error || 'שגיאה בשליפה'}</div>`;
+            showMessage('alert-settings', data.message || data.error || 'שגיאה בעדכון - ייתכן והסיסמה שגויה', 'error');
             return;
         }
 
-        if (!data.messages || data.messages.length === 0) {
-            if (!isSilent && !loadMore) container.innerHTML = '<div class="loading-state">אין הודעות להצגה כרגע.</div>';
-            if (loadMore) {
-                const btn = document.getElementById('load-more-btn');
-                if (btn) {
-                    btn.innerHTML = '<i class="fa-solid fa-check"></i> הוצגו כל ההודעות';
-                    btn.disabled = true;
-                }
-            }
-            if (!loadMore) currentRenderedMessagesHash = '';
-            return;
-        }
-
-        if (loadMore) {
-            currentFilesFrom = fetchFrom;
-            allLoadedMessages = [...allLoadedMessages, ...data.messages];
-        } else {
-            currentFilesFrom = 0;
-            allLoadedMessages = data.messages;
-        }
-
-        const newMessagesHash = allLoadedMessages.map(m => m.name).join('|');
-
-        if (isSilent && !loadMore && newMessagesHash === currentRenderedMessagesHash) {
-            fetchAllStats(data.messages, token, true);
-            return;
-        }
-
-        currentRenderedMessagesHash = newMessagesHash;
-        const hasMore = data.messages.length === FILES_LIMIT; 
+        state.currentUser.email = newEmail;
+        state.currentUser.receiveEmails = receiveEmails;
+        state.currentUser.googleLoginOnly = googleLoginOnly;
         
-        renderMessages(allLoadedMessages, hasMore);
+        showMessage('alert-settings', 'הגדרות החשבון וההעדפות עודכנו בהצלחה!', 'success');
+        document.getElementById('update_auth_pass').value = '';
         
-        const messagesToFetchStats = loadMore ? data.messages : allLoadedMessages;
-        fetchAllStats(messagesToFetchStats, token, false);
-
     } catch (err) {
-        isFetchingMessages = false;
-        if (!isSilent && !loadMore) container.innerHTML = '<div class="loading-state" style="color:var(--danger);">תקלת תקשורת מול השרת.</div>';
-        if (loadMore) {
-            const btn = document.getElementById('load-more-btn');
-            if (btn) btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> שגיאה, נסה שוב';
-        }
+        setLoading('btn-update-profile', false, 'שמור העדפות <i class="fa-solid fa-floppy-disk"></i>');
+        showMessage('alert-settings', 'שגיאת תקשורת מול השרת', 'error');
     }
 }
 
-async function fetchAllStats(messages, token, isSilentRefresh = false) {
-    for (let i = 0; i < messages.length; i += 5) {
-        const batch = messages.slice(i, i + 5);
-        await Promise.all(batch.map(msg => {
-            const fileId = msg.name.replace('.wav', '').replace('.mp3', '');
-            return fetchMessageStats(fileId, token, isSilentRefresh);
-        }));
-    }
-}
-
-async function fetchMessageStats(fileId, token, isSilentRefresh = false) {
-    const container = document.getElementById(`stats-${fileId}`);
-    if (!container) return;
+async function updatePassword(e) {
+    if (e) e.preventDefault();
     
-    try {
-        const res = await fetch(`${API_BASE_URL}/messages/stats`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userToken: token, fileId: fileId })
-        });
-        const data = await res.json();
-        
-        if (res.ok && data.success) {
-            const s = data.stats;
-            container.innerHTML = `
-                <span title="האזנות באתר"><i class="fa-solid fa-globe"></i> ${s.webListens}</span>
-                <span style="color:#cbd5e1; margin: 0 3px;">|</span>
-                <span title="האזנות בטלפון"><i class="fa-solid fa-phone"></i> ${s.phoneListens}</span>
-            `;
-        } else if (!isSilentRefresh) {
-            container.innerHTML = `<span style="color:var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i> שגיאה</span>`;
-        }
-    } catch (err) {
-        if (!isSilentRefresh) {
-            container.innerHTML = `<span style="color:var(--danger);"><i class="fa-solid fa-wifi"></i> נכשל</span>`;
-        }
-    }
-}
+    const oldPassword = document.getElementById('change_old_pass').value;
+    const newPassword = document.getElementById('change_new_pass').value;
+    const newPasswordConfirm = document.getElementById('change_new_pass_confirm').value;
+    const logoutAllDevices = document.getElementById('change_logout_devices').checked;
 
-function renderMessages(messages, hasMore) {
-    const container = document.getElementById('messages-container');
-    container.innerHTML = ''; 
-
-    if(messages.length === 0) return;
-    let currentDateGroup = messages[0].mtime ? messages[0].mtime.split(" ")[0] : "-";
-
-    messages.forEach((msg, index) => {
-        const fullDateTime = msg.mtime || '-';
-        let datePart = "-", timePart = "-";
-        if(fullDateTime.includes(" ")) [datePart, timePart] = fullDateTime.split(" ");
-
-        if (datePart !== currentDateGroup) {
-             if (currentDateGroup !== "-") {
-                const divider = document.createElement('div');
-                divider.className = 'date-divider';
-                divider.innerHTML = `<span>${currentDateGroup}</span>`;
-                container.appendChild(divider);
-            }
-            currentDateGroup = datePart;
-        }
-
-        const isOut = msg.isOutgoing === true; 
-        const bubbleClass = isOut ? 'bubble-out' : 'bubble-in';
-        const fileId = msg.name.replace('.wav', '').replace('.mp3', '');
-        const senderName = msg.valName || 'מערכת';
-        const durationText = msg.durationStr || '00:00';
-
-        let sourceIndicator = '';
-        if (msg.fromWebType) {
-            let extraIcon = msg.fromWebType === 'file' ? 
-                `<i class="fa-solid fa-paperclip" style="font-size: 11px; color: #64748b; margin-left: 4px;" title="הועלה כקובץ דרך האתר"></i>` : '';
-
-            sourceIndicator = `
-                <span title="ההודעה הועלתה דרך אתר עכשיו סלומון" style="position: relative; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; margin-right: 6px; border-radius: 50%; background: #f1f5f9; border: 1px solid #cbd5e1; overflow: hidden; flex-shrink: 0;">
-                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 11px; color: #94a3b8; position: absolute; z-index: 1;"></i>
-                    <img src="https://smt-tel-manager.netlify.app/salamon-logo.png" alt="W" draggable="false" style="width: 100%; height: 100%; object-fit: cover; position: absolute; z-index: 2; pointer-events: none;" onerror="this.style.display='none'">
-                </span>
-                ${extraIcon}
-            `;
-        } else {
-            sourceIndicator = `
-                <span title="ההודעה הוקלטה דרך הטלפון" style="display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin-right: 6px; border-radius: 50%; background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; flex-shrink: 0;">
-                    <i class="fa-solid fa-phone" style="font-size: 9px;"></i>
-                </span>
-            `;
-        }
-
-        const fileIdGroup = isOut ? `
-            <div class="file-id-group">
-                <span class="file-id">ID: ${fileId}</span>
-                <button id="del-btn-${fileId}" class="delete-msg-btn" onclick="attemptDeleteMessage('${msg.name}', '${fileId}')" title="מחק הודעה"><i class="fa-solid fa-trash-can"></i></button>
-            </div>
-        ` : `<span class="file-id">ID: ${fileId}</span>`;
-        
-        const bubble = document.createElement('div');
-        bubble.className = `bubble ${bubbleClass}`;
-        bubble.innerHTML = `
-            <div class="msg-top">
-                <span class="sender-name" style="display: flex; align-items: center;">${senderName}${sourceIndicator}</span>
-                ${fileIdGroup}
-            </div>
-            <div class="audio-player">
-                <button class="play-btn-circle" id="btn-${fileId}" onclick="togglePlay('${fileId}')">
-                    <i class="fa-solid fa-play"></i>
-                </button>
-                <div class="player-track-container">
-                    <input type="range" id="slider-${fileId}" min="0" max="100" value="0" oninput="seekAudio('${fileId}', this.value)">
-                    <div class="track-fill" id="fill-${fileId}"></div>
-                    <div class="player-times">
-                        <span id="current-${fileId}">0:00</span>
-                        <span>${durationText}</span>
-                    </div>
-                </div>
-            </div>
-            <div class="msg-bottom-row">
-                <div class="msg-stats-badge" id="stats-${fileId}">
-                    <i class="fa-solid fa-circle-notch fa-spin"></i> טוען צפיות...
-                </div>
-                <div class="msg-bottom-time">
-                    <span dir="ltr">${fullDateTime}</span>
-                    ${isOut ? '<i class="fa-solid fa-check-double" style="color:#16a34a; font-size:0.8rem; margin-right:4px;"></i>' : ''}
-                </div>
-            </div>
-        `;
-        container.appendChild(bubble);
-
-        if (index === messages.length - 1) {
-            const divider = document.createElement('div');
-            divider.className = 'date-divider';
-            divider.innerHTML = `<span>${currentDateGroup}</span>`;
-            container.appendChild(divider);
-        }
-    });
-
-    if (hasMore) {
-        const loadMoreContainer = document.createElement('div');
-        loadMoreContainer.className = 'load-more-wrapper';
-        
-        const loadMoreBtn = document.createElement('button');
-        loadMoreBtn.id = 'load-more-btn';
-        loadMoreBtn.className = 'btn-load-more';
-        loadMoreBtn.innerHTML = '<i class="fa-solid fa-clock-rotate-left"></i> טען הודעות קודמות';
-        loadMoreBtn.onclick = () => loadMessages(false, true);
-        
-        loadMoreContainer.appendChild(loadMoreBtn);
-        container.appendChild(loadMoreContainer);
-    }
-}
-
-function setupAudioListeners() {
-    globalAudio.addEventListener('timeupdate', () => {
-        if (!currentPlayingId) return;
-        const slider = document.getElementById(`slider-${currentPlayingId}`);
-        const fill = document.getElementById(`fill-${currentPlayingId}`);
-        const timeLabel = document.getElementById(`current-${currentPlayingId}`);
-
-        if(globalAudio.duration && slider) {
-            const percent = (globalAudio.currentTime / globalAudio.duration) * 100;
-            if(!slider.matches(':active')) { 
-                slider.value = percent;
-                fill.style.width = percent + '%';
-            }
-            const m = Math.floor(globalAudio.currentTime / 60);
-            const s = Math.floor(globalAudio.currentTime % 60);
-            timeLabel.innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
-        }
-    });
-    globalAudio.addEventListener('ended', () => {
-        if (!currentPlayingId) return;
-        const btn = document.getElementById(`btn-${currentPlayingId}`);
-        if(btn) btn.querySelector('i').className = 'fa-solid fa-play';
-        const slider = document.getElementById(`slider-${currentPlayingId}`);
-        if(slider) {
-            slider.value = 0;
-            document.getElementById(`fill-${currentPlayingId}`).style.width = '0%';
-            document.getElementById(`current-${currentPlayingId}`).innerText = '0:00';
-        }
-        currentPlayingId = null;
-    });
-}
-
-function togglePlay(fileId) {
-    const token = state.userToken || localStorage.getItem('userToken');
-    const btn = document.getElementById(`btn-${fileId}`);
-    const icon = btn.querySelector('i');
-    
-    if (currentPlayingId === fileId) {
-        if (globalAudio.paused) {
-            globalAudio.play();
-            icon.className = 'fa-solid fa-pause';
-        } else {
-            globalAudio.pause();
-            icon.className = 'fa-solid fa-play';
-        }
+    if (newPassword !== newPasswordConfirm) {
+        showMessage('alert-settings', 'הסיסמאות החדשות שהוזנו אינן תואמות.', 'error');
         return;
     }
 
-    if (currentPlayingId) {
-        const oldBtn = document.getElementById(`btn-${currentPlayingId}`);
-        if(oldBtn) oldBtn.querySelector('i').className = 'fa-solid fa-play';
-    }
-
-    currentPlayingId = fileId;
-    icon.className = 'fa-solid fa-circle-notch fa-spin';
-    const streamUrl = `${API_BASE_URL}/messages/stream?fileId=${encodeURIComponent(fileId)}&userToken=${encodeURIComponent(token)}`;
-    
-    globalAudio.src = streamUrl;
-    globalAudio.play().then(() => {
-        icon.className = 'fa-solid fa-pause';
+    setLoading('btn-change-password', true);
+    try {
+        const res = await fetch(`${API_BASE_URL}/change-password`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                userToken: state.userToken, 
+                oldPassword: oldPassword, 
+                newPassword: newPassword, 
+                newPasswordConfirm: newPasswordConfirm, 
+                logoutAllDevices: logoutAllDevices 
+            })
+        });
+        const data = await res.json();
+        setLoading('btn-change-password', false, 'עדכן סיסמה <i class="fa-solid fa-key"></i>');
         
-        if (!window.playedFiles) window.playedFiles = new Set();
-        if (!window.playedFiles.has(fileId)) {
-            window.playedFiles.add(fileId);
-            setTimeout(() => fetchMessageStats(fileId, token, true), 2000);
+        if (!res.ok) {
+            showMessage('alert-settings', data.message || data.error || 'שגיאה בעדכון - ייתכן והסיסמה הנוכחית שגויה', 'error');
+            return;
+        }
+
+        showMessage('alert-settings', data.message || 'הסיסמה שונתה בהצלחה!', 'success');
+        document.getElementById('change_old_pass').value = '';
+        document.getElementById('change_new_pass').value = '';
+        document.getElementById('change_new_pass_confirm').value = '';
+        
+        if (logoutAllDevices) {
+            setTimeout(() => {
+                closeUserSettingsModal();
+                logout(); 
+            }, 2500);
+        } else {
+            setTimeout(() => closeUserSettingsModal(), 2000);
         }
         
-    }).catch(err => {
-        icon.className = 'fa-solid fa-triangle-exclamation';
-    });
-}
-
-function seekAudio(fileId, percentValue) {
-    const fill = document.getElementById(`fill-${fileId}`);
-    if(fill) fill.style.width = percentValue + '%';
-    if (currentPlayingId === fileId && globalAudio.duration) {
-        globalAudio.currentTime = (percentValue / 100) * globalAudio.duration;
+    } catch (err) {
+        setLoading('btn-change-password', false, 'עדכן סיסמה <i class="fa-solid fa-key"></i>');
+        showMessage('alert-settings', 'שגיאת תקשורת מול השרת', 'error');
     }
 }
