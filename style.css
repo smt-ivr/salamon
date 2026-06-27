@@ -108,9 +108,8 @@ body {
 .status-ok { color: #15803d; background: #dcfce7; padding: 4px 10px; border-radius: 20px;}
 .status-bad { color: #b91c1c; background: #fee2e2; padding: 4px 10px; border-radius: 20px;}
 
-/* שינוי התפריט כדי לאפשר למודעה לתפוס את השטח */
 .nav-menu { display: flex; flex-direction: column; padding-top: 10px; flex: 1; overflow-y: auto; }
-#user-dash-view .nav-menu { flex: 0 0 auto; } /* מבטל את ההתמתחות של התפריט בחלון המשתמש */
+#user-dash-view .nav-menu { flex: 0 0 auto; } 
 .nav-item { padding: 15px 20px; display: flex; align-items: center; gap: 15px; cursor: pointer; font-weight: 600; transition: 0.2s; border-right: 4px solid transparent; color: var(--text-main); }
 .nav-item:hover { background: var(--header-bg); }
 .nav-item.active { background: var(--header-bg); border-right-color: var(--play-out); color: var(--play-out); }
@@ -185,7 +184,6 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
 .bubble-out .track-fill { background: var(--play-out); }
 .player-times { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-light); font-weight: 600; }
 
-/* CSS חדש עבור סטטיסטיקות האזנה */
 .msg-bottom-row { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 6px; padding: 0 4px; }
 .msg-stats-badge {
     display: flex; align-items: center; gap: 6px;
@@ -259,16 +257,48 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
 .tzintuk-status-msg.error { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
 
 /* ================== מודעה צד שרת ================== */
-.desktop-announcement-box { 
-    flex: 1; 
-    margin: 0; 
-    padding: 0; 
-    background: transparent; 
-    border: none; 
-    overflow-y: auto; 
-    width: 100%; 
-}
+.desktop-announcement-box { flex: 1; margin: 0; padding: 0; background: transparent; border: none; overflow-y: auto; width: 100%; }
 .desktop-announcement-box:empty { display: none; }
+
+/* ================== תוספות חדשות: עיצוב הגדרות מתקדם ואייקונים ================== */
+
+/* לשוניות הגדרות */
+.settings-tabs { display: flex; border-bottom: 1px solid var(--border-color); background: #fff; }
+.settings-tab-btn { flex: 1; padding: 15px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: 700; font-size: 0.95rem; color: var(--text-light); cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;}
+.settings-tab-btn:hover { color: var(--text-main); background: #f8fafc; }
+.settings-tab-btn.active { color: var(--play-out); border-bottom-color: var(--play-out); }
+
+/* כרטיסיות פנימיות */
+.settings-card-advanced { background: #fff; border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+.settings-card-advanced h3 { font-size: 1.1rem; margin-bottom: 15px; color: var(--text-dark); border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 800; }
+
+/* שורות מיתוג (Toggle Switch) */
+.toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px dashed #e2e8f0; }
+.toggle-row:last-of-type { border-bottom: none; }
+.toggle-info { display: flex; flex-direction: column; gap: 4px; max-width: 80%; text-align: right; }
+.toggle-info strong { font-size: 0.95rem; color: var(--text-main); font-weight: 700; }
+.toggle-info span { font-size: 0.82rem; color: var(--text-light); line-height: 1.3; }
+
+/* עיצוב כפתור הדלקה/כיבוי מרחף */
+.modern-switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
+.modern-switch input { opacity: 0; width: 0; height: 0; }
+.modern-switch .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .3s; border-radius: 34px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); }
+.modern-switch .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px; background-color: white; transition: .3s cubic-bezier(0.4, 0.0, 0.2, 1); border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+.modern-switch input:checked + .slider { background-color: var(--play-out); }
+.modern-switch input:checked + .slider.danger-slider { background-color: var(--danger); }
+.modern-switch input:checked + .slider:before { transform: translateX(20px); }
+
+/* אייקונים של סטטוס אימות */
+.auth-badge { 
+    display: inline-flex; align-items: center; justify-content: center; 
+    width: 22px; height: 22px; border-radius: 50%; background: #e2e8f0; 
+    cursor: help; transition: 0.2s; font-size: 0.75rem; border: 1px solid #cbd5e1;
+}
+.auth-badge:hover { transform: scale(1.15); box-shadow: 0 2px 6px rgba(0,0,0,0.15); background: #fff;}
+.text-google { color: #ea4335; }
+.text-password { color: #d97706; }
+.text-perm { color: #10b981; }
+.text-temp { color: #64748b; }
 
 /* ================== התאמות מובייל ================== */
 @media (max-width: 768px) {
@@ -299,7 +329,6 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
     #user-dash-view .nav-menu { display: none !important; }
     #user-dash-view .app-main-area { padding-bottom: 0 !important; height: calc(100vh - 52px) !important; height: calc(100dvh - 52px) !important; }
 
-    /* עיצוב המודעות למובייל */
     .desktop-announcement-box { display: none !important; }
     .mobile-announcement-btn { display: none; align-items: center; background: #e0f2fe; border: 1px solid #bae6fd; color: #0284c7; font-size: 0.75rem; padding: 6px 10px; border-radius: 20px; font-weight: bold; cursor: pointer; transition: 0.2s; white-space: nowrap; }
     .mobile-announcement-btn.active-btn { display: inline-flex !important; }
