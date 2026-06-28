@@ -16,7 +16,7 @@
         }
         @media (max-width: 768px) {
             .mobile-announcement-btn { 
-                display: inline-flex !important; 
+                display: none !important; 
                 align-items: center; 
                 justify-content: center;
                 background-color: var(--surface, #fff);
@@ -28,6 +28,7 @@
                 cursor: pointer;
             }
             .mobile-announcement-btn.active-btn {
+                display: inline-flex !important;
                 border-color: var(--secondary, #3b82f6);
                 color: var(--secondary, #3b82f6);
             }
