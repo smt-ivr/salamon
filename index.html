@@ -34,14 +34,8 @@
             }
         }
         
-        /* תיקון עבור נראות גלילה באזור המנהל */
-        #admin-dash-view .app-main-area {
-            overflow-y: auto !important;
-        }
-        #admin-dash-view .app-tab {
-            overflow: visible !important;
-            min-height: min-content;
-        }
+        #admin-dash-view .app-main-area { overflow-y: auto !important; }
+        #admin-dash-view .app-tab { overflow: visible !important; min-height: min-content; }
     </style>
 
     <script src="/salamon/client-main.js" defer></script>
@@ -66,20 +60,16 @@
 
         <main id="auth-layout" class="view-section">
             <div class="auth-container">
-                
                 <section id="init-view" class="auth-card">
                     <div class="auth-logo"><img src="https://smt-tel-manager.netlify.app/salamon-logo.png" class="protected-logo" draggable="false"></div>
                     <h2>ברוכים הבאים</h2>
                     <p class="subtitle">אנא התחבר כדי להתחיל</p>
                     <div id="alert-init" class="alert-box"></div>
-                    
                     <div id="googleSignInContainer" style="display: flex; justify-content: center; margin-bottom: 15px; margin-top: 15px;"></div>
-                    
                     <div class="divider" style="text-align: center; margin: 15px 0; color: var(--text-light); font-size: 0.9rem; position: relative;">
                         <span style="background: var(--surface); padding: 0 10px; position: relative; z-index: 1;">או באמצעות טלפון / אימייל</span>
                         <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--border-color); z-index: 0;"></div>
                     </div>
-
                     <form onsubmit="event.preventDefault(); checkIdentifier(event);">
                         <div class="form-group"><input type="text" id="init_id" required placeholder="מספר טלפון או אימייל" class="center-text ltr-input input-modern"></div>
                         <button type="submit" id="btn-init" class="btn-primary">המשך <i class="fa-solid fa-arrow-left"></i></button>
@@ -92,17 +82,12 @@
                     <p class="subtitle">הזן את סיסמתך כדי להיכנס למערכת</p>
                     <div id="alert-login" class="alert-box"></div>
                     <div class="locked-input-container"><span id="login_display_id"></span><button type="button" onclick="goBackToInit()"><i class="fa-solid fa-pen"></i> שנה</button></div>
-
                     <form onsubmit="event.preventDefault(); userLogin(event);">
                         <div class="form-group"><input type="password" id="login_pass" required placeholder="הזן סיסמה" class="input-modern center-text ltr-input"></div>
-                        
                         <div class="form-group" style="display: flex; align-items: center; justify-content: flex-start; gap: 8px; flex-direction: row-reverse; margin-bottom: 20px;">
-                            <label for="login_remember" style="margin: 0; cursor: pointer; color: var(--text-main); font-weight: 600; font-size: 0.9rem;">
-                                זכור אותי <span style="color: var(--danger); font-size: 0.8rem; font-weight: normal;">(נא להשתמש במכשיר שלכם בלבד)</span>
-                            </label>
+                            <label for="login_remember" style="margin: 0; cursor: pointer; color: var(--text-main); font-weight: 600; font-size: 0.9rem;">זכור אותי <span style="color: var(--danger); font-size: 0.8rem; font-weight: normal;">(נא להשתמש במכשיר שלכם בלבד)</span></label>
                             <input type="checkbox" id="login_remember" style="width: 18px; height: 18px; cursor: pointer; accent-color: var(--play-out);">
                         </div>
-
                         <button type="submit" id="btn-login" class="btn-primary">היכנס למערכת</button>
                     </form>
                     <button type="button" class="btn-text forgot-pass-btn" id="btn-forgot-pass" onclick="forgotPassword()"><i class="fa-solid fa-unlock-keyhole"></i> שכחת סיסמה? איפוס דרך אימייל</button>
@@ -184,20 +169,14 @@
             </div>
         </main>
 
-        <!-- מסך עבודה ראשי (משתמש) -->
         <main id="user-dash-view" class="view-section app-layout">
             <aside class="app-sidebar">
                 <div class="sidebar-header">
                     <div class="user-profile-wrap">
                         <div class="avatar"><i class="fa-solid fa-user"></i></div>
                         <div class="user-details">
-                            <h2 id="ui-user-name" style="display:flex; align-items:center; gap:6px;">
-                                טוען... 
-                            </h2>
-                            <p style="display:flex; align-items:center; gap:8px;">
-                                <span id="ui-user-phone">---</span>
-                                <span id="ui-auth-badges" style="display:flex; gap:4px;"></span>
-                            </p>
+                            <h2 id="ui-user-name" style="display:flex; align-items:center; gap:6px;">טוען...</h2>
+                            <p style="display:flex; align-items:center; gap:8px;"><span id="ui-user-phone">---</span><span id="ui-auth-badges" style="display:flex; gap:4px;"></span></p>
                         </div>
                     </div>
                     <div class="sidebar-actions">
@@ -228,7 +207,6 @@
                         </div>
                     </div>
                     <div id="messages-container"></div>
-                    
                     <div id="chat-upload-area" class="chat-upload-area">
                         <div class="chat-input-wrapper">
                             <div class="upload-status" id="chat-upload-status">הקלט או בחר קובץ להעלאה</div>
@@ -241,7 +219,6 @@
             </div>
         </main>
 
-        <!-- מסך עבודה מנהל (Admin) -->
         <main id="admin-dash-view" class="view-section app-layout">
             <aside class="app-sidebar" style="border-top: 4px solid var(--secondary);">
                 <div class="sidebar-header">
@@ -259,9 +236,7 @@
                 </nav>
             </aside>
 
-            <!-- אזור התוכן המרכזי של המנהל (עם הגלילה המסודרת) -->
             <div class="app-main-area" style="background: #fff;">
-                
                 <div id="tab-admin-users" class="app-tab scrollable-tab active">
                     <div class="admin-top-bar">
                         <div>
@@ -288,9 +263,7 @@
                         <div><h1>ניהול אבטחה וצינתוקים</h1><p class="subtitle">ניטור התקפות, היסטוריית לוגים וחסימות במערכת</p></div>
                         <button onclick="refreshTzintukData()" id="btn-refresh-tzintuk" class="btn-primary small-btn" style="width: auto; background: var(--text-main);"><i class="fa-solid fa-rotate-right"></i> רענן נתונים</button>
                     </div>
-
                     <div class="dashboard-stats" id="security-stats"><div class="stat-card"><div class="stat-info"><h3>-</h3><p>טוען נתונים...</p></div></div></div>
-
                     <div class="settings-card" style="max-width: 100%; border-color: var(--danger); margin-bottom: 30px;">
                         <h3 style="color: var(--danger); margin-bottom: 15px;"><i class="fa-solid fa-ban"></i> חסימה ידנית חדשה</h3>
                         <form id="manual-block-form" onsubmit="submitManualBlock(event);" style="display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end;">
@@ -302,7 +275,6 @@
                             <div class="form-group" style="flex: 1; min-width: 150px;"><button type="submit" id="btn-submit-block" class="btn-primary" style="background: var(--danger); padding: 10px;">החל חסימה <i class="fa-solid fa-lock"></i></button></div>
                         </form>
                     </div>
-
                     <h3 style="margin-bottom: 15px; color: var(--text-dark);"><i class="fa-solid fa-shield-virus"></i> חסימות פעילות ברשת</h3>
                     <div class="table-wrapper" style="margin-bottom: 40px; overflow: visible;">
                         <table class="modern-table">
@@ -310,7 +282,6 @@
                             <tbody id="admin-blocks-table-body"></tbody>
                         </table>
                     </div>
-
                     <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; padding-top: 15px;">
                         <h3 style="color: var(--text-dark); margin: 0;"><i class="fa-solid fa-list-ol"></i> היסטוריית פעולות ואימותים אחרונים</h3>
                         <button onclick="cleanOldLogs()" id="btn-clean-logs" class="btn-text" style="font-size: 0.85rem; padding: 0; width: auto;"><i class="fa-solid fa-broom"></i> נקה לוגים ישנים</button>
@@ -326,26 +297,54 @@
         </main>
     </div> 
     
-    <!-- מודל ניהול משתמש מתקדם (החליף את הפופאפ הפשוט שהיה) -->
+    <!-- פתיחת חשבון חדש מתוך פאנל ניהול -->
+    <div class="modal-overlay" id="adminCreateUserModal">
+        <div class="modal-content professional-modal" style="max-width: 500px; display: flex; flex-direction: column; max-height: 90vh;">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-user-plus" style="color: var(--secondary);"></i> פתיחת חשבון למשתמש</h2>
+                <button class="close-modal-btn" onclick="closeCreateUserModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div style="background: #f8fafc; padding: 20px 20px 0 20px; flex-shrink: 0;">
+                <div id="alert-admin-create" class="alert-box" style="margin-bottom: 0;"></div>
+            </div>
+            <div style="padding: 20px; overflow-y: auto; background: #f8fafc; flex: 1;">
+                <form id="form-admin-create-user" onsubmit="event.preventDefault(); submitAdminCreateUser(event);">
+                    <div class="settings-card-advanced" style="margin-bottom: 20px;">
+                        <h3 style="margin-bottom: 15px;">פרטי החשבון</h3>
+                        <div class="form-group"><label>מספר טלפון (מזהה)</label><input type="text" id="create_phone" readonly class="input-modern ltr-input" style="background:#e2e8f0; color:#64748b; cursor:not-allowed;"></div>
+                        <div class="form-group"><label>כתובת אימייל (מומלץ)</label><input type="email" id="create_email" class="input-modern ltr-input" placeholder="email@example.com"></div>
+                        <div class="form-group"><label>סיסמה ראשונית (4-10 ספרות)</label><input type="text" id="create_password" required pattern="\d{4,10}" class="input-modern ltr-input" placeholder="****"></div>
+                    </div>
+                    <div class="settings-card-advanced">
+                        <h3 style="margin-bottom: 15px;">הרשאות במערכת</h3>
+                        <div class="toggle-row"><div class="toggle-info"><strong>הקלטת הודעות (מיקרופון)</strong></div><label class="modern-switch"><input type="checkbox" id="create_can_record" checked><span class="slider"></span></label></div>
+                        <div class="toggle-row"><div class="toggle-info"><strong>העלאת קבצים מוכנים מהמכשיר</strong></div><label class="modern-switch"><input type="checkbox" id="create_can_upload"><span class="slider"></span></label></div>
+                        <div class="toggle-row"><div class="toggle-info"><strong>שליחת צינתוקים לרשימה</strong></div><label class="modern-switch"><input type="checkbox" id="create_can_tzintuk" checked><span class="slider"></span></label></div>
+                        <div class="toggle-row"><div class="toggle-info"><strong>קבלת עדכונים לאימייל</strong></div><label class="modern-switch"><input type="checkbox" id="create_receive_emails" checked><span class="slider"></span></label></div>
+                        
+                        <button type="submit" id="btn-submit-create-user" class="btn-primary" style="background:var(--secondary); margin-top:20px;">צור חשבון <i class="fa-solid fa-check"></i></button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ניהול תיק מורחב -->
     <div class="modal-overlay" id="adminUserProfileModal">
         <div class="modal-content professional-modal" style="max-width: 600px; display: flex; flex-direction: column; max-height: 90vh;">
             <div class="modal-header">
                 <h2><i class="fa-solid fa-user-gear" style="color: var(--secondary);"></i> תיק משתמש מורחב</h2>
                 <button class="close-modal-btn" onclick="closeUserProfileModal()"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            
             <div class="settings-tabs">
                 <button class="settings-tab-btn active" onclick="switchAdminProfileTab('info')"><i class="fa-solid fa-id-card"></i> הגדרות והרשאות</button>
                 <button class="settings-tab-btn" onclick="switchAdminProfileTab('sessions')"><i class="fa-solid fa-laptop-medical"></i> מכשירים וחיבורים</button>
             </div>
-
             <div style="background: #f8fafc; padding: 20px 20px 0 20px; flex-shrink: 0;">
                 <div id="alert-admin-profile" class="alert-box" style="margin-bottom: 0;"></div>
             </div>
-
             <div style="padding: 20px; overflow-y: auto; background: #f8fafc; flex: 1;">
                 
-                <!-- Tab 1: Info -->
                 <form id="tab-admin-profile-info" onsubmit="event.preventDefault(); submitAdminUserUpdate(event);">
                     <div class="settings-card-advanced" style="margin-bottom: 20px;">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
@@ -358,21 +357,21 @@
                         <div class="form-group"><label>כתובת אימייל</label><input type="email" id="prof_email" class="input-modern ltr-input"></div>
                         <div class="form-group"><label>עדכון סיסמה (השאר ריק כדי לא לשנות)</label><input type="text" id="prof_password" class="input-modern ltr-input" placeholder="****"></div>
                     </div>
-
                     <div class="settings-card-advanced">
                         <h3 style="margin-bottom: 15px;">הרשאות במערכת</h3>
-                        
                         <div class="toggle-row"><div class="toggle-info"><strong>הקלטת הודעות (מיקרופון)</strong></div><label class="modern-switch"><input type="checkbox" id="prof_can_record"><span class="slider"></span></label></div>
                         <div class="toggle-row"><div class="toggle-info"><strong>העלאת קבצים מוכנים מהמכשיר</strong></div><label class="modern-switch"><input type="checkbox" id="prof_can_upload"><span class="slider"></span></label></div>
                         <div class="toggle-row"><div class="toggle-info"><strong>שליחת צינתוקים לרשימה</strong></div><label class="modern-switch"><input type="checkbox" id="prof_can_tzintuk"><span class="slider"></span></label></div>
                         <div class="toggle-row"><div class="toggle-info"><strong>קבלת עדכונים לאימייל</strong></div><label class="modern-switch"><input type="checkbox" id="prof_receive_emails"><span class="slider"></span></label></div>
                         <div class="toggle-row"><div class="toggle-info"><strong>כניסה מגוגל בלבד</strong></div><label class="modern-switch"><input type="checkbox" id="prof_google_only"><span class="slider"></span></label></div>
                         
-                        <button type="submit" id="btn-save-user-profile" class="btn-primary" style="background:var(--secondary); margin-top:20px;">שמור שינויים <i class="fa-solid fa-check"></i></button>
+                        <div style="display: flex; gap: 10px; margin-top:20px;">
+                            <button type="button" class="btn-primary" onclick="adminDeleteAccount()" style="background:var(--danger); flex: 1;"><i class="fa-solid fa-trash"></i> מחיקת חשבון</button>
+                            <button type="submit" id="btn-save-user-profile" class="btn-primary" style="background:var(--secondary); flex: 2;">שמור שינויים <i class="fa-solid fa-check"></i></button>
+                        </div>
                     </div>
                 </form>
 
-                <!-- Tab 2: Sessions -->
                 <div id="tab-admin-profile-sessions" style="display:none;">
                     <div class="settings-card-advanced" style="padding: 15px;">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
@@ -391,9 +390,7 @@
             </div>
         </div>
     </div>
-    <!-- סוף מודל ניהול משתמש -->
 
-    <!-- יתר המודלים של המשתמש הרגיל -->
     <div class="modal-overlay" id="uploadReviewModal">
         <div class="modal-content professional-modal">
             <div class="modal-header">
@@ -479,18 +476,14 @@
                 <h2><i class="fa-solid fa-sliders"></i> הגדרות חשבון מתקדמות</h2>
                 <button class="close-modal-btn" onclick="closeUserSettingsModal()" title="סגור"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            
             <div class="settings-tabs">
                 <button class="settings-tab-btn active" onclick="switchSettingsTab('profile')"><i class="fa-solid fa-user-pen"></i> העדפות מערכת</button>
                 <button class="settings-tab-btn" onclick="switchSettingsTab('security')"><i class="fa-solid fa-shield-halved"></i> אבטחה וסיסמה</button>
             </div>
-
             <div style="background: #f8fafc; padding: 20px 20px 0 20px; flex-shrink: 0;">
                 <div id="alert-settings" class="alert-box" style="margin-bottom: 0;"></div>
             </div>
-
             <div style="padding: 20px; overflow-y: auto; background: #f8fafc; flex: 1;">
-                
                 <form id="settings-profile-form" onsubmit="event.preventDefault(); updateUserProfile(event);">
                     <div class="settings-card-advanced">
                         <h3>פרטי קשר</h3>
@@ -502,7 +495,6 @@
                         <button type="submit" id="btn-update-profile" class="btn-primary" style="margin-top: 15px;">שמור העדפות <i class="fa-solid fa-floppy-disk"></i></button>
                     </div>
                 </form>
-
                 <form id="settings-security-form" style="display:none;" onsubmit="event.preventDefault(); updatePassword(event);">
                     <div class="settings-card-advanced">
                         <h3>שינוי סיסמה</h3>
@@ -518,6 +510,5 @@
     </div>
 
     <audio id="global-audio-player"></audio>
-
 </body>
 </html>
