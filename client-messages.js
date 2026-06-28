@@ -42,7 +42,7 @@ async function loadMessages(isSilent = false, loadMore = false) {
                 userToken: token, 
                 filesLimit: FILES_LIMIT, 
                 filesFrom: fetchFrom,
-                page: currentPage // שליחת פרמטר העמוד לשרת
+                page: currentPage // שליחת פרמטר העמוד לשרת לפי בקשתך
             })
         });
         const data = await res.json();
@@ -54,6 +54,7 @@ async function loadMessages(isSilent = false, loadMore = false) {
             return;
         }
 
+        // כאשר הגענו באמת לסוף והשרת מחזיר 0 הודעות
         if (!data.messages || data.messages.length === 0) {
             if (!isSilent && !loadMore) container.innerHTML = '<div class="loading-state">אין הודעות להצגה כרגע.</div>';
             if (loadMore) {
@@ -61,6 +62,7 @@ async function loadMessages(isSilent = false, loadMore = false) {
                 if (btn) {
                     btn.innerHTML = '<i class="fa-solid fa-check"></i> הוצגו כל ההודעות';
                     btn.disabled = true;
+                    btn.classList.remove('btn-load-more'); // הסרת המחלקה כדי לעצור את האובזרבר
                 }
             }
             if (!loadMore) currentRenderedMessagesHash = '';
@@ -85,7 +87,9 @@ async function loadMessages(isSilent = false, loadMore = false) {
         }
 
         currentRenderedMessagesHash = newMessagesHash;
-        const hasMore = data.messages.length === FILES_LIMIT; // אם קיבלנו 40 מדויק, כנראה יש עוד.
+        
+        // התיקון הקריטי: אנחנו תמיד מאפשרים כפתור טעינה נוספת, כל עוד השרת לא החזיר 0 הודעות (שמטופל למעלה)
+        const hasMore = true; 
         
         renderMessages(allLoadedMessages, hasMore);
         
@@ -241,7 +245,7 @@ function renderMessages(messages, hasMore) {
         }
     });
 
-    // הוספת כפתור "טען הודעות קודמות" והפעלת גלילה אוטומטית
+    // הוספת כפתור "טען הודעות קודמות" והפעלת גלילה אוטומטית רק במידה ויש עוד
     if (hasMore) {
         const loadMoreContainer = document.createElement('div');
         loadMoreContainer.className = 'load-more-wrapper';
@@ -255,18 +259,18 @@ function renderMessages(messages, hasMore) {
         loadMoreContainer.appendChild(loadMoreBtn);
         container.appendChild(loadMoreContainer);
 
-        // שימוש ב-IntersectionObserver לטעינה אוטומטית כאשר הכפתור נכנס למסך
+        // שימוש ב-IntersectionObserver לטעינה אוטומטית - עכשיו עם threshold מדויק יותר
         try {
             const observer = new IntersectionObserver((entries) => {
                 if (entries[0].isIntersecting && !isFetchingMessages) {
                     loadMessages(false, true);
                 }
-            }, { root: container, rootMargin: '100px' });
+            }, { root: container, threshold: 0.1 }); 
             observer.observe(loadMoreContainer);
         } catch(e) {}
     }
 
-    // תיקון מיקום גלילה בטעינת הודעות ישנות (מונע קפיצה)
+    // תיקון מיקום גלילה בטעינת הודעות ישנות (מונע קפיצה של המסך למיקום לא רצוי)
     if (prevScrollHeight > 0 && container.scrollHeight > prevScrollHeight) {
         container.scrollTop = container.scrollTop + (container.scrollHeight - prevScrollHeight);
     }
