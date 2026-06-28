@@ -90,6 +90,7 @@ body {
 .alert-box.error { background-color: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
 .alert-box.success { background-color: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
 .alert-box.info { background-color: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.alert-box.warning { background-color: #fffbeb; color: #b45309; border: 1px solid #fde68a; } /* מחלקת האזהרה החדשה */
 
 /* ================== אזור האפליקציה ================== */
 .app-layout { flex-direction: row; }
