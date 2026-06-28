@@ -1,15 +1,101 @@
-async function silentLogin(token) {
-    // חסימה ומחיקה של משתמשים עם פורמט הסיסמאות הישן (דורש התחברות אחת מחדש)
-    if (token.includes(':')) {
-        logout();
-        return;
+let currentUnsubscribeToken = null;
+
+// פונקציות החסימה (Unsubscribe Flow) - חיצוני לחלוטין משרת המשתמשים
+window.handleUnsubscribeFlow = async function(token) {
+    showView('unsubscribe-view');
+    currentUnsubscribeToken = token;
+    
+    const btn = document.getElementById('btn-confirm-unsubscribe');
+    btn.style.display = 'none';
+    
+    showMessage('alert-unsubscribe', '<i class="fa-solid fa-circle-notch fa-spin"></i> מאמת מול השרת...', 'info');
+    
+    try {
+        const res = await fetch(`${API_BASE_URL}/unsubscribe/check`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token })
+        });
+        const data = await res.json();
+        
+        clearMessage();
+        if (res.ok && data.success) {
+            document.getElementById('unsubscribe-details').style.display = 'block';
+            document.getElementById('unsub_email_display').innerText = data.email;
+            document.getElementById('unsub_name_display').innerText = data.name;
+            document.getElementById('unsub_phone_display').innerText = data.maskedPhone;
+            
+            btn.style.display = 'flex';
+        } else {
+            showMessage('alert-unsubscribe', data.error || 'הקישור פג תוקף, שגוי או שכבר נעשה בו שימוש.', 'error');
+        }
+    } catch (err) {
+        showMessage('alert-unsubscribe', 'שגיאת תקשורת עם השרת.', 'error');
     }
+};
+
+window.confirmUnsubscribeAction = async function() {
+    if (!currentUnsubscribeToken) return;
+    setLoading('btn-confirm-unsubscribe', true);
+    
+    try {
+        const res = await fetch(`${API_BASE_URL}/unsubscribe/confirm`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: currentUnsubscribeToken })
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+            document.getElementById('unsubscribe-details').style.display = 'none';
+            document.getElementById('btn-confirm-unsubscribe').style.display = 'none';
+            showMessage('alert-unsubscribe', data.message || 'האימייל נחסם בהצלחה והוכנס לרשימה השחורה.', 'success');
+        } else {
+            setLoading('btn-confirm-unsubscribe', false, 'כן, חסום כתובת זו <i class="fa-solid fa-lock"></i>');
+            showMessage('alert-unsubscribe', data.error || 'שגיאה בביצוע החסימה.', 'error');
+        }
+    } catch (err) {
+        setLoading('btn-confirm-unsubscribe', false, 'כן, חסום כתובת זו <i class="fa-solid fa-lock"></i>');
+        showMessage('alert-unsubscribe', 'שגיאת תקשורת מול השרת.', 'error');
+    }
+};
+
+window.unblockEmailGlobally = async function() {
+    const btn = document.getElementById('btn_unblock_email');
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מסיר מהרשימה...';
+    btn.disabled = true;
 
     try {
-        // פנייה ישירה לאימות הטוקן בלבד!
+        const res = await fetch(`${API_BASE_URL}/unblock-email`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userToken: state.userToken })
+        });
+        const data = await res.json();
+        
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+
+        if (res.ok && data.success) {
+            showMessage('alert-settings', data.message, 'success');
+            state.currentUser.emailGloballyBlocked = false; 
+            document.getElementById('email_blocked_warning').style.display = 'none';
+        } else {
+            showMessage('alert-settings', data.error || 'שגיאה בשחרור החסימה.', 'error');
+        }
+    } catch (err) {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+        showMessage('alert-settings', 'שגיאת תקשורת מול השרת.', 'error');
+    }
+};
+
+// ==========================================
+// פונקציות הליבה (Auth Flow הקיים)
+// ==========================================
+async function silentLogin(token) {
+    if (token.includes(':')) { logout(); return; }
+    try {
         const res = await fetch(`${API_BASE_URL}/user`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userToken: token })
         });
         const data = await res.json();
@@ -21,15 +107,13 @@ async function silentLogin(token) {
             if(typeof updateDashboardUI === 'function') updateDashboardUI();
             showView('user-dash-view');
             if(typeof loadMessages === 'function') loadMessages();
-            if(typeof loadSystemStats === 'function') loadSystemStats(); // טעינת המשתתפים
+            if(typeof loadSystemStats === 'function') loadSystemStats();
             if(typeof loadSystemMessage === 'function') loadSystemMessage(); 
             startPolling(); 
         } else {
-            logout(); // הטוקן פג תוקף או שגוי מול השרת
+            logout(); 
         }
-    } catch (err) {
-        logout(); // שגיאת רשת
-    }
+    } catch (err) { logout(); }
 }
 
 async function checkIdentifier(e) {
@@ -77,7 +161,6 @@ async function initiateVerification(phone) {
             body: JSON.stringify({ phone: phone, intent: 'register' })
         });
         const data = await res.json();
-
         if (res.ok && data.success) {
             state.sessionId = data.sessionId;
             document.getElementById('verify_display_phone').innerText = phone;
@@ -157,7 +240,6 @@ async function userRegister(e) {
             showMessage('alert-register', data.message || data.error || 'שגיאה ברישום', 'error');
             return;
         }
-
         document.getElementById('login_display_id').innerText = phone;
         showView('login-view');
         showMessage('alert-login', 'החשבון נפתח בהצלחה! התחבר כעת.', 'success');
@@ -176,7 +258,6 @@ async function userLogin(e) {
     setLoading('btn-login', true);
     
     try {
-        // שלב 1: משיכת טוקן בלבד
         const loginRes = await fetch(`${API_BASE_URL}/login`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ identifier: state.tempIdentifier, password, rememberMe })
@@ -190,8 +271,6 @@ async function userLogin(e) {
         }
 
         const tempToken = loginData.token;
-
-        // שלב 2: אימות חובה מול נתיב היוזר כדי לקבל את פרטי המשתמש
         const userRes = await fetch(`${API_BASE_URL}/user`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userToken: tempToken })
@@ -205,7 +284,6 @@ async function userLogin(e) {
             return;
         }
 
-        // שלב 3: הכל תקין, מתחברים סופית
         state.userToken = tempToken;
         state.currentUser = userData.user;
         localStorage.setItem('userToken', tempToken);
@@ -213,7 +291,7 @@ async function userLogin(e) {
         if(typeof updateDashboardUI === 'function') updateDashboardUI();
         showView('user-dash-view');
         if(typeof loadMessages === 'function') loadMessages();
-        if(typeof loadSystemStats === 'function') loadSystemStats(); // טעינת המשתתפים
+        if(typeof loadSystemStats === 'function') loadSystemStats();
         if(typeof loadSystemMessage === 'function') loadSystemMessage();
         startPolling(); 
     } catch (err) {
@@ -320,9 +398,6 @@ function logout() {
     }
 }
 
-// ==========================================
-// פונקציות גוגל (טעינה חכמה)
-// ==========================================
 function renderGoogleButton() {
     const container = document.getElementById("googleSignInContainer");
     if (!container) return;
@@ -348,11 +423,9 @@ function renderGoogleButton() {
 
 async function handleGoogleLoginResponse(response) {
     const googleToken = response.credential;
-    
     showMessage('alert-init', '<i class="fa-solid fa-circle-notch fa-spin"></i> מאמת מול גוגל...', 'info');
 
     try {
-        // שלב 1: משיכת טוקן מהשרת
         const loginRes = await fetch(`${API_BASE_URL}/login/google`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ token: googleToken })
@@ -365,8 +438,6 @@ async function handleGoogleLoginResponse(response) {
         }
 
         const tempToken = loginData.token;
-
-        // שלב 2: אימות חובה מול נתיב היוזר
         const userRes = await fetch(`${API_BASE_URL}/user`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userToken: tempToken })
@@ -378,7 +449,6 @@ async function handleGoogleLoginResponse(response) {
             return;
         }
 
-        // שלב 3: הכל תקין, מתחברים סופית
         state.userToken = tempToken;
         state.currentUser = userData.user;
         localStorage.setItem('userToken', tempToken);
@@ -386,7 +456,7 @@ async function handleGoogleLoginResponse(response) {
         if(typeof updateDashboardUI === 'function') updateDashboardUI();
         showView('user-dash-view');
         if(typeof loadMessages === 'function') loadMessages();
-        if(typeof loadSystemStats === 'function') loadSystemStats(); // טעינת המשתתפים
+        if(typeof loadSystemStats === 'function') loadSystemStats();
         if(typeof loadSystemMessage === 'function') loadSystemMessage();
         startPolling();
     } catch (err) {
