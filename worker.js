@@ -19,6 +19,10 @@ export default {
         if (path === '/salamon' || path === '/salamon/' || path === '/salamon/admin' || path === '/salamon/admin/') {
             return new Response(htmlContent, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
         }
+        // בתוך worker.js של צד הלקוח
+if (path === '/salamon' || path === '/salamon/' || path === '/salamon/admin' || path === '/salamon/admin/' || path === '/salamon/unsubscribe' || path === '/salamon/unsubscribe/') {
+    return new Response(htmlContent, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+}
         if (path === '/salamon/style.css') {
             return new Response(cssContent, { headers: { 'Content-Type': 'text/css; charset=utf-8' } });
         }
