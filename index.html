@@ -175,6 +175,7 @@
             </div>
         </main>
 
+        <!-- מסך עבודה ראשי (משתמש) -->
         <main id="user-dash-view" class="view-section app-layout">
             <aside class="app-sidebar">
                 <div class="sidebar-header">
@@ -231,6 +232,7 @@
             </div>
         </main>
 
+        <!-- מסך עבודה מנהל (Admin) -->
         <main id="admin-dash-view" class="view-section app-layout">
             <aside class="app-sidebar" style="border-top: 4px solid var(--secondary);">
                 <div class="sidebar-header">
@@ -249,15 +251,16 @@
             </aside>
 
             <div class="app-main-area" style="background: #fff; overflow-y: auto;">
+                
                 <div id="tab-admin-users" class="app-tab scrollable-tab active">
                     <div class="admin-top-bar">
-                        <div><h1>רשימת משתמשים</h1><p class="subtitle">צפייה ועריכת משתמשים רשומים</p></div>
+                        <div><h1>רשימת משתמשים</h1><p class="subtitle">צפייה וניהול של כלל משתמשי האתר וימות המשיח</p></div>
                         <button onclick="loadAdminUsers()" class="btn-primary small-btn" id="btn-refresh-users" style="width: auto; background: var(--secondary);"><i class="fa-solid fa-rotate-right"></i> רענן נתונים</button>
                     </div>
                     <div id="alert-admin-dash" class="alert-box"></div>
                     <div class="table-wrapper">
                         <table class="modern-table">
-                            <thead><tr><th>טלפון</th><th>שם משתמש</th><th>אימייל</th><th>צינתוקים</th><th>הקלטה</th><th>העלאה קבצים</th><th>פעולות</th></tr></thead>
+                            <thead><tr><th>טלפון</th><th>שם משתמש</th><th>אימייל מאומת</th><th>סטטוס טלפוני</th><th>חשבון באתר</th><th>תאריך הצטרפות</th><th>ניהול תיק</th></tr></thead>
                             <tbody id="admin-users-table-body"><tr><td colspan="7" class="empty-state">יש ללחוץ על "רענן נתונים"</td></tr></tbody>
                         </table>
                     </div>
@@ -306,24 +309,74 @@
         </main>
     </div> 
     
-    <div class="modal-overlay" id="adminEditModal">
-        <div class="modal-content">
-            <h2 style="margin-bottom: 20px;">עריכת משתמש</h2>
-            <div id="alert-modal" class="alert-box"></div>
-            <form onsubmit="event.preventDefault(); submitAdminUpdate(event);">
-                <div class="form-group"><label>טלפון</label><input type="text" id="modal_phone" readonly class="input-modern" style="background:#f0f2f5; color:#94a3b8; direction:ltr; text-align:right;"></div>
-                <div class="form-group"><label>אימייל</label><input type="email" id="modal_email" class="ltr-input input-modern"></div>
-                <div class="form-group"><label>סיסמה חדשה</label><input type="text" id="modal_password" class="ltr-input input-modern"></div>
-                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 15px; padding: 10px; background: #f8fafc; border-radius: 8px;"><input type="checkbox" id="modal_can_record" style="width: 20px; height: 20px; cursor: pointer;"><label for="modal_can_record" style="margin: 0; font-size: 0.95rem; cursor: pointer; color: var(--text-main);">מורשה להקליט הודעות</label></div>
-                <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 10px; background: #f8fafc; border-radius: 8px;"><input type="checkbox" id="modal_can_upload" style="width: 20px; height: 20px; cursor: pointer;"><label for="modal_can_upload" style="margin: 0; font-size: 0.95rem; cursor: pointer; color: var(--text-main);">מורשה להעלות קבצים חיצונים</label></div>
-                <div style="margin-top: 30px; display: flex; gap: 10px;">
-                    <button type="button" class="btn-text" onclick="closeAdminModal()">ביטול</button>
-                    <button type="submit" id="btn-modal-save" class="btn-primary" style="flex: 1; background: var(--secondary);">שמור שינויים <i class="fa-solid fa-check"></i></button>
+    <!-- מודל ניהול משתמש מתקדם (החליף את הפופאפ הפשוט שהיה) -->
+    <div class="modal-overlay" id="adminUserProfileModal">
+        <div class="modal-content professional-modal" style="max-width: 600px; display: flex; flex-direction: column; max-height: 90vh;">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-user-gear" style="color: var(--secondary);"></i> תיק משתמש מורחב</h2>
+                <button class="close-modal-btn" onclick="closeUserProfileModal()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="settings-tabs">
+                <button class="settings-tab-btn active" onclick="switchAdminProfileTab('info')"><i class="fa-solid fa-id-card"></i> הגדרות והרשאות</button>
+                <button class="settings-tab-btn" onclick="switchAdminProfileTab('sessions')"><i class="fa-solid fa-laptop-medical"></i> מכשירים וחיבורים</button>
+            </div>
+
+            <div style="background: #f8fafc; padding: 20px 20px 0 20px; flex-shrink: 0;">
+                <div id="alert-admin-profile" class="alert-box" style="margin-bottom: 0;"></div>
+            </div>
+
+            <div style="padding: 20px; overflow-y: auto; background: #f8fafc; flex: 1;">
+                
+                <!-- Tab 1: Info -->
+                <form id="tab-admin-profile-info" onsubmit="event.preventDefault(); submitAdminUserUpdate(event);">
+                    <div class="settings-card-advanced" style="margin-bottom: 20px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+                            <h3 style="margin:0; border:none; padding:0;">פרטי חשבון</h3>
+                            <span id="prof_yemot_status" style="font-size: 0.85rem; font-weight: bold;"></span>
+                        </div>
+                        <input type="hidden" id="prof_phone_hidden">
+                        <div class="form-group"><label>מספר טלפון (מזהה)</label><input type="text" id="prof_phone" readonly class="input-modern ltr-input" style="background:#e2e8f0; color:#64748b; cursor:not-allowed;"></div>
+                        <div class="form-group"><label>שם מלא (נמשך מימות המשיח)</label><input type="text" id="prof_name" readonly class="input-modern" style="background:#e2e8f0; color:#64748b; cursor:not-allowed;"></div>
+                        <div class="form-group"><label>כתובת אימייל</label><input type="email" id="prof_email" class="input-modern ltr-input"></div>
+                        <div class="form-group"><label>עדכון סיסמה (השאר ריק כדי לא לשנות)</label><input type="text" id="prof_password" class="input-modern ltr-input" placeholder="****"></div>
+                    </div>
+
+                    <div class="settings-card-advanced">
+                        <h3 style="margin-bottom: 15px;">הרשאות במערכת</h3>
+                        
+                        <div class="toggle-row"><div class="toggle-info"><strong>הקלטת הודעות (מיקרופון)</strong></div><label class="modern-switch"><input type="checkbox" id="prof_can_record"><span class="slider"></span></label></div>
+                        <div class="toggle-row"><div class="toggle-info"><strong>העלאת קבצים מוכנים מהמכשיר</strong></div><label class="modern-switch"><input type="checkbox" id="prof_can_upload"><span class="slider"></span></label></div>
+                        <div class="toggle-row"><div class="toggle-info"><strong>שליחת צינתוקים לרשימה</strong></div><label class="modern-switch"><input type="checkbox" id="prof_can_tzintuk"><span class="slider"></span></label></div>
+                        <div class="toggle-row"><div class="toggle-info"><strong>קבלת עדכונים לאימייל</strong></div><label class="modern-switch"><input type="checkbox" id="prof_receive_emails"><span class="slider"></span></label></div>
+                        <div class="toggle-row"><div class="toggle-info"><strong>כניסה מגוגל בלבד</strong></div><label class="modern-switch"><input type="checkbox" id="prof_google_only"><span class="slider"></span></label></div>
+                        
+                        <button type="submit" id="btn-save-user-profile" class="btn-primary" style="background:var(--secondary); margin-top:20px;">שמור שינויים <i class="fa-solid fa-check"></i></button>
+                    </div>
+                </form>
+
+                <!-- Tab 2: Sessions -->
+                <div id="tab-admin-profile-sessions" style="display:none;">
+                    <div class="settings-card-advanced" style="padding: 15px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+                            <h3 style="margin:0; border:none; padding:0;">מכשירים פעילים</h3>
+                            <button class="actions-btn" style="color:var(--danger); border-color:var(--danger); background: #fee2e2;" onclick="disconnectAdminUserToken(null)"><i class="fa-solid fa-triangle-exclamation"></i> נתק הכל</button>
+                        </div>
+                        <div class="table-wrapper">
+                            <table class="modern-table">
+                                <thead><tr><th>סוג חיבור</th><th>אימייל זיהוי</th><th>פעילות אחרונה</th><th>פעולות</th></tr></thead>
+                                <tbody id="prof-sessions-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
-            </form>
+
+            </div>
         </div>
     </div>
+    <!-- סוף מודל ניהול משתמש -->
 
+    <!-- יתר המודלים של המשתמש הרגיל -->
     <div class="modal-overlay" id="uploadReviewModal">
         <div class="modal-content professional-modal">
             <div class="modal-header">
@@ -403,7 +456,6 @@
         </div>
     </div>
 
-    <!-- אזור ההגדרות החדש - משודרג ומתקדם! -->
     <div class="modal-overlay" id="userSettingsModal">
         <div class="modal-content professional-modal" style="max-width: 550px; display: flex; flex-direction: column; max-height: 90vh;">
             <div class="modal-header">
@@ -416,74 +468,31 @@
                 <button class="settings-tab-btn" onclick="switchSettingsTab('security')"><i class="fa-solid fa-shield-halved"></i> אבטחה וסיסמה</button>
             </div>
 
-            <!-- אזור הודעות הסטטוס ממוקם כאן כדי שיהיה תמיד גלוי מעל הגלילה -->
             <div style="background: #f8fafc; padding: 20px 20px 0 20px; flex-shrink: 0;">
                 <div id="alert-settings" class="alert-box" style="margin-bottom: 0;"></div>
             </div>
 
             <div style="padding: 20px; overflow-y: auto; background: #f8fafc; flex: 1;">
                 
-                <!-- Tab 1: Profile & Preferences -->
                 <form id="settings-profile-form" onsubmit="event.preventDefault(); updateUserProfile(event);">
                     <div class="settings-card-advanced">
                         <h3>פרטי קשר</h3>
-                        <div class="form-group">
-                            <label>כתובת אימייל (מומלץ לגיבוי)</label>
-                            <input type="email" id="update_email" class="ltr-input input-modern">
-                        </div>
-                        
+                        <div class="form-group"><label>כתובת אימייל (מומלץ לגיבוי)</label><input type="email" id="update_email" class="ltr-input input-modern"></div>
                         <h3 style="margin-top:25px;">התראות ואבטחה</h3>
-                        
-                        <div class="toggle-row">
-                            <div class="toggle-info">
-                                <strong>קבלת עדכונים לאימייל</strong>
-                                <span>אפשר קבלת קודי איפוס והתראות מערכת לאימייל.</span>
-                            </div>
-                            <label class="modern-switch">
-                                <input type="checkbox" id="update_receive_emails">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        
-                        <div class="toggle-row">
-                            <div class="toggle-info">
-                                <strong>כניסה באמצעות גוגל בלבד</strong>
-                                <span>חוסם התחברות עם סיסמה לאבטחה מירבית של החשבון.</span>
-                            </div>
-                            <label class="modern-switch">
-                                <input type="checkbox" id="update_google_only">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-
-                        <div id="profile_password_auth" class="form-group" style="margin-top: 25px; border-top: 1px solid var(--border-color); padding-top: 20px;">
-                            <label style="color: var(--danger); font-size: 0.95rem;"><i class="fa-solid fa-lock"></i> סיסמה נוכחית (חובה לאימות שינויים)</label>
-                            <input type="password" id="update_auth_pass" placeholder="הזן את סיסמתך הנוכחית לאישור" class="input-modern center-text ltr-input">
-                        </div>
-
+                        <div class="toggle-row"><div class="toggle-info"><strong>קבלת עדכונים לאימייל</strong><span>אפשר קבלת קודי איפוס והתראות מערכת לאימייל.</span></div><label class="modern-switch"><input type="checkbox" id="update_receive_emails"><span class="slider"></span></label></div>
+                        <div class="toggle-row"><div class="toggle-info"><strong>כניסה באמצעות גוגל בלבד</strong><span>חוסם התחברות עם סיסמה לאבטחה מירבית של החשבון.</span></div><label class="modern-switch"><input type="checkbox" id="update_google_only"><span class="slider"></span></label></div>
+                        <div id="profile_password_auth" class="form-group" style="margin-top: 25px; border-top: 1px solid var(--border-color); padding-top: 20px;"><label style="color: var(--danger); font-size: 0.95rem;"><i class="fa-solid fa-lock"></i> סיסמה נוכחית (חובה לאימות שינויים)</label><input type="password" id="update_auth_pass" placeholder="הזן את סיסמתך הנוכחית לאישור" class="input-modern center-text ltr-input"></div>
                         <button type="submit" id="btn-update-profile" class="btn-primary" style="margin-top: 15px;">שמור העדפות <i class="fa-solid fa-floppy-disk"></i></button>
                     </div>
                 </form>
 
-                <!-- Tab 2: Security & Password Change -->
                 <form id="settings-security-form" style="display:none;" onsubmit="event.preventDefault(); updatePassword(event);">
                     <div class="settings-card-advanced">
                         <h3>שינוי סיסמה</h3>
                         <div class="form-group"><label>סיסמה נוכחית</label><input type="password" id="change_old_pass" required placeholder="****" class="input-modern center-text ltr-input"></div>
                         <div class="form-group"><label>סיסמה חדשה (4-10 ספרות)</label><input type="password" id="change_new_pass" required placeholder="****" class="input-modern center-text ltr-input"></div>
                         <div class="form-group"><label>אימות סיסמה חדשה</label><input type="password" id="change_new_pass_confirm" required placeholder="****" class="input-modern center-text ltr-input"></div>
-                        
-                        <div class="toggle-row" style="margin-top: 25px; border-top: 1px solid var(--border-color); padding-top: 15px;">
-                            <div class="toggle-info">
-                                <strong style="color:var(--danger);">נתק את כל המכשירים</strong>
-                                <span>מחיקת כל הטוקנים וניתוק של חשבונך מכל מכשיר אחר שמחובר למערכת.</span>
-                            </div>
-                            <label class="modern-switch">
-                                <input type="checkbox" id="change_logout_devices">
-                                <span class="slider danger-slider"></span>
-                            </label>
-                        </div>
-
+                        <div class="toggle-row" style="margin-top: 25px; border-top: 1px solid var(--border-color); padding-top: 15px;"><div class="toggle-info"><strong style="color:var(--danger);">נתק את כל המכשירים</strong><span>מחיקת כל הטוקנים וניתוק של חשבונך מכל מכשיר אחר שמחובר למערכת.</span></div><label class="modern-switch"><input type="checkbox" id="change_logout_devices"><span class="slider danger-slider"></span></label></div>
                         <button type="submit" id="btn-change-password" class="btn-primary" style="background:var(--secondary); margin-top: 15px;">עדכן סיסמה <i class="fa-solid fa-key"></i></button>
                     </div>
                 </form>
@@ -493,14 +502,5 @@
 
     <audio id="global-audio-player"></audio>
 
-    <script>
-        const originalSwitchAdminTab = window.switchAdminTab;
-        window.switchAdminTab = function(tabName) {
-            if(originalSwitchAdminTab) originalSwitchAdminTab(tabName);
-            if (tabName === 'tzintuk' && typeof refreshTzintukData === 'function') {
-                refreshTzintukData();
-            }
-        };
-    </script>
 </body>
 </html>
