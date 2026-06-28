@@ -9,6 +9,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const path = window.location.pathname;
     const savedUserToken = localStorage.getItem('userToken');
     const savedAdminToken = localStorage.getItem('adminToken');
+    
+    // זיהוי הפנייה מהאימייל לשירות החסימה
+    const urlParams = new URLSearchParams(window.location.search);
+    const unsubscribeToken = urlParams.get('token');
+
+    if (path.includes('/unsubscribe') || unsubscribeToken) {
+        if (typeof handleUnsubscribeFlow === 'function') {
+            handleUnsubscribeFlow(unsubscribeToken);
+        }
+        return; // עוצר את הזרימה הרגילה של האתר כדי למקד את המשתמש בחסימה בלבד
+    }
 
     if (path.includes('/admin')) {
         if (savedAdminToken) {
@@ -34,16 +45,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function startPolling() {
     if (pollingInterval) clearInterval(pollingInterval);
-    
-    // הרענון השקט והבדיקה ירוצו כל חצי דקה (30000 מילישניות)
     pollingInterval = setInterval(async () => {
         if (!state.userToken) return;
-
-        // רענון שקט של ההודעות והסטטיסטיקות
         if(typeof loadMessages === 'function') loadMessages(true);
         if(typeof loadSystemStats === 'function') loadSystemStats(true); 
-
-        // וידוא חיבור תקין מול שרת המשתמשים כל חצי דקה
         try {
             const res = await fetch(`${API_BASE_URL}/user`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -54,31 +59,24 @@ function startPolling() {
                 state.currentUser = data.user;
                 if(typeof updateDashboardUI === 'function') updateDashboardUI(); 
             } else {
-                logout(); // אם השרת סירב לטוקן - התנתקות אוטומטית
+                logout();
             }
         } catch (e) {}
     }, 30000); 
 }
 
-// פונקציה חדשה לטעינת נתוני המשתתפים במערכת
 async function loadSystemStats(isSilent = false) {
     const token = state.userToken || localStorage.getItem('userToken');
     if (!token) return;
-
     const statsEl = document.getElementById('header-system-stats');
     if (!statsEl) return;
-
-    if (!isSilent) {
-        statsEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> טוען משתתפים...';
-    }
-
+    if (!isSilent) statsEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> טוען משתתפים...';
     try {
         const res = await fetch(`${API_BASE_URL}/stats/members`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userToken: token })
         });
         const data = await res.json();
-        
         if (res.ok && data.success && data.stats) {
             const s = data.stats;
             statsEl.innerHTML = `סה"כ ${s.total} משתתפים <span style="margin: 0 4px;">|</span> <i class="fa-solid fa-phone-volume" style="font-size: 0.75rem; color: var(--play-out); margin-left: 2px;"></i> ${s.active} <i class="fa-solid fa-phone-slash" style="font-size: 0.75rem; color: var(--danger); margin-right: 4px; margin-left: 2px;"></i> ${s.blocked}`;
@@ -98,11 +96,9 @@ async function loadSystemMessage() {
             body: JSON.stringify({ userToken: state.userToken || localStorage.getItem('userToken') })
         });
         const data = await res.json();
-        
         const desktopBox = document.getElementById('desktop-announcement');
         const mobileBox = document.getElementById('mobile-announcement-content');
         const mobileBtn = document.getElementById('mobile-announcement-btn-id');
-        
         if (res.ok && data.success && data.htmlContent) {
             if(desktopBox) desktopBox.innerHTML = data.htmlContent;
             if(mobileBox) mobileBox.innerHTML = data.htmlContent;
@@ -113,7 +109,6 @@ async function loadSystemMessage() {
             if(mobileBtn) mobileBtn.classList.remove('active-btn');
         }
     } catch (e) {
-        console.error('לא ניתן לטעון את הודעת המערכת');
         const desktopBox = document.getElementById('desktop-announcement');
         const mobileBtn = document.getElementById('mobile-announcement-btn-id');
         if(desktopBox) desktopBox.innerHTML = '';
@@ -215,7 +210,6 @@ function showErrorModal(title, text) {
     document.getElementById('errorModalText').innerHTML = text;
     document.getElementById('errorAlertModal').classList.add('active');
 }
-
 function closeErrorModal() {
     document.getElementById('errorAlertModal').classList.remove('active');
 }
