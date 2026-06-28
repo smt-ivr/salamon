@@ -128,14 +128,14 @@ async function updateUserProfile(e) {
         setLoading('btn-update-profile', false, 'שמור העדפות <i class="fa-solid fa-floppy-disk"></i>');
         
         if (!res.ok) {
-            const errorMsg = (data.message || data.error || 'שגיאה בעדכון - ייתכן והסיסמה שגויה').replace(/\n/g, '<br>');
+            const errorMsg = (data.message || data.error || 'שגיאה בעדכון - ייתכן והסיסמה שגויה').replace(/\\n|\n/g, '<br>');
             showMessage('alert-settings', errorMsg, 'error');
             return;
         }
 
         // תמיכה במבנה החדש של עדכון חלקי
         const alertType = data.partialUpdate ? 'warning' : 'success';
-        const successMsg = (data.message || 'הגדרות החשבון וההעדפות עודכנו בהצלחה!').replace(/\n/g, '<br>');
+        const successMsg = (data.message || 'הגדרות החשבון וההעדפות עודכנו בהצלחה!').replace(/\\n|\n/g, '<br>');
         showMessage('alert-settings', successMsg, alertType);
         
         document.getElementById('update_auth_pass').value = '';
@@ -192,12 +192,12 @@ async function updatePassword(e) {
         setLoading('btn-change-password', false, 'עדכן סיסמה <i class="fa-solid fa-key"></i>');
         
         if (!res.ok) {
-            const errorMsg = (data.message || data.error || 'שגיאה בעדכון - ייתכן והסיסמה הנוכחית שגויה').replace(/\n/g, '<br>');
+            const errorMsg = (data.message || data.error || 'שגיאה בעדכון - ייתכן והסיסמה הנוכחית שגויה').replace(/\\n|\n/g, '<br>');
             showMessage('alert-settings', errorMsg, 'error');
             return;
         }
 
-        const successMsg = (data.message || 'הסיסמה שונתה בהצלחה!').replace(/\n/g, '<br>');
+        const successMsg = (data.message || 'הסיסמה שונתה בהצלחה!').replace(/\\n|\n/g, '<br>');
         showMessage('alert-settings', successMsg, 'success');
         
         document.getElementById('change_old_pass').value = '';
