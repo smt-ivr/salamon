@@ -34,6 +34,8 @@ async function adminLogin(e) {
 // ניהול משתמשים (Advanced User Management)
 // ==========================================
 
+window.adminUsersList = []; // שמירה גלובלית לטובת סינון מהיר
+
 async function loadAdminUsers() {
     if (!state.adminToken) return;
     const tbody = document.getElementById('admin-users-table-body');
@@ -54,37 +56,84 @@ async function loadAdminUsers() {
             return;
         }
 
-        tbody.innerHTML = '';
-        if(data.users.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">אין משתמשים במערכת.</td></tr>';
-            return;
-        }
-
-        data.users.forEach(user => {
-            const yemotBadge = user.yemotActive ? '<span class="status-ok">פעיל</span>' : '<span class="status-bad">מנותק / חסר</span>';
-            const webBadge = user.hasWebAccount ? '<i class="fa-solid fa-globe" style="color:var(--secondary);" title="רשום באתר"></i>' : '<i class="fa-solid fa-globe" style="color:#cbd5e1;" title="לא נרשם לאתר"></i>';
-            
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td style="font-weight:700; direction:ltr; text-align:right;">${user.phone}</td>
-                <td>${user.name}</td>
-                <td dir="ltr" style="text-align:right;">${user.email || '-'}</td>
-                <td>${yemotBadge}</td>
-                <td style="text-align:center;">${webBadge}</td>
-                <td style="text-align:center; font-size: 0.85rem; color: var(--text-light);">${user.createdAt ? formatDateStr(user.createdAt) : '-'}</td>
-                <td>
-                    <button class="actions-btn" onclick="openUserProfile('${user.phone}')" style="background: var(--secondary); color: white; border-color: var(--secondary);">
-                        <i class="fa-solid fa-user-gear"></i> ניהול תיק
-                    </button>
-                </td>
-            `;
-            tbody.appendChild(tr);
-        });
+        window.adminUsersList = data.users || [];
+        renderAdminUsersTable(); // קריאה לפונקציית הרינדור החדשה
     } catch (err) {
         setLoading('btn-refresh-users', false, '<i class="fa-solid fa-rotate-right"></i> רענן נתונים');
         showMessage('alert-admin-dash', 'שגיאת שרת', 'error');
     }
 }
+
+// פונקציית בניית הטבלה המופרדת - מאפשרת סינון דינמי בלחיצת כפתור
+window.renderAdminUsersTable = function() {
+    const tbody = document.getElementById('admin-users-table-body');
+    const showOnlyWebUsers = document.getElementById('filter_web_users').checked;
+    
+    tbody.innerHTML = '';
+    
+    // סינון הרשימה בהתאם למצב הצ'קבוקס
+    let filteredUsers = window.adminUsersList;
+    if (showOnlyWebUsers) {
+        filteredUsers = filteredUsers.filter(u => u.hasWebAccount);
+    }
+
+    if(filteredUsers.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">לא נמצאו משתמשים התואמים לסינון.</td></tr>';
+        return;
+    }
+
+    filteredUsers.forEach(user => {
+        const yemotBadge = user.yemotActive ? '<span class="status-ok">פעיל</span>' : '<span class="status-bad">מנותק / חסר</span>';
+        
+        // אם למשתמש יש חשבון, מציג איקון גלובוס. אם לא, מציג כפתור "פתח חשבון".
+        const webBadge = user.hasWebAccount 
+            ? '<i class="fa-solid fa-globe" style="color:var(--secondary);" title="רשום באתר"></i>' 
+            : `<button class="actions-btn" onclick="adminCreateAccount('${user.phone}')" style="background:#eff6ff; color:#2563eb; border: 1px solid #bfdbfe; padding:4px 8px; font-size:0.8rem;"><i class="fa-solid fa-user-plus"></i> פתח חשבון</button>`;
+        
+        const actionBtn = user.hasWebAccount
+            ? `<button class="actions-btn" onclick="openUserProfile('${user.phone}')" style="background: var(--secondary); color: white; border-color: var(--secondary);"><i class="fa-solid fa-user-gear"></i> ניהול תיק</button>`
+            : `<button class="actions-btn" disabled style="opacity:0.5; cursor:not-allowed;"><i class="fa-solid fa-user-gear"></i> מותנה בחשבון</button>`;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="font-weight:700; direction:ltr; text-align:right;">${user.phone}</td>
+            <td>${user.name}</td>
+            <td dir="ltr" style="text-align:right;">${user.email || '-'}</td>
+            <td>${yemotBadge}</td>
+            <td style="text-align:center;">${webBadge}</td>
+            <td style="text-align:center; font-size: 0.85rem; color: var(--text-light);">${user.createdAt ? formatDateStr(user.createdAt) : '-'}</td>
+            <td>${actionBtn}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+};
+
+// פונקציית פתיחת חשבון יזומה על ידי מנהל
+window.adminCreateAccount = async function(phone) {
+    const password = prompt(`פתיחת חשבון למספר ${phone}\n\nהזן סיסמה ראשונית (4-10 ספרות):`);
+    if (!password) return; // המשתמש לחץ ביטול
+    if (!/^\d{4,10}$/.test(password)) {
+        alert('שגיאה: הסיסמה חייבת להכיל בין 4 ל-10 ספרות בלבד.');
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/admin/create-user`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adminToken: state.adminToken, phone: phone, password: password })
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+            alert('החשבון נפתח בהצלחה! המשתמש יכול כעת להתחבר עם הסיסמה שהגדרת.');
+            loadAdminUsers(); // רענון הרשימה מול השרת
+        } else {
+            alert(data.error || 'אירעה שגיאה ביצירת החשבון.');
+        }
+    } catch (e) {
+        alert('שגיאת תקשורת מול השרת.');
+    }
+};
 
 function switchAdminProfileTab(tab) {
     document.querySelectorAll('#adminUserProfileModal .settings-tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -109,7 +158,6 @@ async function openUserProfile(phone) {
     const alertBox = document.getElementById('alert-admin-profile');
     alertBox.style.display = 'none';
     
-    // ניקוי נתונים ישנים
     document.getElementById('prof_phone').value = phone;
     document.getElementById('prof_phone_hidden').value = phone;
     document.getElementById('prof_name').value = 'טוען...';
@@ -134,8 +182,6 @@ async function openUserProfile(phone) {
         }
 
         const p = data.profile;
-        
-        // טאב פרטים והרשאות
         document.getElementById('prof_name').value = p.yemot.name || 'לא הוגדר במערכת בימות';
         const yemotHtml = p.yemot.active 
             ? `<span class="status-ok"><i class="fa-solid fa-check-circle"></i> פעיל בימות</span>` 
@@ -149,15 +195,8 @@ async function openUserProfile(phone) {
             document.getElementById('prof_can_tzintuk').checked = p.user.can_tzintuk !== 0;
             document.getElementById('prof_receive_emails').checked = p.user.receive_emails !== 0;
             document.getElementById('prof_google_only').checked = p.user.google_login_only === 1;
-        } else {
-            // משתמש שטרם נרשם לאתר
-            showMessage('alert-admin-profile', 'המשתמש טרם פתח חשבון באתר, ולכן לא ניתן לערוך את הרשאותיו כרגע.', 'warning');
-            ['prof_email', 'prof_password', 'prof_can_record', 'prof_can_upload', 'prof_can_tzintuk', 'prof_receive_emails', 'prof_google_only', 'btn-save-user-profile'].forEach(id => {
-                document.getElementById(id).disabled = true;
-            });
         }
 
-        // טאב מכשירים מחוברים
         const tbody = document.getElementById('prof-sessions-tbody');
         tbody.innerHTML = '';
         if (!p.activeSessions || p.activeSessions.length === 0) {
@@ -166,7 +205,6 @@ async function openUserProfile(phone) {
             p.activeSessions.forEach(sess => {
                 let typeIcon = sess.token_type.includes('google') ? '<i class="fa-brands fa-google text-google"></i> Google' : '<i class="fa-solid fa-lock text-password"></i> סיסמה';
                 let expInfo = sess.token_type.includes('perm') ? '<span class="status-ok">קבוע</span>' : '<span class="status-bad">זמני</span>';
-                
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td style="font-size:0.85rem; font-weight:bold;">${typeIcon} (${expInfo})</td>
@@ -187,8 +225,7 @@ async function submitAdminUserUpdate(e) {
     const phone = document.getElementById('prof_phone_hidden').value;
     
     const payload = {
-        adminToken: state.adminToken,
-        phone: phone,
+        adminToken: state.adminToken, phone: phone,
         newEmail: document.getElementById('prof_email').value,
         newPassword: document.getElementById('prof_password').value,
         canRecord: document.getElementById('prof_can_record').checked,
@@ -200,21 +237,14 @@ async function submitAdminUserUpdate(e) {
 
     setLoading('btn-save-user-profile', true);
     try {
-        const res = await fetch(`${API_BASE_URL}/admin/update-user`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+        const res = await fetch(`${API_BASE_URL}/admin/update-user`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const data = await res.json();
         setLoading('btn-save-user-profile', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
-        
-        if (!res.ok) {
-            showMessage('alert-admin-profile', data.error || 'שגיאה בעדכון', 'error');
-            return;
-        }
+        if (!res.ok) { showMessage('alert-admin-profile', data.error || 'שגיאה בעדכון', 'error'); return; }
         
         showMessage('alert-admin-profile', 'ההגדרות נשמרו בהצלחה!', 'success');
         document.getElementById('prof_password').value = ''; 
-        loadAdminUsers(); // ריענון טבלת הרקע
+        loadAdminUsers();
     } catch (err) {
         setLoading('btn-save-user-profile', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
         showMessage('alert-admin-profile', 'שגיאת תקשורת', 'error');
@@ -227,21 +257,11 @@ async function disconnectAdminUserToken(tokenId) {
     if (!confirm(msg)) return;
 
     try {
-        const res = await fetch(`${API_BASE_URL}/admin/user-tokens/delete`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ adminToken: state.adminToken, phone: phone, tokenId: tokenId })
-        });
+        const res = await fetch(`${API_BASE_URL}/admin/user-tokens/delete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: state.adminToken, phone: phone, tokenId: tokenId }) });
         const data = await res.json();
-        
-        if (res.ok) {
-            showMessage('alert-admin-profile', data.message || 'הניתוק בוצע בהצלחה', 'success');
-            openUserProfile(phone); // ריענון חלון המודל
-        } else {
-            showMessage('alert-admin-profile', data.error || 'שגיאה בניתוק', 'error');
-        }
-    } catch (err) {
-        showMessage('alert-admin-profile', 'שגיאת תקשורת', 'error');
-    }
+        if (res.ok) { showMessage('alert-admin-profile', data.message || 'הניתוק בוצע בהצלחה', 'success'); openUserProfile(phone); }
+        else { showMessage('alert-admin-profile', data.error || 'שגיאה בניתוק', 'error'); }
+    } catch (err) { showMessage('alert-admin-profile', 'שגיאת תקשורת', 'error'); }
 }
 
 // ==========================================
@@ -261,11 +281,7 @@ async function loadVerifyBlocks() {
     if(!tbody) return;
     tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען נתוני חסימות...</td></tr>';
     try {
-        // שימו לב: נתיב תוקן ל- /verify/admin/blocks
-        const res = await fetch(`${API_BASE_URL}/verify/admin/blocks`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ adminToken: state.adminToken })
-        });
+        const res = await fetch(`${API_BASE_URL}/verify/admin/blocks`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: state.adminToken }) });
         const data = await res.json();
         if (!res.ok) { tbody.innerHTML = `<tr><td colspan="6" class="empty-state" style="color:var(--danger);">${data.error || 'שגיאה'}</td></tr>`; return; }
         tbody.innerHTML = '';
@@ -294,10 +310,7 @@ async function loadVerifyLogs() {
     if(!tbody) return;
     tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען היסטוריה...</td></tr>';
     try {
-        // שימו לב: נתיב תוקן ל- /verify/admin/logs
-        const res = await fetch(`${API_BASE_URL}/verify/admin/logs`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: state.adminToken, limit: 150 })
-        });
+        const res = await fetch(`${API_BASE_URL}/verify/admin/logs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: state.adminToken, limit: 150 }) });
         const data = await res.json();
         if (!res.ok) { tbody.innerHTML = `<tr><td colspan="7" class="empty-state" style="color:var(--danger);">${data.error}</td></tr>`; return; }
         tbody.innerHTML = '';
@@ -325,7 +338,6 @@ async function submitManualBlock(e) {
     if (!value) return;
     setLoading('btn-submit-block', true);
     try {
-        // שימו לב: נתיב תוקן ל- /verify/admin/block
         const res = await fetch(`${API_BASE_URL}/verify/admin/block`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: state.adminToken, type, value, reason, durationValue: duration, durationUnit: unit }) });
         const data = await res.json();
         setLoading('btn-submit-block', false, 'החל חסימה <i class="fa-solid fa-lock"></i>');
@@ -337,7 +349,6 @@ async function submitManualBlock(e) {
 async function unblockUser(type, value) {
     if (!confirm(`לשחרר חסימה על ${value}?`)) return;
     try {
-        // שימו לב: נתיב תוקן ל- /verify/admin/unblock
         const res = await fetch(`${API_BASE_URL}/verify/admin/unblock`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: state.adminToken, type, target: value }) });
         if (res.ok) refreshTzintukData(); else alert((await res.json()).error || 'שגיאה');
     } catch (err) { alert('שגיאת תקשורת'); }
@@ -349,7 +360,6 @@ async function cleanOldLogs() {
     const originalText = btn.innerHTML;
     btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מנקה...'; btn.disabled = true;
     try {
-        // שימו לב: נתיב תוקן ל- /verify/admin/clean
         const res = await fetch(`${API_BASE_URL}/verify/admin/clean`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: state.adminToken }) });
         if (res.ok) refreshTzintukData(); else alert((await res.json()).error || 'שגיאה');
     } catch (err) { alert('שגיאת תקשורת'); } finally { btn.innerHTML = originalText; btn.disabled = false; }
