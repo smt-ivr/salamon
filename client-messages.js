@@ -17,7 +17,7 @@ async function loadMessages(isSilent = false, loadMore = false) {
     const container = document.getElementById('messages-container');
     if (!container) return;
 
-    // איפוס אם זו טעינה רגילה מאפס
+    // איפוס מוחלט רק אם זו טעינה רגילה מאפס
     if (!loadMore && !isSilent) {
         currentFilesFrom = 0;
         currentPage = 1; // איפוס מספור העמודים
@@ -42,7 +42,7 @@ async function loadMessages(isSilent = false, loadMore = false) {
                 userToken: token, 
                 filesLimit: FILES_LIMIT, 
                 filesFrom: fetchFrom,
-                page: currentPage // שליחת פרמטר העמוד לשרת לפי בקשתך
+                page: currentPage // שליחת פרמטר העמוד לשרת
             })
         });
         const data = await res.json();
@@ -54,7 +54,7 @@ async function loadMessages(isSilent = false, loadMore = false) {
             return;
         }
 
-        // כאשר הגענו באמת לסוף והשרת מחזיר 0 הודעות
+        // במקרה שהגענו לסוף והשרת מחזיר 0 הודעות
         if (!data.messages || data.messages.length === 0) {
             if (!isSilent && !loadMore) container.innerHTML = '<div class="loading-state">אין הודעות להצגה כרגע.</div>';
             if (loadMore) {
@@ -62,17 +62,17 @@ async function loadMessages(isSilent = false, loadMore = false) {
                 if (btn) {
                     btn.innerHTML = '<i class="fa-solid fa-check"></i> הוצגו כל ההודעות';
                     btn.disabled = true;
-                    btn.classList.remove('btn-load-more'); // הסרת המחלקה כדי לעצור את האובזרבר
+                    btn.classList.remove('btn-load-more'); // עצירת הגלילה האוטומטית
                 }
             }
             if (!loadMore) currentRenderedMessagesHash = '';
             return;
         }
 
-        // חיבור ההודעות החדשות למערך ההודעות הקיים
+        // עדכון המערך הכללי למעקב, אבל לא שולחים את כולו לרינדור מחדש
         if (loadMore) {
             currentFilesFrom = fetchFrom;
-            allLoadedMessages = [...allLoadedMessages, ...data.messages];
+            allLoadedMessages.push(...data.messages);
         } else {
             currentFilesFrom = 0;
             allLoadedMessages = data.messages;
@@ -80,22 +80,19 @@ async function loadMessages(isSilent = false, loadMore = false) {
 
         const newMessagesHash = allLoadedMessages.map(m => m.name).join('|');
 
-        // אם זו קריאה שקטה ושום הודעה לא נוספה/נמחקה, רק מעדכנים סטטיסטיקות
         if (isSilent && !loadMore && newMessagesHash === currentRenderedMessagesHash) {
             fetchAllStats(data.messages, token, true);
             return;
         }
 
         currentRenderedMessagesHash = newMessagesHash;
-        
-        // התיקון הקריטי: אנחנו תמיד מאפשרים כפתור טעינה נוספת, כל עוד השרת לא החזיר 0 הודעות (שמטופל למעלה)
         const hasMore = true; 
         
-        renderMessages(allLoadedMessages, hasMore);
+        // כאן התיקון: אנחנו שולחים לפונקציית הרינדור *רק* את ההודעות החדשות שהגיעו
+        renderMessages(data.messages, hasMore, loadMore);
         
-        // טעינת סטטיסטיקות רק להודעות החדשות שנמשכו כדי לחסוך עומס
-        const messagesToFetchStats = loadMore ? data.messages : allLoadedMessages;
-        fetchAllStats(messagesToFetchStats, token, false);
+        // טעינת סטטיסטיקות רק להודעות החדשות שנמשכו
+        fetchAllStats(data.messages, token, false);
 
     } catch (err) {
         isFetchingMessages = false;
@@ -107,7 +104,6 @@ async function loadMessages(isSilent = false, loadMore = false) {
     }
 }
 
-// פונקציה לטעינת כל הסטטיסטיקות בקבוצות קטנות
 async function fetchAllStats(messages, token, isSilentRefresh = false) {
     for (let i = 0; i < messages.length; i += 5) {
         const batch = messages.slice(i, i + 5);
@@ -146,30 +142,42 @@ async function fetchMessageStats(fileId, token, isSilentRefresh = false) {
     }
 }
 
-function renderMessages(messages, hasMore) {
+let lastRenderedDate = "-"; // משתנה גלובלי שעוקב אחרי התאריך האחרון שהודפס
+
+function renderMessages(messages, hasMore, isLoadMore = false) {
     const container = document.getElementById('messages-container');
-    
-    // שמירת מיקום הגלילה הנוכחי
-    const prevScrollHeight = container.scrollHeight;
-    
-    container.innerHTML = ''; 
+
+    // אם זו טעינה חדשה - מנקים את המסך. אם זו הוספת הודעות ישנות - לא נוגעים בקיים!
+    if (!isLoadMore) {
+        container.innerHTML = '';
+        lastRenderedDate = messages.length > 0 && messages[0].mtime ? messages[0].mtime.split(" ")[0] : "-";
+    } else {
+        // מסירים רק את כפתור הטעינה הישן כדי שנוכל לדחוף את ההודעות החדשות
+        const oldLoadMore = document.querySelector('.load-more-wrapper');
+        if (oldLoadMore) oldLoadMore.remove();
+
+        // מסירים את חותמת התאריך העליונה ביותר כדי למנוע כפילויות אם התאריך לא התחלף
+        if (container.lastElementChild && container.lastElementChild.classList.contains('date-divider')) {
+            container.lastElementChild.remove();
+        }
+    }
 
     if(messages.length === 0) return;
-    let currentDateGroup = messages[0].mtime ? messages[0].mtime.split(" ")[0] : "-";
 
     messages.forEach((msg, index) => {
         const fullDateTime = msg.mtime || '-';
         let datePart = "-", timePart = "-";
         if(fullDateTime.includes(" ")) [datePart, timePart] = fullDateTime.split(" ");
 
-        if (datePart !== currentDateGroup) {
-             if (currentDateGroup !== "-") {
-                const divider = document.createElement('div');
-                divider.className = 'date-divider';
-                divider.innerHTML = `<span>${currentDateGroup}</span>`;
-                container.appendChild(divider);
-            }
-            currentDateGroup = datePart;
+        // טיפול בחוצצי תאריכים
+        if (datePart !== lastRenderedDate && lastRenderedDate !== "-") {
+            const divider = document.createElement('div');
+            divider.className = 'date-divider';
+            divider.innerHTML = `<span>${lastRenderedDate}</span>`;
+            container.appendChild(divider);
+            lastRenderedDate = datePart;
+        } else if (lastRenderedDate === "-") {
+            lastRenderedDate = datePart;
         }
 
         const isOut = msg.isOutgoing === true; 
@@ -235,17 +243,19 @@ function renderMessages(messages, hasMore) {
                 </div>
             </div>
         `;
+        // הוספת ההודעה בסוף ה-DOM (שזה בעצם למעלה בגלל column-reverse)
         container.appendChild(bubble);
-
-        if (index === messages.length - 1) {
-            const divider = document.createElement('div');
-            divider.className = 'date-divider';
-            divider.innerHTML = `<span>${currentDateGroup}</span>`;
-            container.appendChild(divider);
-        }
     });
 
-    // הוספת כפתור "טען הודעות קודמות" והפעלת גלילה אוטומטית רק במידה ויש עוד
+    // הוספת חותמת תאריך אחרונה שתסגור את הקבוצה שהרגע נטענה
+    if (lastRenderedDate !== "-") {
+        const finalDivider = document.createElement('div');
+        finalDivider.className = 'date-divider';
+        finalDivider.innerHTML = `<span>${lastRenderedDate}</span>`;
+        container.appendChild(finalDivider);
+    }
+
+    // החזרת כפתור "טען הודעות קודמות" למעלה
     if (hasMore) {
         const loadMoreContainer = document.createElement('div');
         loadMoreContainer.className = 'load-more-wrapper';
@@ -259,7 +269,7 @@ function renderMessages(messages, hasMore) {
         loadMoreContainer.appendChild(loadMoreBtn);
         container.appendChild(loadMoreContainer);
 
-        // שימוש ב-IntersectionObserver לטעינה אוטומטית - עכשיו עם threshold מדויק יותר
+        // הפעלת טעינה אוטומטית כשהכפתור נכנס למסך
         try {
             const observer = new IntersectionObserver((entries) => {
                 if (entries[0].isIntersecting && !isFetchingMessages) {
@@ -268,11 +278,6 @@ function renderMessages(messages, hasMore) {
             }, { root: container, threshold: 0.1 }); 
             observer.observe(loadMoreContainer);
         } catch(e) {}
-    }
-
-    // תיקון מיקום גלילה בטעינת הודעות ישנות (מונע קפיצה של המסך למיקום לא רצוי)
-    if (prevScrollHeight > 0 && container.scrollHeight > prevScrollHeight) {
-        container.scrollTop = container.scrollTop + (container.scrollHeight - prevScrollHeight);
     }
 }
 
