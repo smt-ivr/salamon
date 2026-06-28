@@ -1,5 +1,3 @@
-// client-settings.js
-
 function updateDashboardUI() {
     const user = state.currentUser;
     if (!user) return;
@@ -7,7 +5,6 @@ function updateDashboardUI() {
     document.getElementById('ui-user-name').innerText = user.name || 'אורח';
     document.getElementById('ui-user-phone').innerText = user.phone;
     
-    // אייקונים עגולים ונקיים בלבד ללא טקסט
     const authIcon = user.authMethod === 'google' 
         ? `<div class="auth-icon-circle google" title="התחברות מאובטחת באמצעות חשבון Google"><i class="fa-brands fa-google"></i></div>`
         : `<div class="auth-icon-circle password" title="התחברות רגילה (סיסמה)"><i class="fa-solid fa-lock"></i></div>`;
@@ -78,6 +75,24 @@ function openUserSettingsModal() {
     document.getElementById('update_google_only').checked = user.googleLoginOnly;
     document.getElementById('update_auth_pass').value = '';
     
+    // ניהול תצוגת חסימת הרשימה השחורה
+    const emailBlockedWarning = document.getElementById('email_blocked_warning');
+    if (user.emailGloballyBlocked) {
+        emailBlockedWarning.style.display = 'block';
+        const unblockBtn = document.getElementById('btn_unblock_email');
+        const blockText = document.getElementById('email_blocked_text');
+        
+        if (user.authMethod === 'google') {
+            unblockBtn.style.display = 'inline-flex';
+            blockText.innerText = 'כתובת האימייל שלך חסומה ברשימה השחורה. מכיוון שהתחברת עם חשבון גוגל, באפשרותך לשחרר את החסימה כעת.';
+        } else {
+            unblockBtn.style.display = 'none';
+            blockText.innerHTML = 'כתובת האימייל חסומה. <b>לשחרור החסימה:</b> התנתקו והתחברו מחדש למערכת באמצעות כפתור ה-Google המשויך לכתובת זו.';
+        }
+    } else {
+        emailBlockedWarning.style.display = 'none';
+    }
+    
     document.getElementById('change_old_pass').value = '';
     document.getElementById('change_new_pass').value = '';
     document.getElementById('change_new_pass_confirm').value = '';
@@ -133,14 +148,12 @@ async function updateUserProfile(e) {
             return;
         }
 
-        // תמיכה במבנה החדש של עדכון חלקי
         const alertType = data.partialUpdate ? 'warning' : 'success';
         const successMsg = (data.message || 'הגדרות החשבון וההעדפות עודכנו בהצלחה!').replace(/\\n|\n/g, '<br>');
         showMessage('alert-settings', successMsg, alertType);
         
         document.getElementById('update_auth_pass').value = '';
         
-        // רענון נתוני המשתמש מהשרת כדי להבטיח תאימות מדויקת למסד הנתונים
         const userRes = await fetch(`${API_BASE_URL}/user`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userToken: state.userToken })
@@ -151,10 +164,15 @@ async function updateUserProfile(e) {
             state.currentUser = userData.user;
             if (typeof updateDashboardUI === 'function') updateDashboardUI();
             
-            // סנכרון השדות בטופס לערכים המעודכנים בפועל (חשוב למקרה של עדכון חלקי)
             document.getElementById('update_email').value = userData.user.email || '';
             document.getElementById('update_receive_emails').checked = userData.user.receiveEmails;
             document.getElementById('update_google_only').checked = userData.user.googleLoginOnly;
+            
+            if (userData.user.emailGloballyBlocked) {
+                document.getElementById('email_blocked_warning').style.display = 'block';
+            } else {
+                document.getElementById('email_blocked_warning').style.display = 'none';
+            }
         }
         
     } catch (err) {
