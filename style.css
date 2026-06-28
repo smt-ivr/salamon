@@ -307,12 +307,13 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
     .app-sidebar { width: 100%; height: auto; border-left: none; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
     
     .sidebar-header { height: 52px; padding: 0 12px; }
-    .chat-header-fixed { height: 52px; padding: 0 12px; }
+    .chat-header-fixed { height: 52px; padding: 0 12px; gap: 5px; }
+    .header-title-group { overflow: hidden; min-width: 0; }
     .user-profile-wrap .avatar, .header-icon { width: 34px; height: 34px; font-size: 1rem; }
     .user-details h2 { font-size: 0.9rem; margin-bottom: 0px; }
     .user-details p { font-size: 0.75rem; }
-    .header-title h3 { font-size: 0.95rem; margin-bottom: 0px; }
-    .header-title p { font-size: 0.75rem; }
+    .header-title h3 { font-size: 0.95rem; margin-bottom: 0px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+    .header-title p { font-size: 0.75rem; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
     .sidebar-actions { gap: 2px; }
     .sidebar-actions button, .icon-btn { padding: 6px; font-size: 1.1rem; }
     
