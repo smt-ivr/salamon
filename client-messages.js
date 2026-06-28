@@ -4,6 +4,7 @@ let allLoadedMessages = [];
 let currentFilesFrom = 0;
 const FILES_LIMIT = 40;
 let isFetchingMessages = false;
+let currentPage = 1; // משתנה למעקב אחר העמוד הנוכחי
 
 async function loadMessages(isSilent = false, loadMore = false) {
     if (isFetchingMessages) return;
@@ -19,6 +20,7 @@ async function loadMessages(isSilent = false, loadMore = false) {
     // איפוס אם זו טעינה רגילה מאפס
     if (!loadMore && !isSilent) {
         currentFilesFrom = 0;
+        currentPage = 1; // איפוס מספור העמודים
         allLoadedMessages = [];
         container.innerHTML = '<div class="loading-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען הודעות...</div>';
     }
@@ -28,6 +30,7 @@ async function loadMessages(isSilent = false, loadMore = false) {
     if (loadMore) {
         const btn = document.getElementById('load-more-btn');
         if (btn) btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> טוען הודעות קודמות...';
+        currentPage++; // קידום מספור העמוד
     }
 
     try {
@@ -35,7 +38,12 @@ async function loadMessages(isSilent = false, loadMore = false) {
         
         const res = await fetch(`${API_BASE_URL}/messages/list`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userToken: token, filesLimit: FILES_LIMIT, filesFrom: fetchFrom })
+            body: JSON.stringify({ 
+                userToken: token, 
+                filesLimit: FILES_LIMIT, 
+                filesFrom: fetchFrom,
+                page: currentPage // שליחת פרמטר העמוד לשרת
+            })
         });
         const data = await res.json();
         
@@ -136,6 +144,10 @@ async function fetchMessageStats(fileId, token, isSilentRefresh = false) {
 
 function renderMessages(messages, hasMore) {
     const container = document.getElementById('messages-container');
+    
+    // שמירת מיקום הגלילה הנוכחי
+    const prevScrollHeight = container.scrollHeight;
+    
     container.innerHTML = ''; 
 
     if(messages.length === 0) return;
@@ -229,7 +241,7 @@ function renderMessages(messages, hasMore) {
         }
     });
 
-    // הוספת כפתור "טען הודעות קודמות" בסוף הקונטיינר (שמופיע בראש המסך עקב עיצוב flex column-reverse)
+    // הוספת כפתור "טען הודעות קודמות" והפעלת גלילה אוטומטית
     if (hasMore) {
         const loadMoreContainer = document.createElement('div');
         loadMoreContainer.className = 'load-more-wrapper';
@@ -242,6 +254,21 @@ function renderMessages(messages, hasMore) {
         
         loadMoreContainer.appendChild(loadMoreBtn);
         container.appendChild(loadMoreContainer);
+
+        // שימוש ב-IntersectionObserver לטעינה אוטומטית כאשר הכפתור נכנס למסך
+        try {
+            const observer = new IntersectionObserver((entries) => {
+                if (entries[0].isIntersecting && !isFetchingMessages) {
+                    loadMessages(false, true);
+                }
+            }, { root: container, rootMargin: '100px' });
+            observer.observe(loadMoreContainer);
+        } catch(e) {}
+    }
+
+    // תיקון מיקום גלילה בטעינת הודעות ישנות (מונע קפיצה)
+    if (prevScrollHeight > 0 && container.scrollHeight > prevScrollHeight) {
+        container.scrollTop = container.scrollTop + (container.scrollHeight - prevScrollHeight);
     }
 }
 
