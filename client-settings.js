@@ -128,16 +128,34 @@ async function updateUserProfile(e) {
         setLoading('btn-update-profile', false, 'שמור העדפות <i class="fa-solid fa-floppy-disk"></i>');
         
         if (!res.ok) {
-            showMessage('alert-settings', data.message || data.error || 'שגיאה בעדכון - ייתכן והסיסמה שגויה', 'error');
+            const errorMsg = (data.message || data.error || 'שגיאה בעדכון - ייתכן והסיסמה שגויה').replace(/\n/g, '<br>');
+            showMessage('alert-settings', errorMsg, 'error');
             return;
         }
 
-        state.currentUser.email = newEmail;
-        state.currentUser.receiveEmails = receiveEmails;
-        state.currentUser.googleLoginOnly = googleLoginOnly;
+        // תמיכה במבנה החדש של עדכון חלקי
+        const alertType = data.partialUpdate ? 'warning' : 'success';
+        const successMsg = (data.message || 'הגדרות החשבון וההעדפות עודכנו בהצלחה!').replace(/\n/g, '<br>');
+        showMessage('alert-settings', successMsg, alertType);
         
-        showMessage('alert-settings', 'הגדרות החשבון וההעדפות עודכנו בהצלחה!', 'success');
         document.getElementById('update_auth_pass').value = '';
+        
+        // רענון נתוני המשתמש מהשרת כדי להבטיח תאימות מדויקת למסד הנתונים
+        const userRes = await fetch(`${API_BASE_URL}/user`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userToken: state.userToken })
+        });
+        const userData = await userRes.json();
+        
+        if (userRes.ok && userData.user) {
+            state.currentUser = userData.user;
+            if (typeof updateDashboardUI === 'function') updateDashboardUI();
+            
+            // סנכרון השדות בטופס לערכים המעודכנים בפועל (חשוב למקרה של עדכון חלקי)
+            document.getElementById('update_email').value = userData.user.email || '';
+            document.getElementById('update_receive_emails').checked = userData.user.receiveEmails;
+            document.getElementById('update_google_only').checked = userData.user.googleLoginOnly;
+        }
         
     } catch (err) {
         setLoading('btn-update-profile', false, 'שמור העדפות <i class="fa-solid fa-floppy-disk"></i>');
@@ -174,11 +192,14 @@ async function updatePassword(e) {
         setLoading('btn-change-password', false, 'עדכן סיסמה <i class="fa-solid fa-key"></i>');
         
         if (!res.ok) {
-            showMessage('alert-settings', data.message || data.error || 'שגיאה בעדכון - ייתכן והסיסמה הנוכחית שגויה', 'error');
+            const errorMsg = (data.message || data.error || 'שגיאה בעדכון - ייתכן והסיסמה הנוכחית שגויה').replace(/\n/g, '<br>');
+            showMessage('alert-settings', errorMsg, 'error');
             return;
         }
 
-        showMessage('alert-settings', data.message || 'הסיסמה שונתה בהצלחה!', 'success');
+        const successMsg = (data.message || 'הסיסמה שונתה בהצלחה!').replace(/\n/g, '<br>');
+        showMessage('alert-settings', successMsg, 'success');
+        
         document.getElementById('change_old_pass').value = '';
         document.getElementById('change_new_pass').value = '';
         document.getElementById('change_new_pass_confirm').value = '';
