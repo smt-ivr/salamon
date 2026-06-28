@@ -33,6 +33,15 @@
                 color: var(--secondary, #3b82f6);
             }
         }
+        
+        /* תיקון עבור נראות גלילה באזור המנהל */
+        #admin-dash-view .app-main-area {
+            overflow-y: auto !important;
+        }
+        #admin-dash-view .app-tab {
+            overflow: visible !important;
+            min-height: min-content;
+        }
     </style>
 
     <script src="/salamon/client-main.js" defer></script>
@@ -250,11 +259,19 @@
                 </nav>
             </aside>
 
-            <div class="app-main-area" style="background: #fff; overflow-y: auto;">
+            <!-- אזור התוכן המרכזי של המנהל (עם הגלילה המסודרת) -->
+            <div class="app-main-area" style="background: #fff;">
                 
                 <div id="tab-admin-users" class="app-tab scrollable-tab active">
                     <div class="admin-top-bar">
-                        <div><h1>רשימת משתמשים</h1><p class="subtitle">צפייה וניהול של כלל משתמשי האתר וימות המשיח</p></div>
+                        <div>
+                            <h1>רשימת משתמשים</h1>
+                            <p class="subtitle" style="margin-bottom: 5px;">צפייה וניהול של כלל משתמשי האתר וימות המשיח</p>
+                            <label style="display: flex; align-items: center; gap: 8px; margin-top: 10px; font-weight: bold; cursor: pointer; font-size: 0.95rem; color: var(--secondary);">
+                                <input type="checkbox" id="filter_web_users" checked onchange="renderAdminUsersTable()" style="width: 18px; height: 18px; accent-color: var(--secondary);">
+                                הצג רק משתמשים שפתחו חשבון באתר
+                            </label>
+                        </div>
                         <button onclick="loadAdminUsers()" class="btn-primary small-btn" id="btn-refresh-users" style="width: auto; background: var(--secondary);"><i class="fa-solid fa-rotate-right"></i> רענן נתונים</button>
                     </div>
                     <div id="alert-admin-dash" class="alert-box"></div>
@@ -287,18 +304,18 @@
                     </div>
 
                     <h3 style="margin-bottom: 15px; color: var(--text-dark);"><i class="fa-solid fa-shield-virus"></i> חסימות פעילות ברשת</h3>
-                    <div class="table-wrapper" style="margin-bottom: 40px;">
+                    <div class="table-wrapper" style="margin-bottom: 40px; overflow: visible;">
                         <table class="modern-table">
                             <thead><tr><th>סוג חסימה</th><th>ערך (טלפון/IP)</th><th>סיבה שצוינה</th><th>תאריך הפעלה</th><th>תפוגה</th><th>פעולות</th></tr></thead>
                             <tbody id="admin-blocks-table-body"></tbody>
                         </table>
                     </div>
 
-                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; padding-top: 15px;">
                         <h3 style="color: var(--text-dark); margin: 0;"><i class="fa-solid fa-list-ol"></i> היסטוריית פעולות ואימותים אחרונים</h3>
                         <button onclick="cleanOldLogs()" id="btn-clean-logs" class="btn-text" style="font-size: 0.85rem; padding: 0; width: auto;"><i class="fa-solid fa-broom"></i> נקה לוגים ישנים</button>
                     </div>
-                    <div class="table-wrapper">
+                    <div class="table-wrapper" style="overflow: visible;">
                         <table class="modern-table">
                             <thead><tr><th>מזהה</th><th>תאריך ושעה</th><th>רמת חומרה</th><th>סוג פעולה</th><th>טלפון יעד</th><th>כתובת IP מקור</th><th>פירוט נוסף מהשרת</th></tr></thead>
                             <tbody id="admin-logs-table-body"></tbody>
