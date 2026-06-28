@@ -1,3 +1,5 @@
+// client-admin.js
+
 async function adminLogin(e) {
     if (e) e.preventDefault();
     const username = document.getElementById('admin_user').value;
@@ -28,10 +30,14 @@ async function adminLogin(e) {
     }
 }
 
+// ==========================================
+// ניהול משתמשים (Advanced User Management)
+// ==========================================
+
 async function loadAdminUsers() {
     if (!state.adminToken) return;
     const tbody = document.getElementById('admin-users-table-body');
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען נתונים...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען נתונים... (מסתנכרן מול ימות המשיח)</td></tr>';
     setLoading('btn-refresh-users', true);
     try {
         const res = await fetch(`${API_BASE_URL}/admin/users`, {
@@ -40,6 +46,7 @@ async function loadAdminUsers() {
         });
         const data = await res.json();
         setLoading('btn-refresh-users', false, '<i class="fa-solid fa-rotate-right"></i> רענן נתונים');
+        
         if (!res.ok) {
             if (res.status === 401 || res.status === 403) { logout(); return; }
             showMessage('alert-admin-dash', data.message || data.error || 'שגיאה', 'error');
@@ -49,24 +56,27 @@ async function loadAdminUsers() {
 
         tbody.innerHTML = '';
         if(data.users.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">אין משתמשים.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">אין משתמשים במערכת.</td></tr>';
             return;
         }
 
         data.users.forEach(user => {
-            const isTz = (user.connectedToTzintukim === 'yes' || user.connectedToTzintukim === true || user.connectedToTzintukim === '1');
-            const badgeHtml = isTz ? '<span class="status-ok">פעיל</span>' : '<span class="status-bad">מנותק</span>';
-            const recordHtml = user.canRecord ? '<span class="status-ok">מורשה</span>' : '<span class="status-bad">חסום</span>';
-            const uploadHtml = user.canUpload ? '<span class="status-ok">מורשה</span>' : '<span class="status-bad">חסום</span>';
+            const yemotBadge = user.yemotActive ? '<span class="status-ok">פעיל</span>' : '<span class="status-bad">מנותק / חסר</span>';
+            const webBadge = user.hasWebAccount ? '<i class="fa-solid fa-globe" style="color:var(--secondary);" title="רשום באתר"></i>' : '<i class="fa-solid fa-globe" style="color:#cbd5e1;" title="לא נרשם לאתר"></i>';
+            
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td style="font-weight:700; direction:ltr; text-align:right;">${user.phone}</td>
-                <td>${user.name || ''}</td>
+                <td>${user.name}</td>
                 <td dir="ltr" style="text-align:right;">${user.email || '-'}</td>
-                <td>${badgeHtml}</td>
-                <td>${recordHtml}</td>
-                <td>${uploadHtml}</td>
-                <td><button class="actions-btn" onclick="openAdminModal('${user.phone}', '${user.email || ''}', ${user.canUpload}, ${user.canRecord})"><i class="fa-solid fa-pen"></i> עריכה</button></td>
+                <td>${yemotBadge}</td>
+                <td style="text-align:center;">${webBadge}</td>
+                <td style="text-align:center; font-size: 0.85rem; color: var(--text-light);">${user.createdAt ? formatDateStr(user.createdAt) : '-'}</td>
+                <td>
+                    <button class="actions-btn" onclick="openUserProfile('${user.phone}')" style="background: var(--secondary); color: white; border-color: var(--secondary);">
+                        <i class="fa-solid fa-user-gear"></i> ניהול תיק
+                    </button>
+                </td>
             `;
             tbody.appendChild(tr);
         });
@@ -76,50 +86,167 @@ async function loadAdminUsers() {
     }
 }
 
-function openAdminModal(phone, email, canUpload, canRecord) {
-    document.getElementById('modal_phone').value = phone;
-    document.getElementById('modal_email').value = email;
-    document.getElementById('modal_password').value = '';
-    const checkUpload = document.getElementById('modal_can_upload');
-    if(checkUpload) checkUpload.checked = canUpload;
-    const checkRecord = document.getElementById('modal_can_record');
-    if(checkRecord) checkRecord.checked = canRecord;
-    document.getElementById('alert-modal').style.display = 'none';
-    document.getElementById('adminEditModal').classList.add('active');
+function switchAdminProfileTab(tab) {
+    document.querySelectorAll('#adminUserProfileModal .settings-tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.getElementById('tab-admin-profile-info').style.display = 'none';
+    document.getElementById('tab-admin-profile-sessions').style.display = 'none';
+    
+    if (tab === 'info') {
+        document.querySelectorAll('#adminUserProfileModal .settings-tab-btn')[0].classList.add('active');
+        document.getElementById('tab-admin-profile-info').style.display = 'block';
+    } else {
+        document.querySelectorAll('#adminUserProfileModal .settings-tab-btn')[1].classList.add('active');
+        document.getElementById('tab-admin-profile-sessions').style.display = 'block';
+    }
 }
 
-function closeAdminModal() { document.getElementById('adminEditModal').classList.remove('active'); }
+function closeUserProfileModal() {
+    document.getElementById('adminUserProfileModal').classList.remove('active');
+}
 
-async function submitAdminUpdate(e) {
+async function openUserProfile(phone) {
+    const modal = document.getElementById('adminUserProfileModal');
+    const alertBox = document.getElementById('alert-admin-profile');
+    alertBox.style.display = 'none';
+    
+    // ניקוי נתונים ישנים
+    document.getElementById('prof_phone').value = phone;
+    document.getElementById('prof_phone_hidden').value = phone;
+    document.getElementById('prof_name').value = 'טוען...';
+    document.getElementById('prof_email').value = '';
+    document.getElementById('prof_password').value = '';
+    document.getElementById('prof_yemot_status').innerHTML = '';
+    document.getElementById('prof-sessions-tbody').innerHTML = '<tr><td colspan="4" class="empty-state">טוען...</td></tr>';
+    
+    switchAdminProfileTab('info');
+    modal.classList.add('active');
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/admin/user-profile`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adminToken: state.adminToken, phone: phone })
+        });
+        const data = await res.json();
+        
+        if (!res.ok) {
+            showMessage('alert-admin-profile', data.error || 'שגיאה בטעינת פרופיל', 'error');
+            return;
+        }
+
+        const p = data.profile;
+        
+        // טאב פרטים והרשאות
+        document.getElementById('prof_name').value = p.yemot.name || 'לא הוגדר במערכת בימות';
+        const yemotHtml = p.yemot.active 
+            ? `<span class="status-ok"><i class="fa-solid fa-check-circle"></i> פעיל בימות</span>` 
+            : `<span class="status-bad"><i class="fa-solid fa-xmark-circle"></i> חסר/מנותק בימות</span>`;
+        document.getElementById('prof_yemot_status').innerHTML = yemotHtml;
+
+        if (p.user) {
+            document.getElementById('prof_email').value = p.user.email || '';
+            document.getElementById('prof_can_record').checked = p.user.can_record !== 0;
+            document.getElementById('prof_can_upload').checked = !!p.user.can_upload;
+            document.getElementById('prof_can_tzintuk').checked = p.user.can_tzintuk !== 0;
+            document.getElementById('prof_receive_emails').checked = p.user.receive_emails !== 0;
+            document.getElementById('prof_google_only').checked = p.user.google_login_only === 1;
+        } else {
+            // משתמש שטרם נרשם לאתר
+            showMessage('alert-admin-profile', 'המשתמש טרם פתח חשבון באתר, ולכן לא ניתן לערוך את הרשאותיו כרגע.', 'warning');
+            ['prof_email', 'prof_password', 'prof_can_record', 'prof_can_upload', 'prof_can_tzintuk', 'prof_receive_emails', 'prof_google_only', 'btn-save-user-profile'].forEach(id => {
+                document.getElementById(id).disabled = true;
+            });
+        }
+
+        // טאב מכשירים מחוברים
+        const tbody = document.getElementById('prof-sessions-tbody');
+        tbody.innerHTML = '';
+        if (!p.activeSessions || p.activeSessions.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="empty-state">אין חיבורים פעילים למשתמש זה.</td></tr>';
+        } else {
+            p.activeSessions.forEach(sess => {
+                let typeIcon = sess.token_type.includes('google') ? '<i class="fa-brands fa-google text-google"></i> Google' : '<i class="fa-solid fa-lock text-password"></i> סיסמה';
+                let expInfo = sess.token_type.includes('perm') ? '<span class="status-ok">קבוע</span>' : '<span class="status-bad">זמני</span>';
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="font-size:0.85rem; font-weight:bold;">${typeIcon} (${expInfo})</td>
+                    <td dir="ltr" style="font-size:0.85rem; color:var(--text-light);">${sess.session_email || '-'}</td>
+                    <td dir="ltr" style="font-size:0.85rem;">${formatDateStr(sess.last_used_at)}</td>
+                    <td><button class="actions-btn" onclick="disconnectAdminUserToken('${sess.id}')" style="color:var(--danger); border-color:var(--danger); padding:4px 8px; font-size:0.8rem;"><i class="fa-solid fa-plug-circle-xmark"></i> נתק מכשיר</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+    } catch (e) {
+        showMessage('alert-admin-profile', 'שגיאת תקשורת מול השרת.', 'error');
+    }
+}
+
+async function submitAdminUserUpdate(e) {
     if (e) e.preventDefault();
-    const phone = document.getElementById('modal_phone').value;
-    const newEmail = document.getElementById('modal_email').value;
-    const newPassword = document.getElementById('modal_password').value;
-    const checkUpload = document.getElementById('modal_can_upload');
-    const canUpload = checkUpload ? checkUpload.checked : false;
-    const checkRecord = document.getElementById('modal_can_record');
-    const canRecord = checkRecord ? checkRecord.checked : true;
+    const phone = document.getElementById('prof_phone_hidden').value;
+    
+    const payload = {
+        adminToken: state.adminToken,
+        phone: phone,
+        newEmail: document.getElementById('prof_email').value,
+        newPassword: document.getElementById('prof_password').value,
+        canRecord: document.getElementById('prof_can_record').checked,
+        canUpload: document.getElementById('prof_can_upload').checked,
+        canTzintuk: document.getElementById('prof_can_tzintuk').checked,
+        receiveEmails: document.getElementById('prof_receive_emails').checked,
+        googleLoginOnly: document.getElementById('prof_google_only').checked
+    };
 
-    setLoading('btn-modal-save', true);
+    setLoading('btn-save-user-profile', true);
     try {
         const res = await fetch(`${API_BASE_URL}/admin/update-user`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ adminToken: state.adminToken, phone, newEmail, newPassword, canUpload, canRecord })
+            body: JSON.stringify(payload)
         });
         const data = await res.json();
-        setLoading('btn-modal-save', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
+        setLoading('btn-save-user-profile', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
+        
         if (!res.ok) {
-            showMessage('alert-modal', data.message || data.error || 'עדכון נכשל', 'error');
+            showMessage('alert-admin-profile', data.error || 'שגיאה בעדכון', 'error');
             return;
         }
-        closeAdminModal();
-        showMessage('alert-admin-dash', 'המשתמש עודכן בהצלחה!', 'success');
-        loadAdminUsers();
+        
+        showMessage('alert-admin-profile', 'ההגדרות נשמרו בהצלחה!', 'success');
+        document.getElementById('prof_password').value = ''; 
+        loadAdminUsers(); // ריענון טבלת הרקע
     } catch (err) {
-        setLoading('btn-modal-save', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
-        showMessage('alert-modal', 'שגיאת רשת', 'error');
+        setLoading('btn-save-user-profile', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
+        showMessage('alert-admin-profile', 'שגיאת תקשורת', 'error');
     }
 }
+
+async function disconnectAdminUserToken(tokenId) {
+    const phone = document.getElementById('prof_phone_hidden').value;
+    const msg = tokenId ? 'האם לנתק את המכשיר הספציפי הזה?' : 'האם לנתק את המשתמש מ*כל* המכשירים המחוברים?';
+    if (!confirm(msg)) return;
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/admin/user-tokens/delete`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adminToken: state.adminToken, phone: phone, tokenId: tokenId })
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+            showMessage('alert-admin-profile', data.message || 'הניתוק בוצע בהצלחה', 'success');
+            openUserProfile(phone); // ריענון חלון המודל
+        } else {
+            showMessage('alert-admin-profile', data.error || 'שגיאה בניתוק', 'error');
+        }
+    } catch (err) {
+        showMessage('alert-admin-profile', 'שגיאת תקשורת', 'error');
+    }
+}
+
+// ==========================================
+// אבטחה וצינתוקים (Security & Logs Management)
+// ==========================================
 
 async function refreshTzintukData() {
     const btn = document.getElementById('btn-refresh-tzintuk');
@@ -134,7 +261,8 @@ async function loadVerifyBlocks() {
     if(!tbody) return;
     tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען נתוני חסימות...</td></tr>';
     try {
-        const res = await fetch(`${API_BASE_URL}/admin/blocks`, {
+        // שימו לב: נתיב תוקן ל- /verify/admin/blocks
+        const res = await fetch(`${API_BASE_URL}/verify/admin/blocks`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ adminToken: state.adminToken })
         });
@@ -143,6 +271,7 @@ async function loadVerifyBlocks() {
         tbody.innerHTML = '';
         if (!data.blocks || data.blocks.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="empty-state">אין חסימות</td></tr>'; window.currentActiveBlocks = 0; return; }
         window.currentActiveBlocks = data.blocks.length;
+        
         data.blocks.forEach(b => {
             const isIp = b.block_type === 'ip';
             const icon = isIp ? '<i class="fa-solid fa-network-wired"></i>' : '<i class="fa-solid fa-phone"></i>';
@@ -165,13 +294,15 @@ async function loadVerifyLogs() {
     if(!tbody) return;
     tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען היסטוריה...</td></tr>';
     try {
-        const res = await fetch(`${API_BASE_URL}/admin/logs`, {
+        // שימו לב: נתיב תוקן ל- /verify/admin/logs
+        const res = await fetch(`${API_BASE_URL}/verify/admin/logs`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: state.adminToken, limit: 150 })
         });
         const data = await res.json();
         if (!res.ok) { tbody.innerHTML = `<tr><td colspan="7" class="empty-state" style="color:var(--danger);">${data.error}</td></tr>`; return; }
         tbody.innerHTML = '';
         if (!data.logs || data.logs.length === 0) { tbody.innerHTML = '<tr><td colspan="7" class="empty-state">אין דוחות</td></tr>'; updateSecurityStats(window.currentActiveBlocks || 0, 0, 0); return; }
+        
         let warnCount = 0; let blockEventCount = 0;
         data.logs.forEach(log => {
             if (log.level === 'WARN') warnCount++; if (log.level === 'BLOCKED') blockEventCount++;
@@ -183,6 +314,48 @@ async function loadVerifyLogs() {
     } catch (err) { tbody.innerHTML = '<tr><td colspan="7" class="empty-state" style="color:var(--danger);">שגיאת תקשורת</td></tr>'; }
 }
 
+async function submitManualBlock(e) {
+    e.preventDefault();
+    const type = document.getElementById('block_type').value;
+    const value = document.getElementById('block_value').value.trim();
+    const reason = document.getElementById('block_reason').value.trim();
+    const duration = parseInt(document.getElementById('block_duration').value);
+    const unit = document.getElementById('block_unit').value;
+
+    if (!value) return;
+    setLoading('btn-submit-block', true);
+    try {
+        // שימו לב: נתיב תוקן ל- /verify/admin/block
+        const res = await fetch(`${API_BASE_URL}/verify/admin/block`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: state.adminToken, type, value, reason, durationValue: duration, durationUnit: unit }) });
+        const data = await res.json();
+        setLoading('btn-submit-block', false, 'החל חסימה <i class="fa-solid fa-lock"></i>');
+        if (res.ok) { document.getElementById('block_value').value = ''; document.getElementById('block_reason').value = ''; refreshTzintukData(); }
+        else alert(data.error || 'שגיאה ביצירת חסימה');
+    } catch (err) { setLoading('btn-submit-block', false, 'החל חסימה <i class="fa-solid fa-lock"></i>'); alert('שגיאת תקשורת'); }
+}
+
+async function unblockUser(type, value) {
+    if (!confirm(`לשחרר חסימה על ${value}?`)) return;
+    try {
+        // שימו לב: נתיב תוקן ל- /verify/admin/unblock
+        const res = await fetch(`${API_BASE_URL}/verify/admin/unblock`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: state.adminToken, type, target: value }) });
+        if (res.ok) refreshTzintukData(); else alert((await res.json()).error || 'שגיאה');
+    } catch (err) { alert('שגיאת תקשורת'); }
+}
+
+async function cleanOldLogs() {
+    if (!confirm('למחוק לצמיתות לוגים ישנים?')) return;
+    const btn = document.getElementById('btn-clean-logs');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מנקה...'; btn.disabled = true;
+    try {
+        // שימו לב: נתיב תוקן ל- /verify/admin/clean
+        const res = await fetch(`${API_BASE_URL}/verify/admin/clean`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: state.adminToken }) });
+        if (res.ok) refreshTzintukData(); else alert((await res.json()).error || 'שגיאה');
+    } catch (err) { alert('שגיאת תקשורת'); } finally { btn.innerHTML = originalText; btn.disabled = false; }
+}
+
+// פונקציות עזר ויזואליות למנהל
 function formatDateStr(dateStr) {
     if (!dateStr) return '';
     try {
@@ -202,9 +375,9 @@ function getLevelBadge(level) {
 }
 
 function getActionBadge(action) {
-    const actions = { 'VERIFY_SUCCESS': { label: 'אימות הושלם', class: 'success' }, 'SEND_REQUEST': { label: 'שליחת צינתוק', class: 'info' }, 'RATE_LIMIT': { label: 'הגבלת קצב', class: 'warn' }, 'VERIFY_CODE': { label: 'בדיקת קוד', class: 'neutral' }, 'ADMIN_BLOCK_CREATE': { label: 'חסימה יזומה', class: 'danger' }, 'ADMIN_BLOCK_UPDATE': { label: 'עדכון חסימה', class: 'warn' }, 'ADMIN_UNBLOCK': { label: 'שחרור חסימה', class: 'success' }, 'SEND_REJECTED': { label: 'שליחה נדחתה', class: 'danger' } };
+    const actions = { 'VERIFY_SUCCESS': { label: 'אימות הושלם', class: 'success' }, 'SEND_REQUEST': { label: 'שליחת צינתוק', class: 'info' }, 'RATE_LIMIT': { label: 'הגבלת קצב', class: 'warn' }, 'VERIFY_CODE': { label: 'בדיקת קוד', class: 'neutral' }, 'ADMIN_BLOCK_CREATE': { label: 'חסימה יזומה', class: 'danger' }, 'ADMIN_BLOCK_UPDATE': { label: 'עדכון חסימה', class: 'warn' }, 'ADMIN_UNBLOCK': { label: 'שחרור חסימה', class: 'success' }, 'SEND_REJECTED': { label: 'שליחה נדחתה', class: 'danger' }, 'RESET_CODE_SENT': { label: 'קוד איפוס נשלח', class: 'info' }, 'RESET_REJECTED': { label: 'איפוס נחסם', class: 'danger' } };
     const mapped = actions[action];
-    return mapped ? `<span class="badge-action ${mapped.class}">${mapped.label}</span>` : `<span class="badge-action neutral">${action}</span>`;
+    return mapped ? `<span class="badge-action ${mapped.class}" style="padding:4px 8px; border-radius:6px; font-size:0.75rem; font-weight:700;">${mapped.label}</span>` : `<span class="badge-action neutral" style="padding:4px 8px; border-radius:6px; font-size:0.75rem; font-weight:700; background:#f1f5f9; color:#475569;">${action}</span>`;
 }
 
 function updateSecurityStats(activeBlocks, warnings, blockEvents) {
@@ -215,42 +388,4 @@ function updateSecurityStats(activeBlocks, warnings, blockEvents) {
         <div class="stat-card"><div class="stat-icon" style="color: #d97706; background: #fef3c7;"><i class="fa-solid fa-bolt"></i></div><div class="stat-info"><h3>${warnings}</h3><p>חריגות והגבלות קצב</p></div></div>
         <div class="stat-card"><div class="stat-icon" style="color: #15803d; background: #dcfce7;"><i class="fa-solid fa-shield-halved"></i></div><div class="stat-info"><h3>${blockEvents}</h3><p>התקפות שנבלמו</p></div></div>
     `;
-}
-
-async function submitManualBlock(e) {
-    e.preventDefault();
-    const type = document.getElementById('block_type').value;
-    const value = document.getElementById('block_value').value.trim();
-    const reason = document.getElementById('block_reason').value.trim();
-    const duration = parseInt(document.getElementById('block_duration').value);
-    const unit = document.getElementById('block_unit').value;
-
-    if (!value) return;
-    setLoading('btn-submit-block', true);
-    try {
-        const res = await fetch(`${API_BASE_URL}/admin/block`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: state.adminToken, type, value, reason, duration, unit }) });
-        const data = await res.json();
-        setLoading('btn-submit-block', false, 'החל חסימה <i class="fa-solid fa-lock"></i>');
-        if (res.ok) { document.getElementById('block_value').value = ''; document.getElementById('block_reason').value = ''; refreshTzintukData(); }
-        else alert(data.error || 'שגיאה ביצירת חסימה');
-    } catch (err) { setLoading('btn-submit-block', false, 'החל חסימה <i class="fa-solid fa-lock"></i>'); alert('שגיאת תקשורת'); }
-}
-
-async function unblockUser(type, value) {
-    if (!confirm(`לשחרר חסימה על ${value}?`)) return;
-    try {
-        const res = await fetch(`${API_BASE_URL}/admin/unblock`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: state.adminToken, type, value }) });
-        if (res.ok) refreshTzintukData(); else alert((await res.json()).error || 'שגיאה');
-    } catch (err) { alert('שגיאת תקשורת'); }
-}
-
-async function cleanOldLogs() {
-    if (!confirm('למחוק לצמיתות לוגים ישנים?')) return;
-    const btn = document.getElementById('btn-clean-logs');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מנקה...'; btn.disabled = true;
-    try {
-        const res = await fetch(`${API_BASE_URL}/admin/clean-logs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: state.adminToken }) });
-        if (res.ok) refreshTzintukData(); else alert((await res.json()).error || 'שגיאה');
-    } catch (err) { alert('שגיאת תקשורת'); } finally { btn.innerHTML = originalText; btn.disabled = false; }
 }
