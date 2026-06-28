@@ -30,11 +30,7 @@ async function adminLogin(e) {
     }
 }
 
-// ==========================================
-// ניהול משתמשים (Advanced User Management)
-// ==========================================
-
-window.adminUsersList = []; // שמירה גלובלית לטובת סינון מהיר
+window.adminUsersList = [];
 
 async function loadAdminUsers() {
     if (!state.adminToken) return;
@@ -57,21 +53,19 @@ async function loadAdminUsers() {
         }
 
         window.adminUsersList = data.users || [];
-        renderAdminUsersTable(); // קריאה לפונקציית הרינדור החדשה
+        renderAdminUsersTable(); 
     } catch (err) {
         setLoading('btn-refresh-users', false, '<i class="fa-solid fa-rotate-right"></i> רענן נתונים');
         showMessage('alert-admin-dash', 'שגיאת שרת', 'error');
     }
 }
 
-// פונקציית בניית הטבלה המופרדת - מאפשרת סינון דינמי בלחיצת כפתור
 window.renderAdminUsersTable = function() {
     const tbody = document.getElementById('admin-users-table-body');
     const showOnlyWebUsers = document.getElementById('filter_web_users').checked;
     
     tbody.innerHTML = '';
     
-    // סינון הרשימה בהתאם למצב הצ'קבוקס
     let filteredUsers = window.adminUsersList;
     if (showOnlyWebUsers) {
         filteredUsers = filteredUsers.filter(u => u.hasWebAccount);
@@ -85,10 +79,9 @@ window.renderAdminUsersTable = function() {
     filteredUsers.forEach(user => {
         const yemotBadge = user.yemotActive ? '<span class="status-ok">פעיל</span>' : '<span class="status-bad">מנותק / חסר</span>';
         
-        // אם למשתמש יש חשבון, מציג איקון גלובוס. אם לא, מציג כפתור "פתח חשבון".
         const webBadge = user.hasWebAccount 
             ? '<i class="fa-solid fa-globe" style="color:var(--secondary);" title="רשום באתר"></i>' 
-            : `<button class="actions-btn" onclick="adminCreateAccount('${user.phone}')" style="background:#eff6ff; color:#2563eb; border: 1px solid #bfdbfe; padding:4px 8px; font-size:0.8rem;"><i class="fa-solid fa-user-plus"></i> פתח חשבון</button>`;
+            : `<button class="actions-btn" onclick="openAdminCreateUserModal('${user.phone}')" style="background:#eff6ff; color:#2563eb; border: 1px solid #bfdbfe; padding:4px 8px; font-size:0.8rem;"><i class="fa-solid fa-user-plus"></i> פתח חשבון</button>`;
         
         const actionBtn = user.hasWebAccount
             ? `<button class="actions-btn" onclick="openUserProfile('${user.phone}')" style="background: var(--secondary); color: white; border-color: var(--secondary);"><i class="fa-solid fa-user-gear"></i> ניהול תיק</button>`
@@ -108,32 +101,73 @@ window.renderAdminUsersTable = function() {
     });
 };
 
-// פונקציית פתיחת חשבון יזומה על ידי מנהל
-window.adminCreateAccount = async function(phone) {
-    const password = prompt(`פתיחת חשבון למספר ${phone}\n\nהזן סיסמה ראשונית (4-10 ספרות):`);
-    if (!password) return; // המשתמש לחץ ביטול
+// ==========================================
+// פתיחת חשבון חדש מתוך הממשק הניהולי
+// ==========================================
+
+window.openAdminCreateUserModal = function(phone) {
+    document.getElementById('alert-admin-create').style.display = 'none';
+    document.getElementById('create_phone').value = phone;
+    document.getElementById('create_email').value = '';
+    document.getElementById('create_password').value = '';
+    document.getElementById('create_can_record').checked = true;
+    document.getElementById('create_can_upload').checked = false;
+    document.getElementById('create_can_tzintuk').checked = true;
+    document.getElementById('create_receive_emails').checked = true;
+    document.getElementById('adminCreateUserModal').classList.add('active');
+};
+
+window.closeCreateUserModal = function() {
+    document.getElementById('adminCreateUserModal').classList.remove('active');
+};
+
+window.submitAdminCreateUser = async function(e) {
+    if (e) e.preventDefault();
+    const phone = document.getElementById('create_phone').value;
+    const password = document.getElementById('create_password').value;
+    
     if (!/^\d{4,10}$/.test(password)) {
-        alert('שגיאה: הסיסמה חייבת להכיל בין 4 ל-10 ספרות בלבד.');
+        showMessage('alert-admin-create', 'הסיסמה חייבת להכיל בין 4 ל-10 ספרות', 'error');
         return;
     }
 
+    const payload = {
+        adminToken: state.adminToken,
+        phone: phone,
+        password: password,
+        email: document.getElementById('create_email').value,
+        canRecord: document.getElementById('create_can_record').checked,
+        canUpload: document.getElementById('create_can_upload').checked,
+        canTzintuk: document.getElementById('create_can_tzintuk').checked,
+        receiveEmails: document.getElementById('create_receive_emails').checked,
+        googleLoginOnly: false
+    };
+
+    setLoading('btn-submit-create-user', true);
     try {
         const res = await fetch(`${API_BASE_URL}/admin/create-user`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ adminToken: state.adminToken, phone: phone, password: password })
+            body: JSON.stringify(payload)
         });
         const data = await res.json();
+        setLoading('btn-submit-create-user', false, 'צור חשבון <i class="fa-solid fa-check"></i>');
         
         if (res.ok && data.success) {
-            alert('החשבון נפתח בהצלחה! המשתמש יכול כעת להתחבר עם הסיסמה שהגדרת.');
-            loadAdminUsers(); // רענון הרשימה מול השרת
+            closeCreateUserModal();
+            alert('החשבון נוצר בהצלחה! המשתמש יכול כעת להתחבר עם הסיסמה שהגדרת.');
+            loadAdminUsers();
         } else {
-            alert(data.error || 'אירעה שגיאה ביצירת החשבון.');
+            showMessage('alert-admin-create', data.error || 'אירעה שגיאה ביצירת החשבון.', 'error');
         }
     } catch (e) {
-        alert('שגיאת תקשורת מול השרת.');
+        setLoading('btn-submit-create-user', false, 'צור חשבון <i class="fa-solid fa-check"></i>');
+        showMessage('alert-admin-create', 'שגיאת תקשורת מול השרת.', 'error');
     }
 };
+
+// ==========================================
+// ניהול תיק משתמש קיים ומחיקת חשבון
+// ==========================================
 
 function switchAdminProfileTab(tab) {
     document.querySelectorAll('#adminUserProfileModal .settings-tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -176,10 +210,7 @@ async function openUserProfile(phone) {
         });
         const data = await res.json();
         
-        if (!res.ok) {
-            showMessage('alert-admin-profile', data.error || 'שגיאה בטעינת פרופיל', 'error');
-            return;
-        }
+        if (!res.ok) { showMessage('alert-admin-profile', data.error || 'שגיאה בטעינת פרופיל', 'error'); return; }
 
         const p = data.profile;
         document.getElementById('prof_name').value = p.yemot.name || 'לא הוגדר במערכת בימות';
@@ -215,9 +246,7 @@ async function openUserProfile(phone) {
                 tbody.appendChild(tr);
             });
         }
-    } catch (e) {
-        showMessage('alert-admin-profile', 'שגיאת תקשורת מול השרת.', 'error');
-    }
+    } catch (e) { showMessage('alert-admin-profile', 'שגיאת תקשורת מול השרת.', 'error'); }
 }
 
 async function submitAdminUserUpdate(e) {
@@ -263,6 +292,33 @@ async function disconnectAdminUserToken(tokenId) {
         else { showMessage('alert-admin-profile', data.error || 'שגיאה בניתוק', 'error'); }
     } catch (err) { showMessage('alert-admin-profile', 'שגיאת תקשורת', 'error'); }
 }
+
+window.adminDeleteAccount = async function() {
+    const phone = document.getElementById('prof_phone_hidden').value;
+    if (!phone) return;
+    
+    if (!confirm(`אזהרה חמורה!\nהאם אתה בטוח שברצונך למחוק לחלוטין את החשבון של ${phone} מהאתר?\nפעולה זו תמחק את כל ההרשאות, האימייל, והמכשירים המחוברים, והיא לא ניתנת לביטול.`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/admin/delete-user`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adminToken: state.adminToken, phone: phone })
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+            alert('החשבון נמחק בהצלחה לצמיתות.');
+            closeUserProfileModal();
+            loadAdminUsers();
+        } else {
+            showMessage('alert-admin-profile', data.error || 'אירעה שגיאה במחיקת החשבון.', 'error');
+        }
+    } catch (e) {
+        showMessage('alert-admin-profile', 'שגיאת תקשורת מול השרת.', 'error');
+    }
+};
 
 // ==========================================
 // אבטחה וצינתוקים (Security & Logs Management)
@@ -365,7 +421,6 @@ async function cleanOldLogs() {
     } catch (err) { alert('שגיאת תקשורת'); } finally { btn.innerHTML = originalText; btn.disabled = false; }
 }
 
-// פונקציות עזר ויזואליות למנהל
 function formatDateStr(dateStr) {
     if (!dateStr) return '';
     try {
