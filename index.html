@@ -167,7 +167,6 @@
                     </form>
                 </section>
 
-                <!-- מסך הסרה מרשימת התפוצה (מניעת הטרדה) -->
                 <section id="unsubscribe-view" class="auth-card">
                     <div class="auth-icon" style="color: var(--danger);"><i class="fa-solid fa-shield-virus"></i></div>
                     <h2 style="color: var(--danger);">הסרה מרשימת התפוצה</h2>
@@ -253,7 +252,6 @@
             </aside>
 
             <div class="app-main-area" style="background: #fff;">
-                <!-- (הקוד הקיים של פאנל המנהל ממשיך כאן כרגיל - אין צורך לשנות) -->
                 <div id="tab-admin-users" class="app-tab scrollable-tab active">
                     <div class="admin-top-bar">
                         <div>
@@ -314,15 +312,255 @@
         </main>
     </div> 
     
-    <!-- (שאר המודלים הכלליים של האתר - יצירת משתמש וכו') -->
-    <div class="modal-overlay" id="adminCreateUserModal">...</div>
-    <div class="modal-overlay" id="adminUserProfileModal">...</div>
-    <div class="modal-overlay" id="uploadReviewModal">...</div>
-    <div class="modal-overlay" id="deleteConfirmModal">...</div>
-    <div class="modal-overlay" id="errorAlertModal">...</div>
-    <div class="modal-overlay" id="announcementModal">...</div>
+    <div class="modal-overlay" id="adminCreateUserModal">
+        <div class="modal-content professional-modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-user-plus"></i> פתיחת חשבון חדש</h2>
+                <button class="close-modal-btn" onclick="closeCreateUserModal()" type="button"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div style="padding: 20px;">
+                <div id="alert-admin-create" class="alert-box"></div>
+                <form onsubmit="submitAdminCreateUser(event)">
+                    <div class="form-group">
+                        <label>מספר טלפון</label>
+                        <input type="text" id="create_phone" required class="input-modern ltr-input">
+                    </div>
+                    <div class="form-group">
+                        <label>כתובת אימייל (אופציונלי)</label>
+                        <input type="email" id="create_email" class="input-modern ltr-input" placeholder="email@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label>סיסמה זמנית (4-10 ספרות)</label>
+                        <input type="password" id="create_password" required class="input-modern center-text ltr-input" placeholder="****">
+                    </div>
+                    <div class="toggle-row">
+                        <div class="toggle-info"><strong>הרשאת הקלטה</strong><span>מאפשר למשתמש להקליט הודעות דרך האתר.</span></div>
+                        <label class="modern-switch"><input type="checkbox" id="create_can_record" checked><span class="slider"></span></label>
+                    </div>
+                    <div class="toggle-row">
+                        <div class="toggle-info"><strong>הרשאת העלאת קבצים</strong><span>מאפשר למשתמש להעלות קובצי שמע מוכנים.</span></div>
+                        <label class="modern-switch"><input type="checkbox" id="create_can_upload"><span class="slider"></span></label>
+                    </div>
+                    <div class="toggle-row">
+                        <div class="toggle-info"><strong>הרשאת צינתוק</strong><span>מאפשר למשתמש להפעיל מערכת צינתוקים.</span></div>
+                        <label class="modern-switch"><input type="checkbox" id="create_can_tzintuk" checked><span class="slider"></span></label>
+                    </div>
+                    <div class="toggle-row">
+                        <div class="toggle-info"><strong>קבלת עדכונים</strong><span>שליחת התראות וקודי איפוס לאימייל.</span></div>
+                        <label class="modern-switch"><input type="checkbox" id="create_receive_emails" checked><span class="slider"></span></label>
+                    </div>
+                    <button type="submit" id="btn-submit-create-user" class="btn-primary" style="margin-top: 20px; width: 100%;">צור חשבון <i class="fa-solid fa-check"></i></button>
+                </form>
+            </div>
+        </div>
+    </div>
 
-    <!-- הגדרות משתמש קצה -->
+    <div class="modal-overlay" id="adminUserProfileModal">
+        <div class="modal-content professional-modal" style="max-width: 550px; display: flex; flex-direction: column; max-height: 90vh;">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-user-gear"></i> ניהול תיק משתמש</h2>
+                <button class="close-modal-btn" onclick="closeUserProfileModal()" type="button"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="settings-tabs">
+                <button class="settings-tab-btn active" onclick="switchAdminProfileTab('info')" type="button"><i class="fa-solid fa-id-card"></i> פרטי חשבון</button>
+                <button class="settings-tab-btn" onclick="switchAdminProfileTab('sessions')" type="button"><i class="fa-solid fa-laptop-code"></i> חיבורים פעילים</button>
+            </div>
+            <div style="background: #f8fafc; padding: 20px 20px 0 20px; flex-shrink: 0;">
+                <div id="alert-admin-profile" class="alert-box" style="margin-bottom: 0;"></div>
+            </div>
+            <div style="padding: 20px; overflow-y: auto; background: #f8fafc; flex: 1;">
+                
+                <div id="tab-admin-profile-info">
+                    <form onsubmit="submitAdminUserUpdate(event)">
+                        <div class="settings-card-advanced">
+                            <h3>מידע כללי</h3>
+                            <div class="form-group">
+                                <label>שם המשתמש בימות המשיח</label>
+                                <input type="text" id="prof_name" readonly class="input-modern" style="background:#f1f5f9; color:#64748b; cursor:not-allowed;">
+                            </div>
+                            <div class="form-group">
+                                <label>סטטוס בימות המשיח</label>
+                                <div id="prof_yemot_status" style="margin-top: 5px;"></div>
+                            </div>
+                            <div class="form-group">
+                                <label>מספר טלפון (מזהה ייחודי)</label>
+                                <input type="text" id="prof_phone" readonly class="input-modern ltr-input" style="background:#f1f5f9; color:#64748b; cursor:not-allowed;">
+                                <input type="hidden" id="prof_phone_hidden">
+                            </div>
+                            <div class="form-group">
+                                <label>כתובת אימייל בחשבון</label>
+                                <input type="email" id="prof_email" class="input-modern ltr-input">
+                            </div>
+                            <div class="form-group">
+                                <label>שינוי סיסמה יזום (השאר ריק ללא שינוי)</label>
+                                <input type="password" id="prof_password" class="input-modern center-text ltr-input" placeholder="הזן סיסמה חדשה">
+                            </div>
+
+                            <h3 style="margin-top:25px;">הרשאות הגבלת גישה</h3>
+                            <div class="toggle-row">
+                                <div class="toggle-info"><strong>הרשאת הקלטה</strong><span>מאפשר הקלטת הודעות קוליות בצ'אט.</span></div>
+                                <label class="modern-switch"><input type="checkbox" id="prof_can_record"><span class="slider"></span></label>
+                            </div>
+                            <div class="toggle-row">
+                                <div class="toggle-info"><strong>הרשאת העלאת קבצים</strong><span>מאפשר העלאת קבצים מהמכשיר.</span></div>
+                                <label class="modern-switch"><input type="checkbox" id="prof_can_upload"><span class="slider"></span></label>
+                            </div>
+                            <div class="toggle-row">
+                                <div class="toggle-info"><strong>הרשאת הפעלת צינתוקים</strong><span>מאפשר שליחת פקודות צינתוק.</span></div>
+                                <label class="modern-switch"><input type="checkbox" id="prof_can_tzintuk"><span class="slider"></span></label>
+                            </div>
+                            <div class="toggle-row">
+                                <div class="toggle-info"><strong>קבלת עדכוני אימייל</strong><span>שליחת התראות וקודי איפוס למשתמש.</span></div>
+                                <label class="modern-switch"><input type="checkbox" id="prof_receive_emails"><span class="slider"></span></label>
+                            </div>
+                            <div class="toggle-row">
+                                <div class="toggle-info"><strong>כניסה באמצעות Google בלבד</strong><span>חוסם אפשרות להתחבר עם סיסמה רגילה.</span></div>
+                                <label class="modern-switch"><input type="checkbox" id="prof_google_only"><span class="slider"></span></label>
+                            </div>
+
+                            <div style="margin-top: 30px; display: flex; gap: 12px;">
+                                <button type="button" class="btn-pro-danger" onclick="adminDeleteAccount()" style="flex: 1;"><i class="fa-solid fa-trash-can"></i> מחק חשבון מהאתר</button>
+                                <button type="submit" id="btn-save-user-profile" class="btn-primary" style="flex: 1.5; justify-content: center;">שמור שינויים <i class="fa-solid fa-check"></i></button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <div id="tab-admin-profile-sessions" style="display:none;">
+                    <div class="settings-card-advanced">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                            <h3 style="margin: 0; border: none; padding: 0;">מכשירים מחוברים כעת</h3>
+                            <button type="button" class="actions-btn" onclick="disconnectAdminUserToken('')" style="color:var(--danger); border-color:var(--danger); font-weight: bold;"><i class="fa-solid fa-power-off"></i> נתק מכל המכשירים</button>
+                        </div>
+                        <div class="table-wrapper">
+                            <table class="modern-table">
+                                <thead>
+                                    <tr>
+                                        <th>סוג חיבור</th>
+                                        <th>אימייל מאומת</th>
+                                        <th>פעילות אחרונה</th>
+                                        <th>פעולות</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="prof-sessions-tbody">
+                                    <tr><td colspan="4" class="empty-state">טוען נתונים...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="uploadReviewModal">
+        <div class="modal-content professional-modal" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2 id="review-title"><i class="fa-solid fa-microphone"></i> הקלטת הודעה מערכת</h2>
+                <button class="close-modal-btn" onclick="closeUploadModal()" type="button"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div id="recording-ui" style="display: none; padding: 20px;">
+                <div class="recording-visualizer">
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                </div>
+                <div class="recording-timer-pro" id="recording-timer">00:00</div>
+                <div class="recording-actions-pro">
+                    <button type="button" id="btn-pause-resume" class="btn-pro-secondary" onclick="togglePauseResumeRecording()">
+                        <i class="fa-solid fa-pause"></i> השהה
+                    </button>
+                    <button type="button" class="btn-pro-primary" style="background: var(--danger);" onclick="stopRecordingForReview()">
+                        <i class="fa-solid fa-stop"></i> עצור והאזן
+                    </button>
+                </div>
+            </div>
+
+            <div id="preview-ui" style="display: none; padding: 25px 20px;">
+                <div class="preview-card">
+                    <div class="file-icon-large"><i class="fa-solid fa-file-audio"></i></div>
+                    <div class="file-info-text" id="file-info">קובץ שמע (0 KB)</div>
+                    <audio id="preview-audio" controls style="width: 100%; margin-top: 10px; outline: none;"></audio>
+                </div>
+                <div class="preview-actions-pro">
+                    <button type="button" class="btn-pro-secondary" onclick="closeUploadModal()">ביטול</button>
+                    <button type="button" id="btn-confirm-send" class="btn-pro-primary" onclick="confirmUpload()">
+                        <i class="fa-solid fa-paper-plane"></i> שלח הודעה
+                    </button>
+                </div>
+            </div>
+
+            <div id="upload-success-ui" style="display: none; padding: 25px 20px;">
+                <div class="success-header-pro" style="text-align: center;">
+                    <span class="text-success-pro"><i class="fa-solid fa-circle-check"></i></span>
+                    <h3 style="margin-top: 10px; font-weight: 800;">ההודעה נשלחה בהצלחה!</h3>
+                    <p class="subtitle" style="margin-top: 5px; margin-bottom: 20px;">הקובץ עודכן בהצלחה במערכת ימות המשיח.</p>
+                </div>
+                
+                <div class="tzintuk-prompt-box">
+                    <p style="font-weight: 700; margin-bottom: 10px; color: var(--text-dark); font-size: 0.95rem;">האם ברצונך להוציא צינתוק (שיחה קצרה) לכלל המשתמשים כעת?</p>
+                    <div class="tzintuk-timer-wrap">
+                        החלון ייסגר אוטומטית בעוד: <span class="tzintuk-timer-text" id="tzintuk-timer">01:30</span>
+                    </div>
+                </div>
+
+                <div class="preview-actions-pro" id="tzintuk-action-buttons">
+                    <button type="button" class="btn-pro-secondary" onclick="closeUploadModal()">לא, סגור חלון</button>
+                    <button type="button" id="btn-send-tzintuk" class="btn-pro-primary" onclick="triggerTzintuk()">
+                        <i class="fa-solid fa-phone-volume"></i> שלח צינתוק עכשיו
+                    </button>
+                </div>
+                
+                <div id="tzintuk-status-msg" class="tzintuk-status-msg" style="margin-top: 15px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="deleteConfirmModal">
+        <div class="modal-content professional-modal" style="max-width: 400px; padding: 25px;">
+            <div id="delete-modal-texts" style="text-align: center;">
+                <div style="font-size: 3rem; color: var(--danger); margin-bottom: 15px;">
+                    <i class="fa-solid fa-trash-can"></i>
+                </div>
+                <h3 style="font-weight: 800; font-size: 1.4rem; color: var(--text-dark); margin-bottom: 10px;">מחיקת הודעה לצמיתות</h3>
+                <p class="subtitle" style="line-height: 1.5; margin-bottom: 0;">האם אתה בטוח שברצונך למחוק לחלוטין הודעה זו מימות המשיח ומאתר האינטרנט?<br><span style="color: var(--danger); font-weight: bold;">פעולה זו אינה ניתנת לביטול!</span></p>
+            </div>
+
+            <div class="preview-actions-pro" id="delete-action-buttons" style="margin-top: 25px; display: flex; gap: 10px;">
+                <button type="button" class="btn-pro-secondary" onclick="closeDeleteModal()">ביטול</button>
+                <button type="button" id="btn-confirm-delete" class="btn-pro-primary" style="background: var(--danger);" onclick="confirmDeleteMessage()">כן, מחק הודעה</button>
+            </div>
+
+            <div id="delete-status-msg" class="tzintuk-status-msg" style="margin-top: 15px;"></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="errorAlertModal">
+        <div class="modal-content professional-modal" style="text-align: center; padding: 30px; max-width: 400px;">
+            <div style="font-size: 3.5rem; color: var(--danger); margin-bottom: 15px;">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h2 id="errorModalTitle" style="color: var(--text-dark); margin-bottom: 10px; font-weight: 800; font-size: 1.4rem;">פעולה נכשלה</h2>
+            <p id="errorModalText" style="color: var(--text-light); margin-bottom: 25px; line-height: 1.5; font-size: 1.05rem;">פירוט השגיאה יוצג כאן</p>
+            <button class="btn-primary" onclick="closeErrorModal()" style="width: 100%; justify-content: center;" type="button">הבנתי, סגור</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="announcementModal">
+        <div class="modal-content professional-modal" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-bullhorn"></i> לוח מודעות ועדכונים</h2>
+                <button class="close-modal-btn" onclick="closeAnnouncementModal()" type="button"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div style="padding: 20px; max-height: 70vh; overflow-y: auto;" id="mobile-announcement-content">
+                </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="userSettingsModal">
         <div class="modal-content professional-modal" style="max-width: 550px; display: flex; flex-direction: column; max-height: 90vh;">
             <div class="modal-header">
@@ -342,7 +580,6 @@
                         <h3>פרטי קשר</h3>
                         <div class="form-group"><label>כתובת אימייל (מומלץ לגיבוי)</label><input type="email" id="update_email" class="ltr-input input-modern"></div>
                         
-                        <!-- התראת הרשימה השחורה הייעודית לאימייל -->
                         <div id="email_blocked_warning" style="display: none; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 15px; margin-top: 10px; margin-bottom: 20px; text-align: right;">
                             <div style="display: flex; align-items: center; gap: 8px; color: var(--danger); font-weight: bold; margin-bottom: 8px; font-size: 1.05rem;">
                                 <i class="fa-solid fa-shield-virus"></i> האימייל חסום ברשימה השחורה
