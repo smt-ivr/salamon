@@ -475,7 +475,7 @@
                         <i class="fa-solid fa-pause"></i> השהה
                     </button>
                     <button type="button" class="btn-pro-primary" style="background: var(--danger);" onclick="stopRecordingForReview()">
-                        <i class="fa-solid fa-stop"></i> עצור והאזן
+                        <i class="fa-solid fa-stop"></i> סיים
                     </button>
                 </div>
             </div>
@@ -498,11 +498,10 @@
                 <div class="success-header-pro" style="text-align: center;">
                     <span class="text-success-pro"><i class="fa-solid fa-circle-check"></i></span>
                     <h3 style="margin-top: 10px; font-weight: 800;">ההודעה נשלחה בהצלחה!</h3>
-                    <p class="subtitle" style="margin-top: 5px; margin-bottom: 20px;">הקובץ עודכן בהצלחה במערכת ימות המשיח.</p>
                 </div>
                 
                 <div class="tzintuk-prompt-box">
-                    <p style="font-weight: 700; margin-bottom: 10px; color: var(--text-dark); font-size: 0.95rem;">האם ברצונך להוציא צינתוק (שיחה קצרה) לכלל המשתמשים כעת?</p>
+                    <p style="font-weight: 700; margin-bottom: 10px; color: var(--text-dark); font-size: 0.95rem;">האם ברצונך לשלוח צינתוק כעת?</p>
                     <div class="tzintuk-timer-wrap">
                         החלון ייסגר אוטומטית בעוד: <span class="tzintuk-timer-text" id="tzintuk-timer">01:30</span>
                     </div>
@@ -527,7 +526,7 @@
                     <i class="fa-solid fa-trash-can"></i>
                 </div>
                 <h3 style="font-weight: 800; font-size: 1.4rem; color: var(--text-dark); margin-bottom: 10px;">מחיקת הודעה לצמיתות</h3>
-                <p class="subtitle" style="line-height: 1.5; margin-bottom: 0;">האם אתה בטוח שברצונך למחוק לחלוטין הודעה זו מימות המשיח ומאתר האינטרנט?<br><span style="color: var(--danger); font-weight: bold;">פעולה זו אינה ניתנת לביטול!</span></p>
+                <p class="subtitle" style="line-height: 1.5; margin-bottom: 0;">האם אתה בטוח שברצונך למחוק לחלוטין הודעה זו?<br><span style="color: var(--danger); font-weight: bold;">פעולה זו אינה ניתנת לביטול!</span></p>
             </div>
 
             <div class="preview-actions-pro" id="delete-action-buttons" style="margin-top: 25px; display: flex; gap: 10px;">
@@ -578,7 +577,7 @@
                 <form id="settings-profile-form" onsubmit="event.preventDefault(); updateUserProfile(event);">
                     <div class="settings-card-advanced">
                         <h3>פרטי קשר</h3>
-                        <div class="form-group"><label>כתובת אימייל (מומלץ לגיבוי)</label><input type="email" id="update_email" class="ltr-input input-modern"></div>
+                        <div class="form-group"><label>כתובת אימייל (מומלץ)</label><input type="email" id="update_email" class="ltr-input input-modern"></div>
                         
                         <div id="email_blocked_warning" style="display: none; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 15px; margin-top: 10px; margin-bottom: 20px; text-align: right;">
                             <div style="display: flex; align-items: center; gap: 8px; color: var(--danger); font-weight: bold; margin-bottom: 8px; font-size: 1.05rem;">
