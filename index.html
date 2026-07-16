@@ -454,56 +454,132 @@
         </div>
     </div>
 
-    <!-- מודלים אחרים ללא שינוי -->
-    <div class="modal-overlay" id="uploadReviewModal">...אותו דבר בדיוק...</div>
-    <div class="modal-overlay" id="deleteConfirmModal">...אותו דבר בדיוק...</div>
-    <div class="modal-overlay" id="errorAlertModal">...אותו דבר בדיוק...</div>
-    <div class="modal-overlay" id="announcementModal">...אותו דבר בדיוק...</div>
+    <div class="modal-overlay" id="uploadReviewModal">
+        <div class="modal-content professional-modal" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2 id="review-title"><i class="fa-solid fa-microphone"></i> הקלטת הודעה מערכת</h2>
+                <button class="close-modal-btn" onclick="closeUploadModal()" type="button"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div id="recording-ui" style="display: none; padding: 20px;">
+                <div class="recording-visualizer">
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                </div>
+                <div class="recording-timer-pro" id="recording-timer">00:00</div>
+                <div class="recording-actions-pro">
+                    <button type="button" id="btn-pause-resume" class="btn-pro-secondary" onclick="togglePauseResumeRecording()">
+                        <i class="fa-solid fa-pause"></i> השהה
+                    </button>
+                    <button type="button" class="btn-pro-primary" style="background: var(--danger);" onclick="stopRecordingForReview()">
+                        <i class="fa-solid fa-stop"></i> סיים
+                    </button>
+                </div>
+            </div>
 
-    <!-- ==============================================
-         המודל המעודכן לחלוטין של הגדרות המשתמש 
-         ============================================== -->
+            <div id="preview-ui" style="display: none; padding: 25px 20px;">
+                <div class="preview-card">
+                    <div class="file-icon-large"><i class="fa-solid fa-file-audio"></i></div>
+                    <div class="file-info-text" id="file-info">קובץ שמע (0 KB)</div>
+                    <audio id="preview-audio" controls style="width: 100%; margin-top: 10px; outline: none;"></audio>
+                </div>
+                <div class="preview-actions-pro">
+                    <button type="button" class="btn-pro-secondary" onclick="closeUploadModal()">ביטול</button>
+                    <button type="button" id="btn-confirm-send" class="btn-pro-primary" onclick="confirmUpload()">
+                        <i class="fa-solid fa-paper-plane"></i> שלח הודעה
+                    </button>
+                </div>
+            </div>
+
+            <div id="upload-success-ui" style="display: none; padding: 25px 20px;">
+                <div class="success-header-pro" style="text-align: center;">
+                    <span class="text-success-pro"><i class="fa-solid fa-circle-check"></i></span>
+                    <h3 style="margin-top: 10px; font-weight: 800;">ההודעה נשלחה בהצלחה!</h3>
+                </div>
+                
+                <div class="tzintuk-prompt-box">
+                    <p style="font-weight: 700; margin-bottom: 10px; color: var(--text-dark); font-size: 0.95rem;">האם ברצונך לשלוח צינתוק כעת?</p>
+                    <div class="tzintuk-timer-wrap">
+                        החלון ייסגר אוטומטית בעוד: <span class="tzintuk-timer-text" id="tzintuk-timer">01:30</span>
+                    </div>
+                </div>
+
+                <div class="preview-actions-pro" id="tzintuk-action-buttons">
+                    <button type="button" class="btn-pro-secondary" onclick="closeUploadModal()">לא, סגור חלון</button>
+                    <button type="button" id="btn-send-tzintuk" class="btn-pro-primary" onclick="triggerTzintuk()">
+                        <i class="fa-solid fa-phone-volume"></i> שלח צינתוק עכשיו
+                    </button>
+                </div>
+                
+                <div id="tzintuk-status-msg" class="tzintuk-status-msg" style="margin-top: 15px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="deleteConfirmModal">
+        <div class="modal-content professional-modal" style="max-width: 400px; padding: 25px;">
+            <div id="delete-modal-texts" style="text-align: center;">
+                <div style="font-size: 3rem; color: var(--danger); margin-bottom: 15px;">
+                    <i class="fa-solid fa-trash-can"></i>
+                </div>
+                <h3 style="font-weight: 800; font-size: 1.4rem; color: var(--text-dark); margin-bottom: 10px;">מחיקת הודעה לצמיתות</h3>
+                <p class="subtitle" style="line-height: 1.5; margin-bottom: 0;">האם אתה בטוח שברצונך למחוק לחלוטין הודעה זו?<br><span style="color: var(--danger); font-weight: bold;">פעולה זו אינה ניתנת לביטול!</span></p>
+            </div>
+
+            <div class="preview-actions-pro" id="delete-action-buttons" style="margin-top: 25px; display: flex; gap: 10px;">
+                <button type="button" class="btn-pro-secondary" onclick="closeDeleteModal()">ביטול</button>
+                <button type="button" id="btn-confirm-delete" class="btn-pro-primary" style="background: var(--danger);" onclick="confirmDeleteMessage()">כן, מחק הודעה</button>
+            </div>
+
+            <div id="delete-status-msg" class="tzintuk-status-msg" style="margin-top: 15px;"></div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="errorAlertModal">
+        <div class="modal-content professional-modal" style="text-align: center; padding: 30px; max-width: 400px;">
+            <div style="font-size: 3.5rem; color: var(--danger); margin-bottom: 15px;">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h2 id="errorModalTitle" style="color: var(--text-dark); margin-bottom: 10px; font-weight: 800; font-size: 1.4rem;">פעולה נכשלה</h2>
+            <p id="errorModalText" style="color: var(--text-light); margin-bottom: 25px; line-height: 1.5; font-size: 1.05rem;">פירוט השגיאה יוצג כאן</p>
+            <button class="btn-primary" onclick="closeErrorModal()" style="width: 100%; justify-content: center;" type="button">הבנתי, סגור</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="announcementModal">
+        <div class="modal-content professional-modal" style="max-width: 450px;">
+            <div class="modal-header">
+                <h2><i class="fa-solid fa-bullhorn"></i> לוח מודעות ועדכונים</h2>
+                <button class="close-modal-btn" onclick="closeAnnouncementModal()" type="button"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div style="padding: 20px; max-height: 70vh; overflow-y: auto;" id="mobile-announcement-content">
+                </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="userSettingsModal">
         <div class="modal-content professional-modal" style="max-width: 550px; display: flex; flex-direction: column; max-height: 90vh;">
             <div class="modal-header">
                 <h2><i class="fa-solid fa-sliders"></i> הגדרות חשבון מתקדמות</h2>
                 <button class="close-modal-btn" onclick="closeUserSettingsModal()" title="סגור"><i class="fa-solid fa-xmark"></i></button>
             </div>
-            
             <div class="settings-tabs">
                 <button class="settings-tab-btn active" onclick="switchSettingsTab('profile')"><i class="fa-solid fa-user-pen"></i> העדפות מערכת</button>
                 <button class="settings-tab-btn" onclick="switchSettingsTab('security')"><i class="fa-solid fa-shield-halved"></i> אבטחה וסיסמה</button>
             </div>
-            
+            <div style="background: #f8fafc; padding: 20px 20px 0 20px; flex-shrink: 0;">
+                <div id="alert-settings" class="alert-box" style="margin-bottom: 0;"></div>
+            </div>
             <div style="padding: 20px; overflow-y: auto; background: #f8fafc; flex: 1;">
-                
-                <!-- התראת סטטוס גלובלית שצפה למעלה במקרה של הצלחה/שגיאה בעדכון -->
-                <div id="inline-settings-alert" class="alert-box" style="display:none; margin-bottom: 20px; position: sticky; top: 0; z-index: 10;"></div>
-
-                <div id="settings-profile-form">
-                    
-                    <!-- שדה סיסמה להרשאות, נשלח עם כל בקשה מבלי לעצור אותה בלקוח -->
-                    <div id="inline_password_auth_section" class="settings-card-advanced" style="background:#fffbeb; border-color:#fde68a; margin-bottom: 25px;">
-                        <h3 style="color:#b45309; border-bottom: 2px solid #fef3c7; font-size: 1.05rem;"><i class="fa-solid fa-lock"></i> אימות סיסמה לשינויים</h3>
-                        <p style="font-size: 0.9rem; color: #92400e; margin-bottom: 15px; font-weight: 600;">כדי לשנות את ההגדרות האישיות מטה, עליך להזין את סיסמתך הנוכחית בתיבה זו:</p>
-                        <div class="form-group" style="margin:0;">
-                            <input type="password" id="inline_auth_pass" placeholder="הזן את סיסמתך הקיימת..." class="input-modern center-text ltr-input" style="background:#ffffff; border-color: #fcd34d;">
-                        </div>
-                    </div>
-
+                <form id="settings-profile-form" onsubmit="event.preventDefault(); updateUserProfile(event);">
                     <div class="settings-card-advanced">
-                        <h3>פרטי קשר וגיבוי</h3>
-                        <div class="form-group" style="margin-bottom: 20px;">
-                            <label>כתובת אימייל (מומלץ)</label>
-                            <div style="display: flex; gap: 8px;">
-                                <input type="email" id="inline_email" class="ltr-input input-modern" placeholder="email@example.com">
-                                <button type="button" id="btn_save_email" class="btn-primary" style="width: auto; padding: 0 20px;" onclick="saveInlineSetting('email', 'inline_email')">
-                                    <i class="fa-solid fa-floppy-disk"></i> שמור
-                                </button>
-                            </div>
-                        </div>
+                        <h3>פרטי קשר</h3>
+                        <div class="form-group"><label>כתובת אימייל (מומלץ)</label><input type="email" id="update_email" class="ltr-input input-modern"></div>
                         
-                        <div id="email_blocked_warning" style="display: none; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 15px; margin-bottom: 25px; text-align: right;">
+                        <div id="email_blocked_warning" style="display: none; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 15px; margin-top: 10px; margin-bottom: 20px; text-align: right;">
                             <div style="display: flex; align-items: center; gap: 8px; color: var(--danger); font-weight: bold; margin-bottom: 8px; font-size: 1.05rem;">
                                 <i class="fa-solid fa-shield-virus"></i> האימייל חסום ברשימה השחורה
                             </div>
@@ -511,52 +587,23 @@
                             <button type="button" id="btn_unblock_email" onclick="unblockEmailGlobally()" class="actions-btn" style="background: #ef4444; color: white; border: none; padding: 8px 15px; display: inline-flex; align-items: center; gap: 6px;"><i class="fa-solid fa-unlock"></i> הסר חסימה וקבל הודעות</button>
                         </div>
 
-                        <h3 style="margin-top:25px;">התראות ואבטחה (שמירה אוטומטית)</h3>
-                        <div class="toggle-row">
-                            <div class="toggle-info">
-                                <strong>קבלת עדכונים לאימייל</strong>
-                                <span>אפשר קבלת קודי איפוס והתראות מערכת.</span>
-                            </div>
-                            <div style="display:flex; align-items:center; gap:12px;">
-                                <i id="spinner_receive_emails" class="fa-solid fa-circle-notch fa-spin" style="display:none; color:var(--secondary); font-size: 1.1rem;"></i>
-                                <label class="modern-switch">
-                                    <input type="checkbox" id="inline_receive_emails" onchange="saveInlineSetting('receive_emails', 'inline_receive_emails')">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-                        </div>
-                        
-                        <div class="toggle-row">
-                            <div class="toggle-info">
-                                <strong>כניסה באמצעות גוגל בלבד</strong>
-                                <span>חוסם התחברות עם סיסמה לאבטחה מירבית.</span>
-                            </div>
-                            <div style="display:flex; align-items:center; gap:12px;">
-                                <i id="spinner_google_login_only" class="fa-solid fa-circle-notch fa-spin" style="display:none; color:var(--secondary); font-size: 1.1rem;"></i>
-                                <label class="modern-switch">
-                                    <input type="checkbox" id="inline_google_only" onchange="saveInlineSetting('google_login_only', 'inline_google_only')">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
-                        </div>
+                        <h3 style="margin-top:25px;">התראות ואבטחה</h3>
+                        <div class="toggle-row"><div class="toggle-info"><strong>קבלת עדכונים לאימייל</strong><span>אפשר קבלת קודי איפוס והתראות מערכת לאימייל.</span></div><label class="modern-switch"><input type="checkbox" id="update_receive_emails"><span class="slider"></span></label></div>
+                        <div class="toggle-row"><div class="toggle-info"><strong>כניסה באמצעות גוגל בלבד</strong><span>חוסם התחברות עם סיסמה לאבטחה מירבית של החשבון.</span></div><label class="modern-switch"><input type="checkbox" id="update_google_only"><span class="slider"></span></label></div>
+                        <div id="profile_password_auth" class="form-group" style="margin-top: 25px; border-top: 1px solid var(--border-color); padding-top: 20px;"><label style="color: var(--danger); font-size: 0.95rem;"><i class="fa-solid fa-lock"></i> סיסמה נוכחית (חובה לאימות שינויים)</label><input type="password" id="update_auth_pass" placeholder="הזן את סיסמתך הנוכחית לאישור" class="input-modern center-text ltr-input"></div>
+                        <button type="submit" id="btn-update-profile" class="btn-primary" style="margin-top: 15px;">שמור העדפות <i class="fa-solid fa-floppy-disk"></i></button>
                     </div>
-                </div>
-
-                <div id="settings-security-form" style="display:none;">
-                    <form onsubmit="event.preventDefault(); updatePassword(event);">
-                        <div class="settings-card-advanced">
-                            <h3>שינוי סיסמת התחברות</h3>
-                            <div class="form-group"><label>סיסמה נוכחית</label><input type="password" id="change_old_pass" required placeholder="****" class="input-modern center-text ltr-input"></div>
-                            <div class="form-group"><label>סיסמה חדשה (4-10 ספרות)</label><input type="password" id="change_new_pass" required placeholder="****" class="input-modern center-text ltr-input"></div>
-                            <div class="form-group"><label>אימות סיסמה חדשה</label><input type="password" id="change_new_pass_confirm" required placeholder="****" class="input-modern center-text ltr-input"></div>
-                            <div class="toggle-row" style="margin-top: 25px; border-top: 1px solid var(--border-color); padding-top: 15px;">
-                                <div class="toggle-info"><strong style="color:var(--danger);">נתק את כל המכשירים</strong><span>מחיקת כל הטוקנים וניתוק חשבונך מכל מכשיר.</span></div>
-                                <label class="modern-switch"><input type="checkbox" id="change_logout_devices"><span class="slider danger-slider"></span></label>
-                            </div>
-                            <button type="submit" id="btn-change-password" class="btn-primary" style="background:var(--secondary); margin-top: 15px;">עדכן סיסמה <i class="fa-solid fa-key"></i></button>
-                        </div>
-                    </form>
-                </div>
+                </form>
+                <form id="settings-security-form" style="display:none;" onsubmit="event.preventDefault(); updatePassword(event);">
+                    <div class="settings-card-advanced">
+                        <h3>שינוי סיסמה</h3>
+                        <div class="form-group"><label>סיסמה נוכחית</label><input type="password" id="change_old_pass" required placeholder="****" class="input-modern center-text ltr-input"></div>
+                        <div class="form-group"><label>סיסמה חדשה (4-10 ספרות)</label><input type="password" id="change_new_pass" required placeholder="****" class="input-modern center-text ltr-input"></div>
+                        <div class="form-group"><label>אימות סיסמה חדשה</label><input type="password" id="change_new_pass_confirm" required placeholder="****" class="input-modern center-text ltr-input"></div>
+                        <div class="toggle-row" style="margin-top: 25px; border-top: 1px solid var(--border-color); padding-top: 15px;"><div class="toggle-info"><strong style="color:var(--danger);">נתק את כל המכשירים</strong><span>מחיקת כל הטוקנים וניתוק של חשבונך מכל מכשיר אחר שמחובר למערכת.</span></div><label class="modern-switch"><input type="checkbox" id="change_logout_devices"><span class="slider danger-slider"></span></label></div>
+                        <button type="submit" id="btn-change-password" class="btn-primary" style="background:var(--secondary); margin-top: 15px;">עדכן סיסמה <i class="fa-solid fa-key"></i></button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
