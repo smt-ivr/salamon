@@ -62,7 +62,7 @@ function switchSettingsTab(tab) {
         document.getElementById('settings-security-form').style.display = 'block';
     }
     
-    const alertBox = document.getElementById('inline-settings-alert');
+    const alertBox = document.getElementById('alert-settings');
     if (alertBox) alertBox.style.display = 'none';
 }
 
@@ -70,11 +70,10 @@ function openUserSettingsModal() {
     const user = state.currentUser;
     if (!user) return;
     
-    // מילוי הנתונים בהגדרות האינליין
-    document.getElementById('inline_email').value = user.email || '';
-    document.getElementById('inline_receive_emails').checked = user.receiveEmails;
-    document.getElementById('inline_google_only').checked = user.googleLoginOnly;
-    document.getElementById('inline_auth_pass').value = '';
+    document.getElementById('update_email').value = user.email || '';
+    document.getElementById('update_receive_emails').checked = user.receiveEmails;
+    document.getElementById('update_google_only').checked = user.googleLoginOnly;
+    document.getElementById('update_auth_pass').value = '';
     
     // ניהול תצוגת חסימת הרשימה השחורה
     const emailBlockedWarning = document.getElementById('email_blocked_warning');
@@ -94,14 +93,12 @@ function openUserSettingsModal() {
         emailBlockedWarning.style.display = 'none';
     }
     
-    // איפוס שדות שינוי סיסמה
     document.getElementById('change_old_pass').value = '';
     document.getElementById('change_new_pass').value = '';
     document.getElementById('change_new_pass_confirm').value = '';
     document.getElementById('change_logout_devices').checked = false;
 
-    // האם להציג דרישת סיסמה לשינויים בהגדרות
-    const authPassSection = document.getElementById('inline_password_auth_section');
+    const authPassSection = document.getElementById('profile_password_auth');
     if (user.authMethod === 'google') {
         authPassSection.style.display = 'none';
     } else {
@@ -116,96 +113,71 @@ function closeUserSettingsModal() {
     document.getElementById('userSettingsModal').classList.remove('active');
 }
 
-// -------------------------------------------------------------
-// פונקציית שמירה אוטומטית מקצועית (Inline Auto-Save)
-// -------------------------------------------------------------
-async function saveInlineSetting(settingKey, elementId) {
-    const element = document.getElementById(elementId);
-    if (!element) return;
-
-    let newValue;
-    let isCheckbox = element.type === 'checkbox';
+async function updateUserProfile(e) {
+    if (e) e.preventDefault();
     
-    if (isCheckbox) {
-        newValue = element.checked;
-        // מציג ספינר אינליין ליד המתג ונועל אותו זמנית
-        const spinner = document.getElementById('spinner_' + settingKey);
-        if (spinner) spinner.style.display = 'inline-block';
-        element.disabled = true;
-    } else {
-        newValue = element.value;
-        // כפתור השמירה של המייל יהפוך לספינר
-        setLoading('btn_save_' + settingKey, true, '');
-    }
+    const newEmail = document.getElementById('update_email').value;
+    const receiveEmails = document.getElementById('update_receive_emails').checked;
+    const googleLoginOnly = document.getElementById('update_google_only').checked;
+    const password = document.getElementById('update_auth_pass').value;
 
-    // קריאת הסיסמה מהשדה (בלי שום חסימת צד לקוח! נשלח לשרת שישבור את הראש)
-    const authPass = document.getElementById('inline_auth_pass').value;
-
+    setLoading('btn-update-profile', true);
+    
     try {
         const payload = {
             userToken: state.userToken,
-            key: settingKey,
-            value: newValue,
-            password: authPass
+            newEmail: newEmail,
+            receiveEmails: receiveEmails,
+            googleLoginOnly: googleLoginOnly
         };
 
-        const res = await fetch(`${API_BASE_URL}/update-profile-single`, {
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' },
+        if (state.currentUser.authMethod === 'password') {
+            payload.password = password;
+        }
+
+        const res = await fetch(`${API_BASE_URL}/update-profile`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
         const data = await res.json();
-
-        // 1. מקור האמת של השרת - מתקן את התצוגה בכל מקרה (הצלחה/שגיאה)
-        if (data.currentValue !== undefined && data.currentValue !== null) {
-            if (isCheckbox) {
-                element.checked = (data.currentValue === 1 || data.currentValue === true);
-            } else {
-                element.value = data.currentValue;
-            }
-            
-            // מעדכן את האובייקט בזיכרון של הלקוח כדי שישקף את השרת
-            if(settingKey === 'email') state.currentUser.email = data.currentValue;
-            if(settingKey === 'receive_emails') state.currentUser.receiveEmails = data.currentValue;
-            if(settingKey === 'google_login_only') state.currentUser.googleLoginOnly = data.currentValue;
+        setLoading('btn-update-profile', false, 'שמור העדפות <i class="fa-solid fa-floppy-disk"></i>');
+        
+        if (!res.ok) {
+            const errorMsg = (data.message || data.error || 'שגיאה בעדכון - ייתכן והסיסמה שגויה').replace(/\\n|\n/g, '<br>');
+            showMessage('alert-settings', errorMsg, 'error');
+            return;
         }
 
-        const alertBox = document.getElementById('inline-settings-alert');
-        alertBox.style.display = 'block';
-
-        // 2. טיפול בהודעות
-        if (res.ok && data.success) {
-            alertBox.className = 'alert-box success';
-            alertBox.innerHTML = `<i class="fa-solid fa-check"></i> ${data.message || 'ההגדרה עודכנה בהצלחה.'}`;
+        const alertType = data.partialUpdate ? 'warning' : 'success';
+        const successMsg = (data.message || 'הגדרות החשבון וההעדפות עודכנו בהצלחה!').replace(/\\n|\n/g, '<br>');
+        showMessage('alert-settings', successMsg, alertType);
+        
+        document.getElementById('update_auth_pass').value = '';
+        
+        const userRes = await fetch(`${API_BASE_URL}/user`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userToken: state.userToken })
+        });
+        const userData = await userRes.json();
+        
+        if (userRes.ok && userData.user) {
+            state.currentUser = userData.user;
+            if (typeof updateDashboardUI === 'function') updateDashboardUI();
             
-            // בודק אם צריך להקפיץ/להעלים את הודעת הרשימה השחורה
-            if (settingKey === 'email' && state.currentUser.emailGloballyBlocked && newValue !== state.currentUser.email) {
-                 document.getElementById('email_blocked_warning').style.display = 'none';
+            document.getElementById('update_email').value = userData.user.email || '';
+            document.getElementById('update_receive_emails').checked = userData.user.receiveEmails;
+            document.getElementById('update_google_only').checked = userData.user.googleLoginOnly;
+            
+            if (userData.user.emailGloballyBlocked) {
+                document.getElementById('email_blocked_warning').style.display = 'block';
+            } else {
+                document.getElementById('email_blocked_warning').style.display = 'none';
             }
-        } else {
-            alertBox.className = 'alert-box error';
-            alertBox.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${data.error || 'שגיאה בעדכון ההגדרה.'}`;
         }
         
-        // העלמת ההתראה באלגנטיות אחרי 4 שניות
-        setTimeout(() => { 
-            if (alertBox.style.display === 'block') alertBox.style.display = 'none'; 
-        }, 4000);
-
     } catch (err) {
-        const alertBox = document.getElementById('inline-settings-alert');
-        alertBox.style.display = 'block';
-        alertBox.className = 'alert-box error';
-        alertBox.innerHTML = '<i class="fa-solid fa-wifi"></i> שגיאת תקשורת מול השרת.';
-    } finally {
-        // שחרור נעילת ה-UI
-        if (isCheckbox) {
-            const spinner = document.getElementById('spinner_' + settingKey);
-            if (spinner) spinner.style.display = 'none';
-            element.disabled = false;
-        } else {
-            setLoading('btn_save_' + settingKey, false, '<i class="fa-solid fa-floppy-disk"></i> שמור');
-        }
+        setLoading('btn-update-profile', false, 'שמור העדפות <i class="fa-solid fa-floppy-disk"></i>');
+        showMessage('alert-settings', 'שגיאת תקשורת מול השרת', 'error');
     }
 }
 
@@ -218,10 +190,7 @@ async function updatePassword(e) {
     const logoutAllDevices = document.getElementById('change_logout_devices').checked;
 
     if (newPassword !== newPasswordConfirm) {
-        const alertBox = document.getElementById('inline-settings-alert');
-        alertBox.style.display = 'block';
-        alertBox.className = 'alert-box error';
-        alertBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> הסיסמאות החדשות שהוזנו אינן תואמות.';
+        showMessage('alert-settings', 'הסיסמאות החדשות שהוזנו אינן תואמות.', 'error');
         return;
     }
 
@@ -240,24 +209,18 @@ async function updatePassword(e) {
         const data = await res.json();
         setLoading('btn-change-password', false, 'עדכן סיסמה <i class="fa-solid fa-key"></i>');
         
-        const alertBox = document.getElementById('inline-settings-alert');
-        alertBox.style.display = 'block';
-
         if (!res.ok) {
             const errorMsg = (data.message || data.error || 'שגיאה בעדכון - ייתכן והסיסמה הנוכחית שגויה').replace(/\\n|\n/g, '<br>');
-            alertBox.className = 'alert-box error';
-            alertBox.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${errorMsg}`;
+            showMessage('alert-settings', errorMsg, 'error');
             return;
         }
 
         const successMsg = (data.message || 'הסיסמה שונתה בהצלחה!').replace(/\\n|\n/g, '<br>');
-        alertBox.className = 'alert-box success';
-        alertBox.innerHTML = `<i class="fa-solid fa-check"></i> ${successMsg}`;
+        showMessage('alert-settings', successMsg, 'success');
         
         document.getElementById('change_old_pass').value = '';
         document.getElementById('change_new_pass').value = '';
         document.getElementById('change_new_pass_confirm').value = '';
-        document.getElementById('inline_auth_pass').value = ''; // איפוס סיסמת האימות הראשית גם
         
         if (logoutAllDevices) {
             setTimeout(() => {
@@ -265,14 +228,11 @@ async function updatePassword(e) {
                 logout(); 
             }, 2500);
         } else {
-            setTimeout(() => { if (alertBox.style.display === 'block') alertBox.style.display = 'none'; }, 3000);
+            setTimeout(() => closeUserSettingsModal(), 2000);
         }
         
     } catch (err) {
         setLoading('btn-change-password', false, 'עדכן סיסמה <i class="fa-solid fa-key"></i>');
-        const alertBox = document.getElementById('inline-settings-alert');
-        alertBox.style.display = 'block';
-        alertBox.className = 'alert-box error';
-        alertBox.innerHTML = '<i class="fa-solid fa-wifi"></i> שגיאת תקשורת מול השרת.';
+        showMessage('alert-settings', 'שגיאת תקשורת מול השרת', 'error');
     }
 }
