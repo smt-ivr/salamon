@@ -50,16 +50,19 @@ function updateDashboardUI() {
 }
 
 function switchSettingsTab(tab) {
-    document.querySelectorAll('.settings-tab-btn').forEach(btn => btn.classList.remove('active'));
+    // איפוס הכפתורים בתפריט הצד
+    document.querySelectorAll('.settings-nav-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById('settings-profile-form').style.display = 'none';
     document.getElementById('settings-security-form').style.display = 'none';
     
     if (tab === 'profile') {
-        document.querySelectorAll('.settings-tab-btn')[0].classList.add('active');
+        document.querySelectorAll('.settings-nav-btn')[0].classList.add('active');
         document.getElementById('settings-profile-form').style.display = 'block';
+        document.getElementById('settings-section-title').innerText = 'העדפות מערכת';
     } else {
-        document.querySelectorAll('.settings-tab-btn')[1].classList.add('active');
+        document.querySelectorAll('.settings-nav-btn')[1].classList.add('active');
         document.getElementById('settings-security-form').style.display = 'block';
+        document.getElementById('settings-section-title').innerText = 'אבטחה וסיסמה';
     }
     
     const alertBox = document.getElementById('inline-settings-alert');
@@ -70,13 +73,11 @@ function openUserSettingsModal() {
     const user = state.currentUser;
     if (!user) return;
     
-    // מילוי הנתונים בהגדרות האינליין
     document.getElementById('inline_email').value = user.email || '';
     document.getElementById('inline_receive_emails').checked = user.receiveEmails;
     document.getElementById('inline_google_only').checked = user.googleLoginOnly;
     document.getElementById('inline_auth_pass').value = '';
     
-    // ניהול תצוגת חסימת הרשימה השחורה
     const emailBlockedWarning = document.getElementById('email_blocked_warning');
     if (user.emailGloballyBlocked) {
         emailBlockedWarning.style.display = 'block';
@@ -94,13 +95,11 @@ function openUserSettingsModal() {
         emailBlockedWarning.style.display = 'none';
     }
     
-    // איפוס שדות שינוי סיסמה
     document.getElementById('change_old_pass').value = '';
     document.getElementById('change_new_pass').value = '';
     document.getElementById('change_new_pass_confirm').value = '';
     document.getElementById('change_logout_devices').checked = false;
 
-    // האם להציג דרישת סיסמה לשינויים בהגדרות
     const authPassSection = document.getElementById('inline_password_auth_section');
     if (user.authMethod === 'google') {
         authPassSection.style.display = 'none';
@@ -117,7 +116,7 @@ function closeUserSettingsModal() {
 }
 
 // -------------------------------------------------------------
-// פונקציית שמירה אוטומטית מקצועית (Inline Auto-Save)
+// שמירה אוטומטית / עריכה מובנית (Inline Save)
 // -------------------------------------------------------------
 async function saveInlineSetting(settingKey, elementId) {
     const element = document.getElementById(elementId);
@@ -128,17 +127,19 @@ async function saveInlineSetting(settingKey, elementId) {
     
     if (isCheckbox) {
         newValue = element.checked;
-        // מציג ספינר אינליין ליד המתג ונועל אותו זמנית
         const spinner = document.getElementById('spinner_' + settingKey);
         if (spinner) spinner.style.display = 'inline-block';
         element.disabled = true;
     } else {
         newValue = element.value;
-        // כפתור השמירה של המייל יהפוך לספינר
-        setLoading('btn_save_' + settingKey, true, '');
+        const btn = document.getElementById('btn_save_' + settingKey);
+        if (btn) {
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+            btn.disabled = true;
+        }
     }
 
-    // קריאת הסיסמה מהשדה (בלי שום חסימת צד לקוח! נשלח לשרת שישבור את הראש)
+    // קריאת הסיסמה בלי חסימות לקוח - השרת יבדוק את תקינותה ויחזיר שגיאה אם צריך.
     const authPass = document.getElementById('inline_auth_pass').value;
 
     try {
@@ -156,7 +157,7 @@ async function saveInlineSetting(settingKey, elementId) {
         });
         const data = await res.json();
 
-        // 1. מקור האמת של השרת - מתקן את התצוגה בכל מקרה (הצלחה/שגיאה)
+        // 1. השרת פוסק את המילה האחרונה לגבי הערך הנוכחי האמיתי
         if (data.currentValue !== undefined && data.currentValue !== null) {
             if (isCheckbox) {
                 element.checked = (data.currentValue === 1 || data.currentValue === true);
@@ -164,7 +165,6 @@ async function saveInlineSetting(settingKey, elementId) {
                 element.value = data.currentValue;
             }
             
-            // מעדכן את האובייקט בזיכרון של הלקוח כדי שישקף את השרת
             if(settingKey === 'email') state.currentUser.email = data.currentValue;
             if(settingKey === 'receive_emails') state.currentUser.receiveEmails = data.currentValue;
             if(settingKey === 'google_login_only') state.currentUser.googleLoginOnly = data.currentValue;
@@ -173,21 +173,19 @@ async function saveInlineSetting(settingKey, elementId) {
         const alertBox = document.getElementById('inline-settings-alert');
         alertBox.style.display = 'block';
 
-        // 2. טיפול בהודעות
+        // 2. תצוגת משוב
         if (res.ok && data.success) {
-            alertBox.className = 'alert-box success';
-            alertBox.innerHTML = `<i class="fa-solid fa-check"></i> ${data.message || 'ההגדרה עודכנה בהצלחה.'}`;
+            alertBox.className = 'alert-box compact-alert success';
+            alertBox.innerHTML = `<i class="fa-solid fa-check"></i> ${data.message || 'עודכן בהצלחה.'}`;
             
-            // בודק אם צריך להקפיץ/להעלים את הודעת הרשימה השחורה
             if (settingKey === 'email' && state.currentUser.emailGloballyBlocked && newValue !== state.currentUser.email) {
                  document.getElementById('email_blocked_warning').style.display = 'none';
             }
         } else {
-            alertBox.className = 'alert-box error';
+            alertBox.className = 'alert-box compact-alert error';
             alertBox.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${data.error || 'שגיאה בעדכון ההגדרה.'}`;
         }
         
-        // העלמת ההתראה באלגנטיות אחרי 4 שניות
         setTimeout(() => { 
             if (alertBox.style.display === 'block') alertBox.style.display = 'none'; 
         }, 4000);
@@ -195,16 +193,19 @@ async function saveInlineSetting(settingKey, elementId) {
     } catch (err) {
         const alertBox = document.getElementById('inline-settings-alert');
         alertBox.style.display = 'block';
-        alertBox.className = 'alert-box error';
+        alertBox.className = 'alert-box compact-alert error';
         alertBox.innerHTML = '<i class="fa-solid fa-wifi"></i> שגיאת תקשורת מול השרת.';
     } finally {
-        // שחרור נעילת ה-UI
         if (isCheckbox) {
             const spinner = document.getElementById('spinner_' + settingKey);
             if (spinner) spinner.style.display = 'none';
             element.disabled = false;
         } else {
-            setLoading('btn_save_' + settingKey, false, '<i class="fa-solid fa-floppy-disk"></i> שמור');
+            const btn = document.getElementById('btn_save_' + settingKey);
+            if (btn) {
+                btn.innerHTML = 'שמור';
+                btn.disabled = false;
+            }
         }
     }
 }
@@ -217,10 +218,11 @@ async function updatePassword(e) {
     const newPasswordConfirm = document.getElementById('change_new_pass_confirm').value;
     const logoutAllDevices = document.getElementById('change_logout_devices').checked;
 
+    const alertBox = document.getElementById('inline-settings-alert');
+
     if (newPassword !== newPasswordConfirm) {
-        const alertBox = document.getElementById('inline-settings-alert');
         alertBox.style.display = 'block';
-        alertBox.className = 'alert-box error';
+        alertBox.className = 'alert-box compact-alert error';
         alertBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> הסיסמאות החדשות שהוזנו אינן תואמות.';
         return;
     }
@@ -240,24 +242,23 @@ async function updatePassword(e) {
         const data = await res.json();
         setLoading('btn-change-password', false, 'עדכן סיסמה <i class="fa-solid fa-key"></i>');
         
-        const alertBox = document.getElementById('inline-settings-alert');
         alertBox.style.display = 'block';
 
         if (!res.ok) {
             const errorMsg = (data.message || data.error || 'שגיאה בעדכון - ייתכן והסיסמה הנוכחית שגויה').replace(/\\n|\n/g, '<br>');
-            alertBox.className = 'alert-box error';
+            alertBox.className = 'alert-box compact-alert error';
             alertBox.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${errorMsg}`;
             return;
         }
 
         const successMsg = (data.message || 'הסיסמה שונתה בהצלחה!').replace(/\\n|\n/g, '<br>');
-        alertBox.className = 'alert-box success';
+        alertBox.className = 'alert-box compact-alert success';
         alertBox.innerHTML = `<i class="fa-solid fa-check"></i> ${successMsg}`;
         
         document.getElementById('change_old_pass').value = '';
         document.getElementById('change_new_pass').value = '';
         document.getElementById('change_new_pass_confirm').value = '';
-        document.getElementById('inline_auth_pass').value = ''; // איפוס סיסמת האימות הראשית גם
+        document.getElementById('inline_auth_pass').value = ''; 
         
         if (logoutAllDevices) {
             setTimeout(() => {
@@ -270,9 +271,8 @@ async function updatePassword(e) {
         
     } catch (err) {
         setLoading('btn-change-password', false, 'עדכן סיסמה <i class="fa-solid fa-key"></i>');
-        const alertBox = document.getElementById('inline-settings-alert');
         alertBox.style.display = 'block';
-        alertBox.className = 'alert-box error';
+        alertBox.className = 'alert-box compact-alert error';
         alertBox.innerHTML = '<i class="fa-solid fa-wifi"></i> שגיאת תקשורת מול השרת.';
     }
 }
