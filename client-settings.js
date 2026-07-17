@@ -66,6 +66,49 @@ function switchSettingsTab(tab) {
     if (alertBox) alertBox.style.display = 'none';
 }
 
+// לוגיקה למעקב אחר שינויים שלא נשמרו בהגדרות
+let hasUnsavedChanges = false;
+function trackSettingsChanges() {
+    hasUnsavedChanges = false;
+    const banner = document.getElementById('unsaved-changes-banner');
+    if (banner) banner.style.display = 'none';
+    
+    document.querySelectorAll('.clean-settings-row').forEach(row => row.classList.remove('is-changed'));
+
+    const inputs = document.querySelectorAll('#userSettingsModal input.track-change');
+    
+    inputs.forEach(input => {
+        // שומרים את הערך הראשוני של כל שדה בזמן פתיחת המודל
+        if (input.type === 'checkbox') {
+            input.dataset.initialValue = input.checked;
+        } else {
+            input.dataset.initialValue = input.value;
+        }
+        
+        // מאזינים לשינויים
+        input.addEventListener('input', function() {
+            const currentValue = this.type === 'checkbox' ? this.checked : this.value;
+            const initialValue = this.type === 'checkbox' ? (this.dataset.initialValue === 'true') : this.dataset.initialValue;
+            const row = this.closest('.clean-settings-row');
+            
+            if (currentValue !== initialValue) {
+                if (row) row.classList.add('is-changed');
+            } else {
+                if (row) row.classList.remove('is-changed');
+            }
+            
+            // בדיקה האם יש לפחות שדה אחד ששונה מכלל הטפסים
+            hasUnsavedChanges = Array.from(inputs).some(inp => {
+                const val = inp.type === 'checkbox' ? inp.checked : inp.value;
+                const init = inp.type === 'checkbox' ? (inp.dataset.initialValue === 'true') : inp.dataset.initialValue;
+                return val !== init;
+            });
+            
+            if (banner) banner.style.display = hasUnsavedChanges ? 'flex' : 'none';
+        });
+    });
+}
+
 function openUserSettingsModal() {
     const user = state.currentUser;
     if (!user) return;
@@ -75,7 +118,6 @@ function openUserSettingsModal() {
     document.getElementById('update_google_only').checked = user.googleLoginOnly;
     document.getElementById('update_auth_pass').value = '';
     
-    // ניהול תצוגת חסימת הרשימה השחורה
     const emailBlockedWarning = document.getElementById('email_blocked_warning');
     if (user.emailGloballyBlocked) {
         emailBlockedWarning.style.display = 'block';
@@ -107,6 +149,9 @@ function openUserSettingsModal() {
 
     switchSettingsTab('profile');
     document.getElementById('userSettingsModal').classList.add('active');
+    
+    // הפעלת מעקב שינויים רק אחרי שכל הנתונים הוזנו
+    setTimeout(trackSettingsChanges, 50);
 }
 
 function closeUserSettingsModal() {
@@ -140,7 +185,7 @@ async function updateUserProfile(e) {
             body: JSON.stringify(payload)
         });
         const data = await res.json();
-        setLoading('btn-update-profile', false, 'שמור העדפות <i class="fa-solid fa-floppy-disk"></i>');
+        setLoading('btn-update-profile', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
         
         if (!res.ok) {
             const errorMsg = (data.message || data.error || 'שגיאה בעדכון - ייתכן והסיסמה שגויה').replace(/\\n|\n/g, '<br>');
@@ -153,6 +198,9 @@ async function updateUserProfile(e) {
         showMessage('alert-settings', successMsg, alertType);
         
         document.getElementById('update_auth_pass').value = '';
+        
+        // איפוס מנגנון המעקב אחר שינויים לאחר שמירה מוצלחת
+        trackSettingsChanges();
         
         const userRes = await fetch(`${API_BASE_URL}/user`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -173,10 +221,13 @@ async function updateUserProfile(e) {
             } else {
                 document.getElementById('email_blocked_warning').style.display = 'none';
             }
+            
+            // עדכון המעקב מחדש עם הערכים החדשים שהתקבלו מהשרת
+            trackSettingsChanges();
         }
         
     } catch (err) {
-        setLoading('btn-update-profile', false, 'שמור העדפות <i class="fa-solid fa-floppy-disk"></i>');
+        setLoading('btn-update-profile', false, 'שמור שינויים <i class="fa-solid fa-floppy-disk"></i>');
         showMessage('alert-settings', 'שגיאת תקשורת מול השרת', 'error');
     }
 }
@@ -221,6 +272,8 @@ async function updatePassword(e) {
         document.getElementById('change_old_pass').value = '';
         document.getElementById('change_new_pass').value = '';
         document.getElementById('change_new_pass_confirm').value = '';
+        
+        trackSettingsChanges(); // איפוס התראת השינויים
         
         if (logoutAllDevices) {
             setTimeout(() => {
