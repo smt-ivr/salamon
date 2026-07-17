@@ -101,10 +101,6 @@ window.renderAdminUsersTable = function() {
     });
 };
 
-// ==========================================
-// פתיחת חשבון חדש מתוך הממשק הניהולי
-// ==========================================
-
 window.openAdminCreateUserModal = function(phone) {
     document.getElementById('alert-admin-create').style.display = 'none';
     document.getElementById('create_phone').value = phone;
@@ -140,7 +136,10 @@ window.submitAdminCreateUser = async function(e) {
         canUpload: document.getElementById('create_can_upload').checked,
         canTzintuk: document.getElementById('create_can_tzintuk').checked,
         receiveEmails: document.getElementById('create_receive_emails').checked,
-        googleLoginOnly: false
+        googleLoginOnly: false,
+        canListen: true,
+        listenWhitelist: '',
+        listenBlacklist: ''
     };
 
     setLoading('btn-submit-create-user', true);
@@ -165,11 +164,7 @@ window.submitAdminCreateUser = async function(e) {
     }
 };
 
-// ==========================================
-// ניהול תיק משתמש קיים ומחיקת חשבון
-// ==========================================
-
-function switchAdminProfileTab(tab) {
+window.switchAdminProfileTab = function(tab) {
     document.querySelectorAll('#adminUserProfileModal .settings-tab-btn').forEach(btn => btn.classList.remove('active'));
     document.getElementById('tab-admin-profile-info').style.display = 'none';
     document.getElementById('tab-admin-profile-sessions').style.display = 'none';
@@ -181,13 +176,13 @@ function switchAdminProfileTab(tab) {
         document.querySelectorAll('#adminUserProfileModal .settings-tab-btn')[1].classList.add('active');
         document.getElementById('tab-admin-profile-sessions').style.display = 'block';
     }
-}
+};
 
-function closeUserProfileModal() {
+window.closeUserProfileModal = function() {
     document.getElementById('adminUserProfileModal').classList.remove('active');
-}
+};
 
-async function openUserProfile(phone) {
+window.openUserProfile = async function(phone) {
     const modal = document.getElementById('adminUserProfileModal');
     const alertBox = document.getElementById('alert-admin-profile');
     alertBox.style.display = 'none';
@@ -197,6 +192,8 @@ async function openUserProfile(phone) {
     document.getElementById('prof_name').value = 'טוען...';
     document.getElementById('prof_email').value = '';
     document.getElementById('prof_password').value = '';
+    document.getElementById('prof_listen_whitelist').value = '';
+    document.getElementById('prof_listen_blacklist').value = '';
     document.getElementById('prof_yemot_status').innerHTML = '';
     document.getElementById('prof-sessions-tbody').innerHTML = '<tr><td colspan="4" class="empty-state">טוען...</td></tr>';
     
@@ -224,8 +221,11 @@ async function openUserProfile(phone) {
             document.getElementById('prof_can_record').checked = p.user.can_record !== 0;
             document.getElementById('prof_can_upload').checked = !!p.user.can_upload;
             document.getElementById('prof_can_tzintuk').checked = p.user.can_tzintuk !== 0;
+            document.getElementById('prof_can_listen').checked = p.user.can_listen !== 0;
             document.getElementById('prof_receive_emails').checked = p.user.receive_emails !== 0;
             document.getElementById('prof_google_only').checked = p.user.google_login_only === 1;
+            document.getElementById('prof_listen_whitelist').value = p.user.listen_whitelist || '';
+            document.getElementById('prof_listen_blacklist').value = p.user.listen_blacklist || '';
         }
 
         const tbody = document.getElementById('prof-sessions-tbody');
@@ -241,15 +241,15 @@ async function openUserProfile(phone) {
                     <td style="font-size:0.85rem; font-weight:bold;">${typeIcon} (${expInfo})</td>
                     <td dir="ltr" style="font-size:0.85rem; color:var(--text-light);">${sess.session_email || '-'}</td>
                     <td dir="ltr" style="font-size:0.85rem;">${formatDateStr(sess.last_used_at)}</td>
-                    <td><button class="actions-btn" onclick="disconnectAdminUserToken('${sess.id}')" style="color:var(--danger); border-color:var(--danger); padding:4px 8px; font-size:0.8rem;"><i class="fa-solid fa-plug-circle-xmark"></i> נתק מכשיר</button></td>
+                    <td><button type="button" class="actions-btn" onclick="disconnectAdminUserToken('${sess.id}')" style="color:var(--danger); border-color:var(--danger); padding:4px 8px; font-size:0.8rem;"><i class="fa-solid fa-plug-circle-xmark"></i> נתק מכשיר</button></td>
                 `;
                 tbody.appendChild(tr);
             });
         }
     } catch (e) { showMessage('alert-admin-profile', 'שגיאת תקשורת מול השרת.', 'error'); }
-}
+};
 
-async function submitAdminUserUpdate(e) {
+window.submitAdminUserUpdate = async function(e) {
     if (e) e.preventDefault();
     const phone = document.getElementById('prof_phone_hidden').value;
     
@@ -260,8 +260,11 @@ async function submitAdminUserUpdate(e) {
         canRecord: document.getElementById('prof_can_record').checked,
         canUpload: document.getElementById('prof_can_upload').checked,
         canTzintuk: document.getElementById('prof_can_tzintuk').checked,
+        canListen: document.getElementById('prof_can_listen').checked,
         receiveEmails: document.getElementById('prof_receive_emails').checked,
-        googleLoginOnly: document.getElementById('prof_google_only').checked
+        googleLoginOnly: document.getElementById('prof_google_only').checked,
+        listenWhitelist: document.getElementById('prof_listen_whitelist').value,
+        listenBlacklist: document.getElementById('prof_listen_blacklist').value
     };
 
     setLoading('btn-save-user-profile', true);
@@ -278,9 +281,9 @@ async function submitAdminUserUpdate(e) {
         setLoading('btn-save-user-profile', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
         showMessage('alert-admin-profile', 'שגיאת תקשורת', 'error');
     }
-}
+};
 
-async function disconnectAdminUserToken(tokenId) {
+window.disconnectAdminUserToken = async function(tokenId) {
     const phone = document.getElementById('prof_phone_hidden').value;
     const msg = tokenId ? 'האם לנתק את המכשיר הספציפי הזה?' : 'האם לנתק את המשתמש מ*כל* המכשירים המחוברים?';
     if (!confirm(msg)) return;
@@ -291,7 +294,7 @@ async function disconnectAdminUserToken(tokenId) {
         if (res.ok) { showMessage('alert-admin-profile', data.message || 'הניתוק בוצע בהצלחה', 'success'); openUserProfile(phone); }
         else { showMessage('alert-admin-profile', data.error || 'שגיאה בניתוק', 'error'); }
     } catch (err) { showMessage('alert-admin-profile', 'שגיאת תקשורת', 'error'); }
-}
+};
 
 window.adminDeleteAccount = async function() {
     const phone = document.getElementById('prof_phone_hidden').value;
@@ -320,18 +323,14 @@ window.adminDeleteAccount = async function() {
     }
 };
 
-// ==========================================
-// אבטחה וצינתוקים (Security & Logs Management)
-// ==========================================
-
-async function refreshTzintukData() {
+window.refreshTzintukData = async function() {
     const btn = document.getElementById('btn-refresh-tzintuk');
     if (btn) { btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מרענן נתונים...'; btn.disabled = true; }
     await Promise.all([loadVerifyBlocks(), loadVerifyLogs()]);
     if (btn) { btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> רענן נתונים'; btn.disabled = false; }
-}
+};
 
-async function loadVerifyBlocks() {
+window.loadVerifyBlocks = async function() {
     if (!state.adminToken) return;
     const tbody = document.getElementById('admin-blocks-table-body');
     if(!tbody) return;
@@ -353,14 +352,14 @@ async function loadVerifyBlocks() {
                 <td>${icon} ${typeName}</td><td dir="ltr" style="font-weight:700;">${b.block_value}</td><td>${b.reason || 'ללא סיבה'}</td>
                 <td dir="ltr" style="color: var(--text-light);">${formatDateStr(b.created_at)}</td>
                 <td dir="ltr">${b.expires_at ? formatDateStr(b.expires_at) : '<span style="color:var(--danger);font-weight:bold;"><i class="fa-solid fa-ban"></i> לצמיתות</span>'}</td>
-                <td><button class="actions-btn" onclick="unblockUser('${b.block_type}', '${b.block_value}')"><i class="fa-solid fa-unlock"></i> הסר</button></td>
+                <td><button type="button" class="actions-btn" onclick="unblockUser('${b.block_type}', '${b.block_value}')"><i class="fa-solid fa-unlock"></i> הסר</button></td>
             `;
             tbody.appendChild(tr);
         });
     } catch (err) { tbody.innerHTML = '<tr><td colspan="6" class="empty-state" style="color:var(--danger);">שגיאת תקשורת</td></tr>'; }
-}
+};
 
-async function loadVerifyLogs() {
+window.loadVerifyLogs = async function() {
     if (!state.adminToken) return;
     const tbody = document.getElementById('admin-logs-table-body');
     if(!tbody) return;
@@ -381,9 +380,9 @@ async function loadVerifyLogs() {
         });
         updateSecurityStats(window.currentActiveBlocks || 0, warnCount, blockEventCount);
     } catch (err) { tbody.innerHTML = '<tr><td colspan="7" class="empty-state" style="color:var(--danger);">שגיאת תקשורת</td></tr>'; }
-}
+};
 
-async function submitManualBlock(e) {
+window.submitManualBlock = async function(e) {
     e.preventDefault();
     const type = document.getElementById('block_type').value;
     const value = document.getElementById('block_value').value.trim();
@@ -400,17 +399,17 @@ async function submitManualBlock(e) {
         if (res.ok) { document.getElementById('block_value').value = ''; document.getElementById('block_reason').value = ''; refreshTzintukData(); }
         else alert(data.error || 'שגיאה ביצירת חסימה');
     } catch (err) { setLoading('btn-submit-block', false, 'החל חסימה <i class="fa-solid fa-lock"></i>'); alert('שגיאת תקשורת'); }
-}
+};
 
-async function unblockUser(type, value) {
+window.unblockUser = async function(type, value) {
     if (!confirm(`לשחרר חסימה על ${value}?`)) return;
     try {
         const res = await fetch(`${API_BASE_URL}/verify/admin/unblock`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: state.adminToken, type, target: value }) });
         if (res.ok) refreshTzintukData(); else alert((await res.json()).error || 'שגיאה');
     } catch (err) { alert('שגיאת תקשורת'); }
-}
+};
 
-async function cleanOldLogs() {
+window.cleanOldLogs = async function() {
     if (!confirm('למחוק לצמיתות לוגים ישנים?')) return;
     const btn = document.getElementById('btn-clean-logs');
     const originalText = btn.innerHTML;
@@ -419,7 +418,7 @@ async function cleanOldLogs() {
         const res = await fetch(`${API_BASE_URL}/verify/admin/clean`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: state.adminToken }) });
         if (res.ok) refreshTzintukData(); else alert((await res.json()).error || 'שגיאה');
     } catch (err) { alert('שגיאת תקשורת'); } finally { btn.innerHTML = originalText; btn.disabled = false; }
-}
+};
 
 function formatDateStr(dateStr) {
     if (!dateStr) return '';
