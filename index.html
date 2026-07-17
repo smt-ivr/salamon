@@ -560,8 +560,9 @@
         </div>
     </div>
 
+    <!-- מודל הגדרות מתקדם שעודכן לעיצוב נקי יותר ורחב יותר -->
     <div class="modal-overlay" id="userSettingsModal">
-        <div class="modal-content professional-modal" style="max-width: 550px; display: flex; flex-direction: column; max-height: 90vh;">
+        <div class="modal-content professional-modal" style="max-width: 750px; display: flex; flex-direction: column; max-height: 90vh;">
             <div class="modal-header">
                 <h2><i class="fa-solid fa-sliders"></i> הגדרות חשבון מתקדמות</h2>
                 <button class="close-modal-btn" onclick="closeUserSettingsModal()" title="סגור"><i class="fa-solid fa-xmark"></i></button>
@@ -573,35 +574,94 @@
             <div style="background: #f8fafc; padding: 20px 20px 0 20px; flex-shrink: 0;">
                 <div id="alert-settings" class="alert-box" style="margin-bottom: 0;"></div>
             </div>
-            <div style="padding: 20px; overflow-y: auto; background: #f8fafc; flex: 1;">
+            <div style="padding: 30px; overflow-y: auto; background: #f8fafc; flex: 1;">
+                
                 <form id="settings-profile-form" onsubmit="event.preventDefault(); updateUserProfile(event);">
-                    <div class="settings-card-advanced">
-                        <h3>פרטי קשר</h3>
-                        <div class="form-group"><label>כתובת אימייל (מומלץ)</label><input type="email" id="update_email" class="ltr-input input-modern"></div>
-                        
-                        <div id="email_blocked_warning" style="display: none; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 15px; margin-top: 10px; margin-bottom: 20px; text-align: right;">
-                            <div style="display: flex; align-items: center; gap: 8px; color: var(--danger); font-weight: bold; margin-bottom: 8px; font-size: 1.05rem;">
-                                <i class="fa-solid fa-shield-virus"></i> האימייל חסום ברשימה השחורה
-                            </div>
-                            <p id="email_blocked_text" style="font-size: 0.9rem; color: #991b1b; margin-bottom: 12px; line-height: 1.4;"></p>
-                            <button type="button" id="btn_unblock_email" onclick="unblockEmailGlobally()" class="actions-btn" style="background: #ef4444; color: white; border: none; padding: 8px 15px; display: inline-flex; align-items: center; gap: 6px;"><i class="fa-solid fa-unlock"></i> הסר חסימה וקבל הודעות</button>
-                        </div>
+                    
+                    <div style="text-align: right; margin-bottom: 25px; padding: 0 5px;">
+                        <h2 style="font-size: 1.8rem; color: #1e293b; margin-bottom: 5px; font-weight: 800;">התראות והגדרות מערכת</h2>
+                        <p style="color: #64748b; font-size: 1rem;">אילו עדכונים והתראות יישלחו אליך מהמערכת - עבור החשבון שלך בלבד.</p>
+                    </div>
 
-                        <h3 style="margin-top:25px;">התראות ואבטחה</h3>
-                        <div class="toggle-row"><div class="toggle-info"><strong>קבלת עדכונים לאימייל</strong><span>אפשר קבלת קודי איפוס והתראות מערכת לאימייל.</span></div><label class="modern-switch"><input type="checkbox" id="update_receive_emails"><span class="slider"></span></label></div>
-                        <div class="toggle-row"><div class="toggle-info"><strong>כניסה באמצעות גוגל בלבד</strong><span>חוסם התחברות עם סיסמה לאבטחה מירבית של החשבון.</span></div><label class="modern-switch"><input type="checkbox" id="update_google_only"><span class="slider"></span></label></div>
-                        <div id="profile_password_auth" class="form-group" style="margin-top: 25px; border-top: 1px solid var(--border-color); padding-top: 20px;"><label style="color: var(--danger); font-size: 0.95rem;"><i class="fa-solid fa-lock"></i> סיסמה נוכחית (חובה לאימות שינויים)</label><input type="password" id="update_auth_pass" placeholder="הזן את סיסמתך הנוכחית לאישור" class="input-modern center-text ltr-input"></div>
-                        <button type="submit" id="btn-update-profile" class="btn-primary" style="margin-top: 15px;">שמור העדפות <i class="fa-solid fa-floppy-disk"></i></button>
+                    <div id="email_blocked_warning" style="display: none; background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 20px; margin-bottom: 20px; text-align: right;">
+                        <div style="display: flex; align-items: center; gap: 8px; color: var(--danger); font-weight: bold; margin-bottom: 8px; font-size: 1.1rem;">
+                            <i class="fa-solid fa-shield-virus"></i> האימייל חסום ברשימה השחורה
+                        </div>
+                        <p id="email_blocked_text" style="font-size: 0.95rem; color: #991b1b; margin-bottom: 15px; line-height: 1.5;"></p>
+                        <button type="button" id="btn_unblock_email" onclick="unblockEmailGlobally()" class="actions-btn" style="background: #ef4444; color: white; border: none; padding: 10px 18px; display: inline-flex; align-items: center; gap: 6px; font-size: 0.95rem; border-radius: 8px;"><i class="fa-solid fa-unlock"></i> הסר חסימה וקבל הודעות</button>
+                    </div>
+
+                    <div class="clean-settings-card">
+                        <div class="clean-settings-row">
+                            <div class="clean-settings-text">כתובת אימייל מעודכנת</div>
+                            <div class="clean-settings-control" style="flex: 1; max-width: 280px;">
+                                <input type="email" id="update_email" class="ltr-input input-modern" style="padding: 10px 14px; margin: 0; border: 1px solid #cbd5e1; background: #f8fafc;" placeholder="email@example.com">
+                            </div>
+                        </div>
+                        <div class="clean-settings-row">
+                            <div class="clean-settings-text">קבלת עדכונים לאימייל וקודי איפוס סיסמה</div>
+                            <div class="clean-settings-control">
+                                <label class="clean-switch"><input type="checkbox" id="update_receive_emails"><span class="slider"></span></label>
+                            </div>
+                        </div>
+                        <div class="clean-settings-row">
+                            <div class="clean-settings-text">כניסה מאובטחת באמצעות Google בלבד</div>
+                            <div class="clean-settings-control">
+                                <label class="clean-switch"><input type="checkbox" id="update_google_only"><span class="slider"></span></label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="profile_password_auth" class="clean-settings-card" style="margin-top: 25px;">
+                        <div class="clean-settings-row" style="flex-direction: column; align-items: stretch; gap: 12px; background: #fffbeb;">
+                            <div class="clean-settings-text" style="color: #b45309; padding-left: 0;"><i class="fa-solid fa-lock"></i> אימות אבטחה (סיסמה נוכחית נדרשת לאישור שינויים)</div>
+                            <div class="clean-settings-control" style="flex-direction: row; width: 100%;">
+                                <input type="password" id="update_auth_pass" placeholder="הזן את סיסמתך הנוכחית לאישור" class="input-modern center-text ltr-input" style="background: white; border-color: #fcd34d; padding: 12px; width: 100%;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+                        <button type="submit" id="btn-update-profile" class="btn-primary" style="width: auto; padding: 12px 35px; border-radius: 8px; font-size: 1.05rem;">שמור שינויים <i class="fa-solid fa-floppy-disk"></i></button>
                     </div>
                 </form>
+
                 <form id="settings-security-form" style="display:none;" onsubmit="event.preventDefault(); updatePassword(event);">
-                    <div class="settings-card-advanced">
-                        <h3>שינוי סיסמה</h3>
-                        <div class="form-group"><label>סיסמה נוכחית</label><input type="password" id="change_old_pass" required placeholder="****" class="input-modern center-text ltr-input"></div>
-                        <div class="form-group"><label>סיסמה חדשה (4-10 ספרות)</label><input type="password" id="change_new_pass" required placeholder="****" class="input-modern center-text ltr-input"></div>
-                        <div class="form-group"><label>אימות סיסמה חדשה</label><input type="password" id="change_new_pass_confirm" required placeholder="****" class="input-modern center-text ltr-input"></div>
-                        <div class="toggle-row" style="margin-top: 25px; border-top: 1px solid var(--border-color); padding-top: 15px;"><div class="toggle-info"><strong style="color:var(--danger);">נתק את כל המכשירים</strong><span>מחיקת כל הטוקנים וניתוק של חשבונך מכל מכשיר אחר שמחובר למערכת.</span></div><label class="modern-switch"><input type="checkbox" id="change_logout_devices"><span class="slider danger-slider"></span></label></div>
-                        <button type="submit" id="btn-change-password" class="btn-primary" style="background:var(--secondary); margin-top: 15px;">עדכן סיסמה <i class="fa-solid fa-key"></i></button>
+                    
+                    <div style="text-align: right; margin-bottom: 25px; padding: 0 5px;">
+                        <h2 style="font-size: 1.8rem; color: #1e293b; margin-bottom: 5px; font-weight: 800;">שינוי סיסמה ואבטחה</h2>
+                        <p style="color: #64748b; font-size: 1rem;">ניהול סיסמאות ומכשירים מחוברים לחשבון.</p>
+                    </div>
+
+                    <div class="clean-settings-card">
+                        <div class="clean-settings-row">
+                            <div class="clean-settings-text">סיסמה נוכחית</div>
+                            <div class="clean-settings-control" style="flex: 1; max-width: 250px;">
+                                <input type="password" id="change_old_pass" required placeholder="****" class="input-modern center-text ltr-input" style="padding: 10px 14px; margin: 0; background: #f8fafc; border-color: #cbd5e1;">
+                            </div>
+                        </div>
+                        <div class="clean-settings-row">
+                            <div class="clean-settings-text">סיסמה חדשה (4-10 ספרות)</div>
+                            <div class="clean-settings-control" style="flex: 1; max-width: 250px;">
+                                <input type="password" id="change_new_pass" required placeholder="****" class="input-modern center-text ltr-input" style="padding: 10px 14px; margin: 0; background: #f8fafc; border-color: #cbd5e1;">
+                            </div>
+                        </div>
+                        <div class="clean-settings-row">
+                            <div class="clean-settings-text">אימות סיסמה חדשה</div>
+                            <div class="clean-settings-control" style="flex: 1; max-width: 250px;">
+                                <input type="password" id="change_new_pass_confirm" required placeholder="****" class="input-modern center-text ltr-input" style="padding: 10px 14px; margin: 0; background: #f8fafc; border-color: #cbd5e1;">
+                            </div>
+                        </div>
+                        <div class="clean-settings-row" style="background: #fef2f2;">
+                            <div class="clean-settings-text" style="color: #dc2626; font-weight: 700;">נתק את כל המכשירים (מחיקת חיבורים פעילים)</div>
+                            <div class="clean-settings-control">
+                                <label class="clean-switch"><input type="checkbox" id="change_logout_devices"><span class="slider danger-slider"></span></label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+                        <button type="submit" id="btn-change-password" class="btn-primary" style="width: auto; padding: 12px 35px; border-radius: 8px; font-size: 1.05rem; background: var(--secondary);">עדכן סיסמה <i class="fa-solid fa-key"></i></button>
                     </div>
                 </form>
             </div>
