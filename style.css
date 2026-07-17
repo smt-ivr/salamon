@@ -269,25 +269,20 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
 .desktop-announcement-box:empty { display: none; }
 
 /* ================== תוספות חדשות: עיצוב הגדרות מתקדם ואייקונים ================== */
-
-/* לשוניות הגדרות */
 .settings-tabs { display: flex; border-bottom: 1px solid var(--border-color); background: #fff; }
 .settings-tab-btn { flex: 1; padding: 15px; background: none; border: none; border-bottom: 3px solid transparent; font-weight: 700; font-size: 0.95rem; color: var(--text-light); cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;}
 .settings-tab-btn:hover { color: var(--text-main); background: #f8fafc; }
 .settings-tab-btn.active { color: var(--play-out); border-bottom-color: var(--play-out); }
 
-/* כרטיסיות פנימיות */
 .settings-card-advanced { background: #fff; border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
 .settings-card-advanced h3 { font-size: 1.1rem; margin-bottom: 15px; color: var(--text-dark); border-bottom: 2px solid #f1f5f9; padding-bottom: 8px; font-weight: 800; }
 
-/* שורות מיתוג (Toggle Switch) */
 .toggle-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px dashed #e2e8f0; }
 .toggle-row:last-of-type { border-bottom: none; }
 .toggle-info { display: flex; flex-direction: column; gap: 4px; max-width: 80%; text-align: right; }
 .toggle-info strong { font-size: 0.95rem; color: var(--text-main); font-weight: 700; }
 .toggle-info span { font-size: 0.82rem; color: var(--text-light); line-height: 1.3; }
 
-/* עיצוב כפתור הדלקה/כיבוי מרחף */
 .modern-switch { position: relative; display: inline-block; width: 46px; height: 26px; flex-shrink: 0; }
 .modern-switch input { opacity: 0; width: 0; height: 0; }
 .modern-switch .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .3s; border-radius: 34px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1); }
@@ -296,7 +291,6 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
 .modern-switch input:checked + .slider.danger-slider { background-color: var(--danger); }
 .modern-switch input:checked + .slider:before { transform: translateX(20px); }
 
-/* אייקונים של סטטוס אימות */
 .auth-badge { 
     display: inline-flex; align-items: center; justify-content: center; 
     width: 22px; height: 22px; border-radius: 50%; background: #e2e8f0; 
@@ -308,7 +302,6 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
 .text-perm { color: #10b981; }
 .text-temp { color: #64748b; }
 
-/* ================== התאמות מובייל ================== */
 @media (max-width: 768px) {
     .app-layout { flex-direction: column; }
     .app-sidebar { width: 100%; height: auto; border-left: none; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
@@ -342,191 +335,16 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
     .mobile-announcement-btn { display: none; align-items: center; background: #e0f2fe; border: 1px solid #bae6fd; color: #0284c7; font-size: 0.75rem; padding: 6px 10px; border-radius: 20px; font-weight: bold; cursor: pointer; transition: 0.2s; white-space: nowrap; }
     .mobile-announcement-btn.active-btn { display: inline-flex !important; }
 }
-/* =========================================================
-   עיצוב מודל הגדרות מתקדם (SaaS Style)
-   ========================================================= */
-.advanced-settings-modal {
-    max-width: 850px !important;
-    width: 95%;
-    height: 75vh;
-    min-height: 500px;
-    padding: 0 !important;
-    display: flex;
-    flex-direction: column;
-    border-radius: 12px;
-    overflow: hidden;
-}
-.advanced-settings-layout {
-    display: flex;
-    height: 100%;
-    width: 100%;
-}
-.settings-sidebar {
-    width: 260px;
-    background: #f8fafc;
-    border-left: 1px solid #e2e8f0;
-    display: flex;
-    flex-direction: column;
-    flex-shrink: 0;
-}
-.settings-sidebar-header {
-    padding: 20px;
-    border-bottom: 1px solid #e2e8f0;
-}
-.settings-sidebar-header h2 {
-    font-size: 1.15rem;
-    margin: 0;
-    color: var(--text-dark);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-.settings-nav {
-    padding: 15px 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-.settings-nav-btn {
-    background: transparent;
-    border: none;
-    text-align: right;
-    padding: 12px 15px;
-    border-radius: 8px;
-    color: var(--text-light);
-    font-weight: 600;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-.settings-nav-btn:hover {
-    background: #e2e8f0;
-    color: var(--text-main);
-}
-.settings-nav-btn.active {
-    background: #e0f2fe;
-    color: var(--secondary);
-}
-.settings-main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    background: #ffffff;
-    overflow: hidden;
-}
-.settings-main-header {
-    padding: 15px 25px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid #e2e8f0;
-}
-.settings-main-header h3 {
-    margin: 0;
-    font-size: 1.1rem;
-    color: var(--text-dark);
-}
-.settings-scroll-area {
-    flex: 1;
-    overflow-y: auto;
-    padding: 25px;
-}
-.settings-section {
-    margin-bottom: 35px;
-}
-.settings-section h4 {
-    font-size: 0.95rem;
-    color: var(--text-main);
-    border-bottom: 1px solid #f1f5f9;
-    padding-bottom: 8px;
-    margin-bottom: 15px;
-    font-weight: 700;
-}
-.compact-form-group {
-    margin-bottom: 15px;
-}
-.compact-form-group label {
-    display: block;
-    font-size: 0.8rem;
-    font-weight: 600;
-    margin-bottom: 6px;
-    color: var(--text-light);
-}
-.input-compact {
-    width: 100%;
-    padding: 10px 12px;
-    font-size: 0.9rem;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
-    transition: 0.2s;
-    color: var(--text-main);
-}
-.input-compact:focus {
-    border-color: var(--secondary);
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-}
-.compact-toggle-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 0;
-    border-bottom: 1px dashed #f1f5f9;
-}
-.compact-toggle-row:last-child {
-    border-bottom: none;
-}
-.compact-toggle-info strong {
-    font-size: 0.85rem;
-    color: var(--text-main);
-    display: block;
-    margin-bottom: 3px;
-}
-.compact-toggle-info span {
-    font-size: 0.75rem;
-    color: var(--text-light);
-}
-.compact-switch {
-    width: 36px;
-    height: 20px;
-}
-.compact-switch .slider:before {
-    height: 14px;
-    width: 14px;
-    left: 3px;
-    bottom: 3px;
-}
-.compact-switch input:checked + .slider:before {
-    transform: translateX(16px);
-}
-.compact-alert {
-    padding: 10px 15px;
-    font-size: 0.85rem;
-    border-radius: 6px;
-    margin-bottom: 20px;
-}
-
-@media (max-width: 768px) {
-    .advanced-settings-layout { flex-direction: column; }
-    .settings-sidebar { width: 100%; height: auto; border-left: none; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; }
-    .settings-nav { flex-direction: row; overflow-x: auto; padding: 10px; gap: 5px; }
-    .settings-nav-btn { white-space: nowrap; flex: 1; justify-content: center; padding: 10px; font-size: 0.85rem; }
-    .advanced-settings-modal { height: 90vh; }
-    .settings-scroll-area { padding: 15px; }
-}
 
 /* =========================================================
-   עיצוב הגדרות מתקדם (Clean Style - בהשראת התמונה)
+   עיצוב הגדרות מתקדם (Clean & Compact Style)
    ========================================================= */
 .clean-settings-card {
     background: #ffffff;
     border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
     padding: 0;
-    margin-bottom: 20px;
+    margin-bottom: 25px;
     border: 1px solid #e2e8f0;
     overflow: hidden;
 }
@@ -534,9 +352,10 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px 25px;
+    padding: 12px 20px;
     border-bottom: 1px solid #f1f5f9;
-    transition: background 0.2s;
+    transition: background 0.2s, border-right 0.2s;
+    border-right: 3px solid transparent;
 }
 .clean-settings-row:last-child {
     border-bottom: none;
@@ -544,24 +363,42 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
 .clean-settings-row:hover {
     background: #f8fafc;
 }
-.clean-settings-text {
-    font-size: 1.05rem;
-    color: #1e293b;
-    font-weight: 600;
-    text-align: right;
-    flex: 1;
-    padding-left: 15px;
+/* חיווי ויזואלי לשורה ששונתה אך טרם נשמרה */
+.clean-settings-row.is-changed {
+    background: #fffbeb;
+    border-right: 3px solid #f59e0b;
 }
+
+.clean-settings-text {
+    flex: 1;
+    padding-left: 20px;
+    text-align: right;
+}
+.setting-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 2px;
+}
+.setting-desc {
+    font-size: 0.8rem;
+    color: #64748b;
+    line-height: 1.3;
+}
+
 .clean-settings-control {
     display: flex;
     align-items: center;
     gap: 15px;
+    flex-shrink: 0;
 }
+
+/* מתג קומפקטי ומעוצב */
 .clean-switch {
     position: relative;
     display: inline-block;
-    width: 52px;
-    height: 28px;
+    width: 44px;
+    height: 24px;
     flex-shrink: 0;
 }
 .clean-switch input {
@@ -576,22 +413,22 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: #e2e8f0;
+    background-color: #cbd5e1;
     transition: .3s;
     border-radius: 34px;
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
 }
 .clean-switch .slider:before {
     position: absolute;
     content: "";
-    height: 22px;
-    width: 22px;
+    height: 18px;
+    width: 18px;
     left: 3px;
     bottom: 3px;
     background-color: white;
     transition: .3s cubic-bezier(0.4, 0.0, 0.2, 1);
     border-radius: 50%;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 .clean-switch input:checked + .slider {
     background-color: #1e293b;
@@ -600,14 +437,37 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
     background-color: var(--danger);
 }
 .clean-switch input:checked + .slider:before {
-    transform: translateX(24px);
+    transform: translateX(20px);
+}
+
+/* באנר התראה על שינויים שלא נשמרו */
+.unsaved-banner {
+    display: none;
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #fef3c7;
+    border: 1px solid #fde68a;
+    color: #92400e;
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin-top: 20px;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    box-shadow: 0 -4px 10px rgba(0,0,0,0.05);
+    animation: slideUpBanner 0.3s ease-out;
+    z-index: 10;
+}
+@keyframes slideUpBanner {
+    from { transform: translateY(10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
 }
 
 @media (max-width: 768px) {
-    .clean-settings-row {
-        padding: 15px;
-    }
-    .clean-settings-text {
-        font-size: 0.95rem;
-    }
+    .clean-settings-row { padding: 12px 15px; flex-direction: column; align-items: flex-start; gap: 10px; }
+    .clean-settings-text { padding-left: 0; }
+    .clean-settings-control { width: 100%; justify-content: space-between; flex-direction: row-reverse; }
 }
