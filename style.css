@@ -517,3 +517,97 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
     .advanced-settings-modal { height: 90vh; }
     .settings-scroll-area { padding: 15px; }
 }
+
+/* =========================================================
+   עיצוב הגדרות מתקדם (Clean Style - בהשראת התמונה)
+   ========================================================= */
+.clean-settings-card {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    padding: 0;
+    margin-bottom: 20px;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+}
+.clean-settings-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 25px;
+    border-bottom: 1px solid #f1f5f9;
+    transition: background 0.2s;
+}
+.clean-settings-row:last-child {
+    border-bottom: none;
+}
+.clean-settings-row:hover {
+    background: #f8fafc;
+}
+.clean-settings-text {
+    font-size: 1.05rem;
+    color: #1e293b;
+    font-weight: 600;
+    text-align: right;
+    flex: 1;
+    padding-left: 15px;
+}
+.clean-settings-control {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+.clean-switch {
+    position: relative;
+    display: inline-block;
+    width: 52px;
+    height: 28px;
+    flex-shrink: 0;
+}
+.clean-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.clean-switch .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #e2e8f0;
+    transition: .3s;
+    border-radius: 34px;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+}
+.clean-switch .slider:before {
+    position: absolute;
+    content: "";
+    height: 22px;
+    width: 22px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .3s cubic-bezier(0.4, 0.0, 0.2, 1);
+    border-radius: 50%;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+.clean-switch input:checked + .slider {
+    background-color: #1e293b;
+}
+.clean-switch input:checked + .slider.danger-slider {
+    background-color: var(--danger);
+}
+.clean-switch input:checked + .slider:before {
+    transform: translateX(24px);
+}
+
+@media (max-width: 768px) {
+    .clean-settings-row {
+        padding: 15px;
+    }
+    .clean-settings-text {
+        font-size: 0.95rem;
+    }
+}
