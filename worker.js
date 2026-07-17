@@ -6,23 +6,20 @@ import messagesJs from './client-messages.js';
 import audioJs from './client-audio.js';
 import settingsJs from './client-settings.js';
 import adminJs from './client-admin.js';
-
-// ייבוא הקבצים החדשים
 import adsJs from './client-ads.js';
 import adminAdsJs from './client-admin-ads.js';
+
+// ייבוא הקובץ החדש למערכת ה-Worker
+import adminAdvancedJs from './client-admin-advanced.js';
 
 export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
         const path = url.pathname;
 
-        if (path === '/salamon' || path === '/salamon/' || path === '/salamon/admin' || path === '/salamon/admin/') {
+        if (path === '/salamon' || path === '/salamon/' || path === '/salamon/admin' || path === '/salamon/admin/' || path === '/salamon/unsubscribe' || path === '/salamon/unsubscribe/') {
             return new Response(htmlContent, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
         }
-        // בתוך worker.js של צד הלקוח
-if (path === '/salamon' || path === '/salamon/' || path === '/salamon/admin' || path === '/salamon/admin/' || path === '/salamon/unsubscribe' || path === '/salamon/unsubscribe/') {
-    return new Response(htmlContent, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
-}
         if (path === '/salamon/style.css') {
             return new Response(cssContent, { headers: { 'Content-Type': 'text/css; charset=utf-8' } });
         }
@@ -44,7 +41,10 @@ if (path === '/salamon' || path === '/salamon/' || path === '/salamon/admin' || 
         if (path === '/salamon/client-admin.js') {
             return new Response(adminJs, { headers: { 'Content-Type': 'application/javascript; charset=utf-8' } });
         }
-        // ניתוב הקבצים החדשים למסך
+        // הוספת הניתוב לקובץ החדש
+        if (path === '/salamon/client-admin-advanced.js') {
+            return new Response(adminAdvancedJs, { headers: { 'Content-Type': 'application/javascript; charset=utf-8' } });
+        }
         if (path === '/salamon/client-ads.js') {
             return new Response(adsJs, { headers: { 'Content-Type': 'application/javascript; charset=utf-8' } });
         }
