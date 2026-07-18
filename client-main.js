@@ -6,6 +6,8 @@ let currentPlayingId = null;
 let pollingInterval = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+    injectMainModals(); // <--- הזרקת המודלים ל-HTML
+    
     const path = window.location.pathname;
     const savedUserToken = localStorage.getItem('userToken');
     const savedAdminToken = localStorage.getItem('adminToken');
@@ -212,4 +214,35 @@ function showErrorModal(title, text) {
 }
 function closeErrorModal() {
     document.getElementById('errorAlertModal').classList.remove('active');
+}
+
+// === פונקציית הזרקת המודלים ===
+function injectMainModals() {
+    const modalsContainer = document.createElement('div');
+    modalsContainer.innerHTML = `
+        <div class="modal-overlay" id="errorAlertModal">
+            <div class="modal-content professional-modal" style="text-align: center;">
+                <div class="modal-header" style="justify-content: center; background: #fef2f2;">
+                    <h2 id="errorModalTitle" style="color: var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i> שגיאה</h2>
+                </div>
+                <div style="padding: 25px;">
+                    <p id="errorModalText" style="font-size: 1.05rem; margin-bottom: 25px; line-height: 1.5;"></p>
+                    <button class="btn-pro-secondary" onclick="closeErrorModal()" style="width: 100%;">סגור הודעה</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-overlay" id="announcementModal">
+            <div class="modal-content professional-modal">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-bullhorn"></i> מודעת מערכת</h2>
+                    <button class="close-modal-btn" onclick="closeAnnouncementModal()"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div style="padding: 20px; max-height: 70vh; overflow-y: auto;" id="mobile-announcement-content">
+                    <!-- תוכן המודעה יוזרק לכאן -->
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modalsContainer);
 }
