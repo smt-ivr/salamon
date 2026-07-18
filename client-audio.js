@@ -8,6 +8,9 @@ let tzintukTimerInterval = null;
 let tzintukSecondsLeft = 90;
 let pendingDeleteFileName = null;
 
+// הזרקת מודלים בטעינת העמוד
+document.addEventListener('DOMContentLoaded', injectAudioModals);
+
 function resetRecordingUI() {
     const pauseBtn = document.getElementById('btn-pause-resume');
     if (pauseBtn) pauseBtn.innerHTML = '<span class="icon-wrap"><i class="fa-solid fa-pause"></i></span> השהה';
@@ -308,4 +311,90 @@ function attemptFileUpload() {
     } else {
         showErrorModal('הרשאה חסרה', 'אין לך הרשאה להעלות קבצים. פנה למנהל המערכת.');
     }
+}
+
+// === פונקציית הזרקת המודלים ===
+function injectAudioModals() {
+    const modalsContainer = document.createElement('div');
+    modalsContainer.innerHTML = `
+        <div class="modal-overlay" id="uploadReviewModal">
+            <div class="modal-content professional-modal" style="max-width: 450px;">
+                <div class="modal-header">
+                    <h2 id="review-title"><i class="fa-solid fa-microphone"></i> מקליט כעת...</h2>
+                    <button class="close-modal-btn" onclick="closeUploadModal()"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                
+                <div id="recording-ui" style="display: none; padding: 30px 24px; text-align: center;">
+                    <div class="recording-timer-pro" id="recording-timer">00:00</div>
+                    <div class="recording-visualizer">
+                        <div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                    </div>
+                    <div class="recording-actions-pro">
+                        <button id="btn-pause-resume" class="btn-pro-secondary" onclick="togglePauseResumeRecording()">
+                            <span class="icon-wrap"><i class="fa-solid fa-pause"></i></span> השהה
+                        </button>
+                        <button class="btn-pro-primary" onclick="stopRecordingForReview()">
+                            <i class="fa-solid fa-stop"></i> סיים הקלטה
+                        </button>
+                    </div>
+                </div>
+
+                <div id="preview-ui" style="display: none; padding: 30px 24px; text-align: center;">
+                    <div class="preview-card">
+                        <i class="fa-solid fa-file-audio file-icon-large"></i>
+                        <div id="file-info" class="file-info-text"></div>
+                        <audio id="preview-audio" controls style="width: 100%; height: 40px; outline: none;"></audio>
+                    </div>
+                    <div class="preview-actions-pro">
+                        <button class="btn-pro-outline" onclick="closeUploadModal()">
+                            <i class="fa-solid fa-trash"></i> בטל
+                        </button>
+                        <button id="btn-confirm-send" class="btn-pro-primary" onclick="confirmUpload()">
+                            <i class="fa-solid fa-paper-plane"></i> שלח הודעה
+                        </button>
+                    </div>
+                </div>
+
+                <div id="upload-success-ui" style="display: none; padding: 30px 24px; text-align: center;">
+                    <div class="success-header-pro"><i class="fa-solid fa-circle-check text-success-pro"></i></div>
+                    <h3 style="margin-bottom: 15px; color: var(--text-dark);">ההודעה נשמרה במערכת!</h3>
+                    
+                    <div class="tzintuk-prompt-box">
+                        <p style="margin-bottom: 10px; font-weight: 600; color: var(--text-dark);">האם לשלוח צינתוק למנויים?</p>
+                        <div id="tzintuk-action-buttons" style="display: flex; gap: 10px; justify-content: center;">
+                            <button class="btn-pro-secondary" onclick="closeUploadModal()">לא כרגע</button>
+                            <button id="btn-send-tzintuk" class="btn-pro-primary" onclick="triggerTzintuk()">
+                                <i class="fa-solid fa-phone-volume"></i> שלח צינתוק עכשיו
+                            </button>
+                        </div>
+                        <div id="tzintuk-status-msg" class="tzintuk-status-msg"></div>
+                    </div>
+                    
+                    <div class="tzintuk-timer-wrap">
+                        חלון הצינתוק ייסגר אוטומטית בעוד: <span id="tzintuk-timer" class="tzintuk-timer-text">01:30</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="modal-overlay" id="deleteConfirmModal">
+            <div class="modal-content professional-modal" style="max-width: 400px; text-align: center;">
+                <div class="modal-header" style="justify-content: center; background: #fef2f2;">
+                    <h2 style="color: var(--danger);"><i class="fa-solid fa-trash-can"></i> מחיקת הודעה</h2>
+                </div>
+                <div style="padding: 25px;">
+                    <div id="delete-modal-texts">
+                        <p style="font-size: 1.05rem; font-weight: 600; margin-bottom: 10px;">האם אתה בטוח שברצונך למחוק הודעה זו?</p>
+                        <p style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 20px;">הפעולה תמחק את ההודעה מהאתר ומהשלוחה בימות המשיח. לא ניתן לשחזר לאחר מכן.</p>
+                    </div>
+                    <div id="delete-status-msg" class="tzintuk-status-msg" style="display:none; margin-bottom:15px;"></div>
+                    <div id="delete-action-buttons" style="display: flex; gap: 10px; justify-content: center;">
+                        <button class="btn-pro-secondary" onclick="closeDeleteModal()">ביטול</button>
+                        <button id="btn-confirm-delete" class="btn-pro-primary" style="background: var(--danger);" onclick="confirmDeleteMessage()">כן, מחק הודעה</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modalsContainer);
 }
