@@ -374,9 +374,11 @@ function injectAudioModals() {
         </div>
 
         <div class="modal-overlay" id="deleteConfirmModal">
-            <div class="modal-content professional-modal" style="max-width: 400px; text-align: center; border-top: 4px solid var(--danger);">
+            <div class="modal-content professional-modal" style="max-width: 400px; text-align: center; border-top: 4px solid var(--danger); position: relative;">
                 
-                <div id="delete-confirm-ui" style="padding: 30px 25px;">
+                <button class="close-modal-btn" onclick="closeDeleteModal()" style="position: absolute; top: 15px; left: 15px;"><i class="fa-solid fa-xmark"></i></button>
+
+                <div id="delete-confirm-ui" style="padding: 40px 25px 30px;">
                     <div style="width: 65px; height: 65px; background: #fee2e2; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
                         <i class="fa-solid fa-trash-can" style="font-size: 2rem; color: var(--danger);"></i>
                     </div>
@@ -389,10 +391,13 @@ function injectAudioModals() {
                 </div>
 
                 <div id="delete-success-ui" style="display: none; padding: 40px 25px;">
-                    <div style="margin-bottom: 20px;">
-                        <i class="fa-solid fa-xmark" style="font-size: 5rem; color: var(--danger); animation: scaleUp 0.4s ease-out;"></i>
+                    <div style="width: 80px; height: 80px; background: #dcfce7; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; position: relative;">
+                        <i class="fa-solid fa-trash-can" style="font-size: 2.5rem; color: #15803d; animation: scaleUp 0.4s ease-out;"></i>
+                        <div style="position: absolute; bottom: -5px; right: -5px; background: white; border-radius: 50%; padding: 2px;">
+                            <i class="fa-solid fa-circle-check" style="font-size: 1.8rem; color: #15803d;"></i>
+                        </div>
                     </div>
-                    <h2 style="color: var(--text-dark); font-size: 1.5rem; margin-bottom: 10px; font-weight: 800;">ההודעה נמחקה</h2>
+                    <h2 style="color: var(--text-dark); font-size: 1.5rem; margin-bottom: 10px; font-weight: 800;">ההודעה נמחקה בהצלחה</h2>
                     <p style="font-size: 1rem; color: var(--text-light);">הקובץ הוסר מהמערכת ולא יוצג יותר.</p>
                 </div>
 
