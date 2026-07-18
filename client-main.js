@@ -221,13 +221,14 @@ function injectMainModals() {
     const modalsContainer = document.createElement('div');
     modalsContainer.innerHTML = `
         <div class="modal-overlay" id="errorAlertModal">
-            <div class="modal-content professional-modal" style="text-align: center;">
-                <div class="modal-header" style="justify-content: center; background: #fef2f2;">
-                    <h2 id="errorModalTitle" style="color: var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i> שגיאה</h2>
-                </div>
-                <div style="padding: 25px;">
-                    <p id="errorModalText" style="font-size: 1.05rem; margin-bottom: 25px; line-height: 1.5;"></p>
-                    <button class="btn-pro-secondary" onclick="closeErrorModal()" style="width: 100%;">סגור הודעה</button>
+            <div class="modal-content professional-modal" style="text-align: center; border-top: 4px solid var(--danger);">
+                <div style="padding: 30px 25px;">
+                    <div style="width: 65px; height: 65px; background: #fee2e2; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                        <i class="fa-solid fa-lock" style="font-size: 2rem; color: var(--danger);"></i>
+                    </div>
+                    <h2 id="errorModalTitle" style="color: var(--text-dark); font-size: 1.35rem; margin-bottom: 12px; font-weight: 800;">שגיאת הרשאה</h2>
+                    <p id="errorModalText" style="font-size: 1rem; color: var(--text-light); margin-bottom: 25px; line-height: 1.6;"></p>
+                    <button class="btn-pro-secondary" onclick="closeErrorModal()" style="width: 100%; background: #f1f5f9; color: var(--text-main); font-weight: bold; padding: 14px; font-size: 1rem;">הבנתי, סגור</button>
                 </div>
             </div>
         </div>
@@ -239,7 +240,6 @@ function injectMainModals() {
                     <button class="close-modal-btn" onclick="closeAnnouncementModal()"><i class="fa-solid fa-xmark"></i></button>
                 </div>
                 <div style="padding: 20px; max-height: 70vh; overflow-y: auto;" id="mobile-announcement-content">
-                    <!-- תוכן המודעה יוזרק לכאן -->
                 </div>
             </div>
         </div>
