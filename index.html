@@ -210,18 +210,24 @@
 
         <main id="user-dash-view" class="view-section app-layout">
             <aside class="app-sidebar">
-                <div class="sidebar-header">
-                    <div class="user-profile-wrap">
-                        <div class="avatar"><i class="fa-solid fa-user"></i></div>
-                        <div class="user-details">
-                            <h2 id="ui-user-name" style="display:flex; align-items:center; gap:6px;">טוען...</h2>
-                            <p style="display:flex; align-items:center; gap:8px;"><span id="ui-user-phone">---</span><span id="ui-auth-badges" style="display:flex; gap:4px;"></span></p>
+                <div class="sidebar-header" style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); height: auto; padding: 20px 15px 15px 15px; border-bottom: none;">
+                    <div class="h3-pill">
+                        <div class="h3-profile">
+                            <div class="avatar h3-avatar"><i class="fa-solid fa-user" style="font-size: 0.9rem;"></i></div>
+                            <div class="h3-text">
+                                <span class="h3-name" id="ui-user-name">טוען...</span>
+                                <div class="h3-sub">
+                                    <span dir="ltr" id="ui-user-phone">---</span>
+                                    <span style="margin: 0 4px; color: #cbd5e1;">|</span>
+                                    <span id="ui-auth-badges" style="display:flex; gap:4px; align-items:center;"></span>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div class="sidebar-actions">
-                        <span id="ui-tzintuk-icon" style="font-size: 1.15rem; display: flex; align-items: center; margin-left: 8px;"></span>
-                        <button title="הגדרות חשבון מתקדמות" onclick="openUserSettingsModal()"><i class="fa-solid fa-gear"></i></button>
-                        <button title="התנתק" class="logout-btn" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
+                        <div class="h3-actions">
+                            <span id="ui-tzintuk-icon" style="display: flex; align-items: center; padding: 0 4px;"></span>
+                            <button class="icon-btn" title="הגדרות חשבון מתקדמות" onclick="openUserSettingsModal()"><i class="fa-solid fa-gear"></i></button>
+                            <button class="icon-btn btn-logout" title="התנתק" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
+                        </div>
                     </div>
                 </div>
                 <nav class="nav-menu">
@@ -260,13 +266,20 @@
 
         <main id="admin-dash-view" class="view-section app-layout">
             <aside class="app-sidebar" style="border-top: 4px solid var(--secondary);">
-                <div class="sidebar-header">
-                    <div class="user-profile-wrap">
-                        <div class="avatar" style="background: var(--secondary);"><i class="fa-solid fa-shield-halved"></i></div>
-                        <div class="user-details"><h2>פאנל הנהלה</h2><p>מחובר כמנהל</p></div>
-                    </div>
-                    <div class="sidebar-actions">
-                        <button title="התנתק" class="logout-btn" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
+                <div class="sidebar-header" style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); height: auto; padding: 20px 15px 15px 15px; border-bottom: none;">
+                    <div class="h3-pill">
+                        <div class="h3-profile">
+                            <div class="avatar h3-avatar" style="background: var(--secondary);"><i class="fa-solid fa-shield-halved" style="font-size: 0.9rem;"></i></div>
+                            <div class="h3-text">
+                                <span class="h3-name">פאנל הנהלה</span>
+                                <div class="h3-sub">
+                                    <span>מחובר כמנהל</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="h3-actions">
+                            <button class="icon-btn btn-logout" title="התנתק" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
+                        </div>
                     </div>
                 </div>
                 <nav class="nav-menu admin-sidebar-menu">
@@ -529,9 +542,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Rest of the modals (Upload, Delete, Error, Announcement, Settings) remain unchanged from previous prompt -->
-    <!-- ... (Upload, Delete, Error, Announcement, Settings Modals go here) ... -->
 
     <audio id="global-audio-player"></audio>
 </body>
