@@ -8,14 +8,13 @@ function updateDashboardUI() {
     document.getElementById('ui-user-name').innerText = user.name || 'אורח';
     document.getElementById('ui-user-phone').innerText = user.phone;
     
-    // עיצוב 3: סמלי ההתחברות שונו לעיצוב ה-badge העגול והקומפקטי
     const authIcon = user.authMethod === 'google' 
-        ? `<div class="badge" title="התחברות מאובטחת באמצעות חשבון Google"><i class="fa-brands fa-google text-google"></i></div>`
-        : `<div class="badge" title="התחברות רגילה (סיסמה)"><i class="fa-solid fa-lock text-password"></i></div>`;
+        ? `<div class="auth-icon-circle google" title="התחברות מאובטחת באמצעות חשבון Google"><i class="fa-brands fa-google"></i></div>`
+        : `<div class="auth-icon-circle password" title="התחברות רגילה (סיסמה)"><i class="fa-solid fa-lock"></i></div>`;
         
     const tokenIcon = user.tokenType === 'permanent' 
-        ? `<div class="badge" title="מכשיר מוכר (זכור אותי פעיל)"><i class="fa-solid fa-infinity text-perm"></i></div>`
-        : `<div class="badge" title="חיבור זמני"><i class="fa-solid fa-hourglass-half text-temp"></i></div>`;
+        ? `<div class="auth-icon-circle perm" title="מכשיר מוכר (זכור אותי פעיל)"><i class="fa-solid fa-infinity"></i></div>`
+        : `<div class="auth-icon-circle temp" title="חיבור זמני"><i class="fa-solid fa-hourglass-half"></i></div>`;
 
     const badgeContainer = document.getElementById('ui-auth-badges');
     if (badgeContainer) badgeContainer.innerHTML = `${authIcon}${tokenIcon}`;
@@ -82,12 +81,14 @@ function trackSettingsChanges() {
     const inputs = document.querySelectorAll('#userSettingsModal input.track-change');
     
     inputs.forEach(input => {
+        // שומרים את הערך הראשוני של כל שדה בזמן פתיחת המודל
         if (input.type === 'checkbox') {
             input.dataset.initialValue = input.checked;
         } else {
             input.dataset.initialValue = input.value;
         }
         
+        // מאזינים לשינויים
         input.addEventListener('input', function() {
             const currentValue = this.type === 'checkbox' ? this.checked : this.value;
             const initialValue = this.type === 'checkbox' ? (this.dataset.initialValue === 'true') : this.dataset.initialValue;
@@ -99,6 +100,7 @@ function trackSettingsChanges() {
                 if (row) row.classList.remove('is-changed');
             }
             
+            // בדיקה האם יש לפחות שדה אחד ששונה מכלל הטפסים
             hasUnsavedChanges = Array.from(inputs).some(inp => {
                 const val = inp.type === 'checkbox' ? inp.checked : inp.value;
                 const init = inp.type === 'checkbox' ? (inp.dataset.initialValue === 'true') : inp.dataset.initialValue;
@@ -151,6 +153,7 @@ function openUserSettingsModal() {
     switchSettingsTab('profile');
     document.getElementById('userSettingsModal').classList.add('active');
     
+    // הפעלת מעקב שינויים רק אחרי שכל הנתונים הוזנו
     setTimeout(trackSettingsChanges, 50);
 }
 
@@ -199,6 +202,7 @@ async function updateUserProfile(e) {
         
         document.getElementById('update_auth_pass').value = '';
         
+        // איפוס מנגנון המעקב אחר שינויים לאחר שמירה מוצלחת
         trackSettingsChanges();
         
         const userRes = await fetch(`${API_BASE_URL}/user`, {
@@ -221,6 +225,7 @@ async function updateUserProfile(e) {
                 document.getElementById('email_blocked_warning').style.display = 'none';
             }
             
+            // עדכון המעקב מחדש עם הערכים החדשים שהתקבלו מהשרת
             trackSettingsChanges();
         }
         
@@ -271,7 +276,7 @@ async function updatePassword(e) {
         document.getElementById('change_new_pass').value = '';
         document.getElementById('change_new_pass_confirm').value = '';
         
-        trackSettingsChanges();
+        trackSettingsChanges(); // איפוס התראת השינויים
         
         if (logoutAllDevices) {
             setTimeout(() => {
