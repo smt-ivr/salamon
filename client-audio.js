@@ -248,12 +248,11 @@ async function attemptDeleteMessage(fileName, fileId) {
         if (btn) { btn.innerHTML = originalHtml; btn.disabled = false; }
         if (res.ok && data.success) {
             pendingDeleteFileName = fileName;
-            document.getElementById('delete-status-msg').style.display = 'none';
-            document.getElementById('delete-action-buttons').style.display = 'flex';
-            document.getElementById('delete-modal-texts').style.display = 'block';
+            document.getElementById('delete-confirm-ui').style.display = 'block';
+            document.getElementById('delete-success-ui').style.display = 'none';
             document.getElementById('deleteConfirmModal').classList.add('active');
         } else {
-            showErrorModal("לא ניתן למחוק", (data.message || 'סיבה לא ידועה.'));
+            showErrorModal("פעולה נדחתה", (data.message || 'אין לך הרשאה למחוק הודעה זו.'));
         }
     } catch (err) {
         if (btn) { btn.innerHTML = originalHtml; btn.disabled = false; }
@@ -264,8 +263,14 @@ async function attemptDeleteMessage(fileName, fileId) {
 function closeDeleteModal() {
     document.getElementById('deleteConfirmModal').classList.remove('active');
     pendingDeleteFileName = null;
-    const btn = document.getElementById('btn-confirm-delete');
-    if(btn) { btn.innerHTML = 'כן, מחק הודעה'; btn.disabled = false; }
+    
+    // החזרת המודל למצבו המקורי לאחר שהוסתר
+    setTimeout(() => {
+        document.getElementById('delete-confirm-ui').style.display = 'block';
+        document.getElementById('delete-success-ui').style.display = 'none';
+        const btn = document.getElementById('btn-confirm-delete');
+        if(btn) { btn.innerHTML = 'כן, מחק'; btn.disabled = false; }
+    }, 300);
 }
 
 async function confirmDeleteMessage() {
@@ -279,28 +284,19 @@ async function confirmDeleteMessage() {
             body: JSON.stringify({ userToken: state.userToken, fileName: pendingDeleteFileName })
         });
         const data = await res.json();
-        const statusMsg = document.getElementById('delete-status-msg');
-        document.getElementById('delete-action-buttons').style.display = 'none';
-        document.getElementById('delete-modal-texts').style.display = 'none';
-        statusMsg.style.display = 'block';
+        
         if (res.ok && data.success) {
-            statusMsg.className = 'tzintuk-status-msg success';
-            statusMsg.innerHTML = '<i class="fa-solid fa-check"></i> ' + data.message;
+            document.getElementById('delete-confirm-ui').style.display = 'none';
+            document.getElementById('delete-success-ui').style.display = 'block';
             if(typeof loadMessages === 'function') loadMessages(); 
-            setTimeout(() => { closeDeleteModal(); }, 3000);
+            setTimeout(() => { closeDeleteModal(); }, 2500);
         } else {
-            statusMsg.className = 'tzintuk-status-msg error';
-            statusMsg.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + (data.message || 'הפעולה נכשלה');
-            setTimeout(() => { closeDeleteModal(); }, 5000);
+            closeDeleteModal();
+            showErrorModal("שגיאה במחיקה", (data.message || 'הפעולה נכשלה'));
         }
     } catch (err) {
-        const statusMsg = document.getElementById('delete-status-msg');
-        document.getElementById('delete-action-buttons').style.display = 'none';
-        document.getElementById('delete-modal-texts').style.display = 'none';
-        statusMsg.style.display = 'block';
-        statusMsg.className = 'tzintuk-status-msg error';
-        statusMsg.innerHTML = '<i class="fa-solid fa-xmark"></i> שגיאת תקשורת מול השרת.';
-        setTimeout(() => { closeDeleteModal(); }, 3000);
+        closeDeleteModal();
+        showErrorModal("שגיאת תקשורת", "שגיאת תקשורת מול השרת.");
     }
 }
 
@@ -309,7 +305,7 @@ function attemptFileUpload() {
     if (state.currentUser.canUpload) {
         document.getElementById('chat-file-input').click();
     } else {
-        showErrorModal('הרשאה חסרה', 'אין לך הרשאה להעלות קבצים. פנה למנהל המערכת.');
+        showErrorModal('פעולה נדחתה', 'אין לך הרשאה להעלות קבצים. פנה למנהל המערכת.');
     }
 }
 
@@ -378,21 +374,28 @@ function injectAudioModals() {
         </div>
 
         <div class="modal-overlay" id="deleteConfirmModal">
-            <div class="modal-content professional-modal" style="max-width: 400px; text-align: center;">
-                <div class="modal-header" style="justify-content: center; background: #fef2f2;">
-                    <h2 style="color: var(--danger);"><i class="fa-solid fa-trash-can"></i> מחיקת הודעה</h2>
-                </div>
-                <div style="padding: 25px;">
-                    <div id="delete-modal-texts">
-                        <p style="font-size: 1.05rem; font-weight: 600; margin-bottom: 10px;">האם אתה בטוח שברצונך למחוק הודעה זו?</p>
-                        <p style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 20px;">הפעולה תמחק את ההודעה מהאתר ומהשלוחה בימות המשיח. לא ניתן לשחזר לאחר מכן.</p>
+            <div class="modal-content professional-modal" style="max-width: 400px; text-align: center; border-top: 4px solid var(--danger);">
+                
+                <div id="delete-confirm-ui" style="padding: 30px 25px;">
+                    <div style="width: 65px; height: 65px; background: #fee2e2; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;">
+                        <i class="fa-solid fa-trash-can" style="font-size: 2rem; color: var(--danger);"></i>
                     </div>
-                    <div id="delete-status-msg" class="tzintuk-status-msg" style="display:none; margin-bottom:15px;"></div>
-                    <div id="delete-action-buttons" style="display: flex; gap: 10px; justify-content: center;">
-                        <button class="btn-pro-secondary" onclick="closeDeleteModal()">ביטול</button>
-                        <button id="btn-confirm-delete" class="btn-pro-primary" style="background: var(--danger);" onclick="confirmDeleteMessage()">כן, מחק הודעה</button>
+                    <h2 style="color: var(--text-dark); font-size: 1.35rem; margin-bottom: 12px; font-weight: 800;">מחיקת הודעה</h2>
+                    <p style="font-size: 1rem; color: var(--text-light); margin-bottom: 25px; line-height: 1.6;">האם אתה בטוח שברצונך למחוק הודעה זו?<br>הפעולה תסיר את ההודעה מהמערכת לצמיתות.</p>
+                    <div style="display: flex; gap: 12px; justify-content: center;">
+                        <button class="btn-pro-secondary" onclick="closeDeleteModal()" style="flex: 1; padding: 14px;">ביטול</button>
+                        <button id="btn-confirm-delete" class="btn-pro-primary" style="flex: 1.5; background: var(--danger); box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.2); padding: 14px;" onclick="confirmDeleteMessage()">כן, מחק</button>
                     </div>
                 </div>
+
+                <div id="delete-success-ui" style="display: none; padding: 40px 25px;">
+                    <div style="margin-bottom: 20px;">
+                        <i class="fa-solid fa-xmark" style="font-size: 5rem; color: var(--danger); animation: scaleUp 0.4s ease-out;"></i>
+                    </div>
+                    <h2 style="color: var(--text-dark); font-size: 1.5rem; margin-bottom: 10px; font-weight: 800;">ההודעה נמחקה</h2>
+                    <p style="font-size: 1rem; color: var(--text-light);">הקובץ הוסר מהמערכת ולא יוצג יותר.</p>
+                </div>
+
             </div>
         </div>
     `;
