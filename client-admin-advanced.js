@@ -1,5 +1,7 @@
 // client-admin-advanced.js
 
+window.currentSqlTable = ''; // שומרים את שם הטבלה הנוכחית כדי שנוכל לעדכן
+
 window.loadSqlTables = async function() {
     const tableSelect = document.getElementById('sql_table_select');
     if (!tableSelect) return;
@@ -12,7 +14,7 @@ window.loadSqlTables = async function() {
         const data = await res.json();
         
         if (res.ok && data.success) {
-            tableSelect.innerHTML = '<option value="">-- בחר טבלה לצפייה מהירה --</option>';
+            tableSelect.innerHTML = '<option value="">-- בחר טבלה לצפייה ועריכה --</option>';
             data.tables.forEach(tableName => {
                 const opt = document.createElement('option');
                 opt.value = tableName;
@@ -21,7 +23,7 @@ window.loadSqlTables = async function() {
             });
         }
     } catch (err) {
-        console.error("Error loading tables", err);
+        showToast('שגיאה בטעינת טבלאות', 'error');
     }
 };
 
@@ -29,6 +31,7 @@ window.executeQuickTableQuery = function() {
     const tableName = document.getElementById('sql_table_select').value;
     if (!tableName) return;
     
+    window.currentSqlTable = tableName;
     const queryInput = document.getElementById('sql_query_input');
     queryInput.value = `SELECT * FROM ${tableName} LIMIT 100`;
     executeSqlQuery();
@@ -39,6 +42,12 @@ window.executeSqlQuery = async function(e) {
     
     const queryInput = document.getElementById('sql_query_input').value.trim();
     if (!queryInput) return;
+    
+    // ניסיון לעדכן את הטבלה הנוכחית אם המשתמש הזין SELECT ידני
+    const match = queryInput.match(/FROM\s+([A-Za-z0-9_]+)/i);
+    if (match) {
+        window.currentSqlTable = match[1];
+    }
     
     const btn = document.getElementById('btn-run-sql');
     const originalText = btn.innerHTML;
@@ -94,6 +103,13 @@ function renderSqlResults(results, meta) {
     
     const columns = Object.keys(results[0]);
     
+    // מזהה ראשוני לאפשרות עריכה (נחפש עמודת ID או PHONE)
+    const pkCol = columns.find(c => c.toLowerCase() === 'id') || columns.find(c => c.toLowerCase() === 'phone');
+    
+    if (pkCol) {
+        metaContainer.innerHTML += ` <span style="font-size:0.8rem; color:#64748b; margin-right:10px;"><i class="fa-solid fa-pen-to-square"></i> ניתן ללחוץ על התאים לעריכה ישירה.</span>`;
+    }
+    
     let tableHtml = '<table class="modern-table sql-table"><thead><tr>';
     columns.forEach(col => {
         tableHtml += `<th>${col}</th>`;
@@ -104,8 +120,29 @@ function renderSqlResults(results, meta) {
         tableHtml += '<tr>';
         columns.forEach(col => {
             let val = row[col];
-            if (val === null) val = '<span style="color:#94a3b8; font-style:italic;">NULL</span>';
-            tableHtml += `<td dir="ltr" style="text-align:left;">${val}</td>`;
+            let isNull = false;
+            
+            if (val === null) {
+                val = 'NULL';
+                isNull = true;
+            }
+            
+            // אם יש מפתח ראשי, נאפשר עריכה ישירה על כל העמודות פרט למפתח הראשי
+            if (pkCol && col !== pkCol) {
+                const pkVal = row[pkCol];
+                const safeVal = isNull ? '' : String(val).replace(/"/g, '&quot;');
+                tableHtml += `<td dir="ltr" style="text-align:left;" class="editable-cell" 
+                                contenteditable="true" 
+                                title="לחץ לעריכה"
+                                onfocus="this.dataset.original = this.innerText;" 
+                                onblur="handleSqlCellEdit(this, '${col}', '${pkCol}', '${pkVal}')">
+                                ${isNull ? `<span style="color:#94a3b8; font-style:italic;">${val}</span>` : safeVal}
+                              </td>`;
+            } else {
+                tableHtml += `<td dir="ltr" style="text-align:left; background:#f8fafc;">
+                                ${isNull ? `<span style="color:#94a3b8; font-style:italic;">${val}</span>` : val}
+                              </td>`;
+            }
         });
         tableHtml += '</tr>';
     });
@@ -114,7 +151,49 @@ function renderSqlResults(results, meta) {
     resultsContainer.innerHTML = tableHtml;
 }
 
-// Hook into tab switching to load tables when SQL tab is opened
+window.handleSqlCellEdit = async function(cell, col, pkCol, pkVal) {
+    const originalVal = cell.dataset.original;
+    const newVal = cell.innerText.trim();
+    
+    // אם לא היה שינוי, לא עושים כלום
+    if (newVal === originalVal.trim()) return;
+
+    if (!window.currentSqlTable) {
+        showToast('לא ניתן לשמור: שם הטבלה אינו ידוע. יש לבחור טבלה מהרשימה העליונה.', 'error');
+        cell.innerText = originalVal;
+        return;
+    }
+
+    // הגנה בסיסית מגרשיים
+    const safeVal = newVal.replace(/'/g, "''"); 
+    const query = `UPDATE ${window.currentSqlTable} SET ${col} = '${safeVal}' WHERE ${pkCol} = '${pkVal}'`;
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/admin/sql/execute`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ adminToken: state.adminToken, query: query })
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+            showToast('הנתון עודכן בהצלחה במסד הנתונים', 'success');
+            cell.dataset.original = newVal;
+            
+            // אפקט הבהוב ירוק להצלחה
+            const oldBg = cell.style.backgroundColor;
+            cell.style.backgroundColor = '#dcfce7';
+            setTimeout(() => { cell.style.backgroundColor = oldBg; }, 1200);
+            
+        } else {
+            showToast(data.error || 'שגיאה בעדכון הנתון', 'error');
+            cell.innerText = originalVal;
+        }
+    } catch(e) {
+        showToast('שגיאת תקשורת מול השרת', 'error');
+        cell.innerText = originalVal;
+    }
+};
+
 const originalSwitchAdminTab = window.switchAdminTab;
 window.switchAdminTab = function(tabName) {
     if(originalSwitchAdminTab) originalSwitchAdminTab(tabName);
