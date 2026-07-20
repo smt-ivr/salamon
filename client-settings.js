@@ -1,4 +1,3 @@
-// הזרקת המודלים בטעינת העמוד
 document.addEventListener('DOMContentLoaded', injectSettingsModal);
 
 function updateDashboardUI() {
@@ -20,12 +19,12 @@ function updateDashboardUI() {
     }
     
     const authIcon = user.authMethod === 'google' 
-        ? `<div class="auth-icon-circle google" title="התחברות מאובטחת באמצעות חשבון Google"><i class="fa-brands fa-google"></i></div>`
-        : `<div class="auth-icon-circle password" title="התחברות רגילה (סיסמה)"><i class="fa-solid fa-lock"></i></div>`;
+        ? `<div class="auth-icon-circle google" title="התחברות מאובטחת באמצעות חשבון Google"><i class="fa-brands fa-google" style="color:#ea4335; font-size:1.1rem; margin-right:5px;"></i></div>`
+        : `<div class="auth-icon-circle password" title="התחברות רגילה (סיסמה)"><i class="fa-solid fa-lock" style="color:#d97706; font-size:1.1rem; margin-right:5px;"></i></div>`;
         
     const tokenIcon = user.tokenType === 'permanent' 
-        ? `<div class="auth-icon-circle perm" title="מכשיר מוכר (זכור אותי פעיל)"><i class="fa-solid fa-infinity"></i></div>`
-        : `<div class="auth-icon-circle temp" title="חיבור זמני"><i class="fa-solid fa-hourglass-half"></i></div>`;
+        ? `<div class="auth-icon-circle perm" title="מכשיר מוכר (זכור אותי פעיל)"><i class="fa-solid fa-infinity" style="color:#10b981; font-size:1.1rem; margin-right:5px;"></i></div>`
+        : `<div class="auth-icon-circle temp" title="חיבור זמני"><i class="fa-solid fa-hourglass-half" style="color:#64748b; font-size:1.1rem; margin-right:5px;"></i></div>`;
 
     const badgeContainer = document.getElementById('ui-auth-badges');
     if (badgeContainer) badgeContainer.innerHTML = `${authIcon}${tokenIcon}`;
@@ -299,7 +298,100 @@ async function updatePassword(e) {
     }
 }
 
-// === פונקציית הזרקת המודלים (ראו קובץ index.html עבור ההזרקה הסופית) ===
 function injectSettingsModal() {
-    // מנוהל כעת ב-index.html 
+    const modalsContainer = document.createElement('div');
+    modalsContainer.innerHTML = `
+        <div class="modal-overlay" id="userSettingsModal">
+            <div class="modal-content professional-modal" style="max-width: 550px; display: flex; flex-direction: column; max-height: 90vh;">
+                <div class="modal-header">
+                    <h2><i class="fa-solid fa-gear"></i> הגדרות חשבון</h2>
+                    <button class="close-modal-btn" onclick="closeUserSettingsModal()" type="button"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                
+                <div class="settings-tabs">
+                    <button class="settings-tab-btn active" onclick="switchSettingsTab('profile')" type="button"><i class="fa-solid fa-user-pen"></i> פרופיל והעדפות</button>
+                    <button class="settings-tab-btn" onclick="switchSettingsTab('security')" type="button"><i class="fa-solid fa-shield-halved"></i> אבטחה וסיסמה</button>
+                </div>
+                
+                <div style="background: #f8fafc; padding: 20px 20px 0 20px; flex-shrink: 0;">
+                    <div id="alert-settings" class="alert-box" style="margin-bottom: 0;"></div>
+                    <div id="unsaved-changes-banner" class="unsaved-banner">
+                        <span style="font-weight:bold;"><i class="fa-solid fa-triangle-exclamation"></i> ישנם שינויים שלא נשמרו</span>
+                        <span style="font-size:0.8rem;">אל תשכח ללחוץ על 'שמור שינויים' בתחתית המסך</span>
+                    </div>
+                </div>
+                
+                <div style="padding: 20px; overflow-y: auto; background: #f8fafc; flex: 1;">
+                    <form id="settings-profile-form" onsubmit="updateUserProfile(event)">
+                        <div class="clean-settings-card">
+                            <div class="clean-settings-row" style="flex-direction: column; align-items: stretch;">
+                                <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
+                                    <div class="setting-title">כתובת אימייל</div>
+                                </div>
+                                <input type="email" id="update_email" class="input-modern ltr-input track-change" placeholder="email@example.com">
+                                <div id="email_blocked_warning" style="display:none; margin-top:10px; padding:10px; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; font-size:0.85rem; color:#b91c1c;">
+                                    <p id="email_blocked_text" style="margin-bottom:8px;"></p>
+                                    <button type="button" id="btn_unblock_email" class="btn-text" style="padding:5px 10px; background:#fee2e2; color:#b91c1c; border-radius:6px; margin:0; width:auto;" onclick="unblockEmailGlobally()"><i class="fa-solid fa-unlock"></i> שחרר חסימה</button>
+                                </div>
+                            </div>
+                            
+                            <div class="clean-settings-row">
+                                <div class="clean-settings-text">
+                                    <div class="setting-title">קבלת עדכונים למייל</div>
+                                    <div class="setting-desc">שליחת התראות וקודי איפוס</div>
+                                </div>
+                                <div class="clean-settings-control">
+                                    <label class="clean-switch"><input type="checkbox" id="update_receive_emails" class="track-change"><span class="slider"></span></label>
+                                </div>
+                            </div>
+                            
+                            <div class="clean-settings-row">
+                                <div class="clean-settings-text">
+                                    <div class="setting-title">התחברות Google בלבד</div>
+                                    <div class="setting-desc">חסום כניסה באמצעות סיסמה</div>
+                                </div>
+                                <div class="clean-settings-control">
+                                    <label class="clean-switch"><input type="checkbox" id="update_google_only" class="track-change"><span class="slider"></span></label>
+                                </div>
+                            </div>
+                            
+                            <div class="clean-settings-row" id="profile_password_auth" style="flex-direction: column; align-items: stretch; background:#f1f5f9;">
+                                <div class="setting-title" style="margin-bottom:8px;">אימות אבטחה</div>
+                                <input type="password" id="update_auth_pass" class="input-modern ltr-input center-text track-change" placeholder="הזן סיסמה נוכחית לשמירה">
+                            </div>
+                        </div>
+                        <button type="submit" id="btn-update-profile" class="btn-primary">שמור שינויים <i class="fa-solid fa-floppy-disk"></i></button>
+                    </form>
+
+                    <form id="settings-security-form" onsubmit="updatePassword(event)" style="display:none;">
+                        <div class="clean-settings-card">
+                            <div class="clean-settings-row" style="flex-direction: column; align-items: stretch;">
+                                <div class="setting-title" style="margin-bottom:8px;">סיסמה נוכחית</div>
+                                <input type="password" id="change_old_pass" required class="input-modern ltr-input center-text track-change" placeholder="****">
+                            </div>
+                            <div class="clean-settings-row" style="flex-direction: column; align-items: stretch;">
+                                <div class="setting-title" style="margin-bottom:8px;">סיסמה חדשה (4-10 ספרות)</div>
+                                <input type="password" id="change_new_pass" required class="input-modern ltr-input center-text track-change" placeholder="****">
+                            </div>
+                            <div class="clean-settings-row" style="flex-direction: column; align-items: stretch;">
+                                <div class="setting-title" style="margin-bottom:8px;">אימות סיסמה חדשה</div>
+                                <input type="password" id="change_new_pass_confirm" required class="input-modern ltr-input center-text track-change" placeholder="****">
+                            </div>
+                            <div class="clean-settings-row">
+                                <div class="clean-settings-text">
+                                    <div class="setting-title">נתק מכל המכשירים</div>
+                                    <div class="setting-desc">יחייב התחברות מחדש בכל מקום</div>
+                                </div>
+                                <div class="clean-settings-control">
+                                    <label class="clean-switch"><input type="checkbox" id="change_logout_devices" class="track-change"><span class="slider danger-slider"></span></label>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" id="btn-change-password" class="btn-primary" style="background:var(--secondary);">עדכן סיסמה <i class="fa-solid fa-key"></i></button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modalsContainer);
 }
