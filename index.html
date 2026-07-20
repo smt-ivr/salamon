@@ -73,6 +73,8 @@
     <script src="/salamon/client-admin-ads.js" defer></script>
 </head>
 <body>
+    <div id="toast-container"></div>
+    
     <div class="app-wrapper">
         <main id="initial-loader" class="view-section active">
             <div class="loader-container">
@@ -280,8 +282,8 @@
                 <div id="tab-admin-users" class="app-tab scrollable-tab active">
                     <div class="admin-top-bar">
                         <div>
-                            <h1>רשימת משתמשים</h1>
-                            <p class="subtitle" style="margin-bottom: 5px;">צפייה וניהול של כלל משתמשי האתר וימות המשיח</p>
+                            <h1>רשימת משתמשים וניהול הרשאות</h1>
+                            <p class="subtitle" style="margin-bottom: 5px;">ניהול מתקדם עם עריכה ישירה מתוך הטבלה</p>
                             <label style="display: flex; align-items: center; gap: 8px; margin-top: 10px; font-weight: bold; cursor: pointer; font-size: 0.95rem; color: var(--secondary);">
                                 <input type="checkbox" id="filter_web_users" checked onchange="renderAdminUsersTable()" style="width: 18px; height: 18px; accent-color: var(--secondary);">
                                 הצג רק משתמשים שפתחו חשבון באתר
@@ -289,10 +291,17 @@
                         </div>
                         <button onclick="loadAdminUsers()" class="btn-primary small-btn" id="btn-refresh-users" style="width: auto; background: var(--secondary);"><i class="fa-solid fa-rotate-right"></i> רענן נתונים</button>
                     </div>
-                    <div id="alert-admin-dash" class="alert-box"></div>
                     <div class="table-wrapper">
                         <table class="modern-table">
-                            <thead><tr><th>טלפון</th><th>שם משתמש</th><th>אימייל מאומת</th><th>סטטוס טלפוני</th><th>חשבון באתר</th><th>תאריך הצטרפות</th><th>ניהול תיק</th></tr></thead>
+                            <thead><tr>
+                                <th>תמונה</th>
+                                <th>טלפון / מזהה</th>
+                                <th>שם משתמש</th>
+                                <th>סטטוס בימות</th>
+                                <th>חשבון באתר</th>
+                                <th style="text-align: center;">עריכה מהירה - הרשאות כתיבה</th>
+                                <th>פעולות</th>
+                            </tr></thead>
                             <tbody id="admin-users-table-body"><tr><td colspan="7" class="empty-state">יש ללחוץ על "רענן נתונים"</td></tr></tbody>
                         </table>
                     </div>
@@ -418,7 +427,7 @@
     <div class="modal-overlay" id="adminUserProfileModal">
         <div class="modal-content professional-modal" style="max-width: 550px; display: flex; flex-direction: column; max-height: 90vh;">
             <div class="modal-header">
-                <h2><i class="fa-solid fa-user-gear"></i> ניהול תיק משתמש</h2>
+                <h2><i class="fa-solid fa-user-gear"></i> עריכת משתמש מתקדמת</h2>
                 <button class="close-modal-btn" onclick="closeUserProfileModal()" type="button"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="settings-tabs">
@@ -456,7 +465,17 @@
                                 <input type="password" id="prof_password" class="input-modern center-text ltr-input" placeholder="הזן סיסמה חדשה">
                             </div>
 
-                            <h3 style="margin-top:25px;">הרשאות הגבלת גישה</h3>
+                            <h3 style="margin-top:25px;">ניהול תמונת פרופיל</h3>
+                            <div class="form-group">
+                                <label>קישור לתמונת פרופיל (השאר ריק לברירת מחדל / גוגל)</label>
+                                <input type="url" id="prof_picture_url" class="input-modern ltr-input" placeholder="https://...">
+                            </div>
+                            <div class="toggle-row">
+                                <div class="toggle-info"><strong>נעל תמונת פרופיל</strong><span>חוסם למשתמש לעדכן אותה אוטומטית ע"י התחברות לגוגל.</span></div>
+                                <label class="modern-switch"><input type="checkbox" id="prof_lock_picture"><span class="slider"></span></label>
+                            </div>
+
+                            <h3 style="margin-top:25px;">הרשאות כתיבה כלליות</h3>
                             <div class="toggle-row">
                                 <div class="toggle-info"><strong>הרשאת הקלטה</strong><span>מאפשר הקלטת הודעות קוליות בצ'אט.</span></div>
                                 <label class="modern-switch"><input type="checkbox" id="prof_can_record"><span class="slider"></span></label>
@@ -530,9 +549,7 @@
         </div>
     </div>
 
-    <!-- Rest of the modals (Upload, Delete, Error, Announcement, Settings) remain unchanged from previous prompt -->
-    <!-- ... (Upload, Delete, Error, Announcement, Settings Modals go here) ... -->
-
+    <!-- Rest of the modals (Upload, Delete, Error, Announcement, Settings) remain unchanged -->
     <audio id="global-audio-player"></audio>
 </body>
 </html>
