@@ -35,7 +35,7 @@ window.adminUsersList = [];
 async function loadAdminUsers() {
     if (!state.adminToken) return;
     const tbody = document.getElementById('admin-users-table-body');
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> מסנכרן נתונים מול השרת...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> מסנכרן נתונים מול השרת...</td></tr>';
     setLoading('btn-refresh-users', true);
     try {
         const res = await fetch(`${API_BASE_URL}/admin/users`, {
@@ -48,7 +48,7 @@ async function loadAdminUsers() {
         if (!res.ok) {
             if (res.status === 401 || res.status === 403) { logout(); return; }
             showToast(data.error || 'שגיאה בטעינת משתמשים', 'error');
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-state" style="color:var(--danger);">שגיאה בטעינה</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="empty-state" style="color:var(--danger);">שגיאה בטעינה</td></tr>';
             return;
         }
 
@@ -73,26 +73,24 @@ window.renderAdminUsersTable = function() {
     }
 
     if(filteredUsers.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">לא נמצאו משתמשים התואמים לסינון.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-state">לא נמצאו משתמשים התואמים לסינון.</td></tr>';
         return;
     }
 
     filteredUsers.forEach(user => {
-        // רנדור התמונה או האות באדמין בצורה קטנה ואלגנטית
         let picHtml = '';
         if (user.profilePictureUrl && user.profilePictureUrl.trim() !== '') {
-            picHtml = `<div class="avatar" style="width:36px; height:36px;"><img src="${user.profilePictureUrl}" class="avatar-img" alt="Profile"></div>`;
+            picHtml = `<div class="avatar" style="width:36px; height:36px; border-radius:10px;"><img src="${user.profilePictureUrl}" class="avatar-img" alt="Profile" draggable="false" oncontextmenu="return false;"></div>`;
         } else {
             const firstLetter = (user.name && user.name.trim().length > 0) ? user.name.trim().charAt(0) : 'א';
-            picHtml = `<div class="avatar" style="width:36px; height:36px;"><span class="avatar-letter" style="font-size:1.1rem;">${firstLetter}</span></div>`;
+            picHtml = `<div class="avatar" style="width:36px; height:36px; border-radius:10px;"><span class="avatar-letter" style="font-size:1.1rem;">${firstLetter}</span></div>`;
         }
 
         const yemotBadge = user.yemotActive ? '<span class="status-ok">פעיל</span>' : '<span class="status-bad">מנותק</span>';
         const webBadge = user.hasWebAccount 
-            ? `<div style="font-size:0.8rem;"><i class="fa-solid fa-envelope" style="color:var(--secondary);"></i> ${user.email || 'ללא אימייל'}</div>`
+            ? `<div style="font-size:0.85rem;"><i class="fa-solid fa-envelope" style="color:var(--secondary); margin-left:4px;"></i> ${user.email || 'ללא אימייל'}</div>`
             : `<button class="actions-btn" onclick="openAdminCreateUserModal('${user.phone}')" style="background:#eff6ff; color:#2563eb; border: 1px solid #bfdbfe; padding:4px 8px; font-size:0.8rem;"><i class="fa-solid fa-user-plus"></i> פתח חשבון</button>`;
         
-        // כפתורי עריכה מהירה Inline Editing להרשאות כתיבה והאזנה
         let togglesHtml = '-';
         if (user.hasWebAccount) {
             togglesHtml = `
@@ -106,16 +104,17 @@ window.renderAdminUsersTable = function() {
         }
 
         const actionBtn = user.hasWebAccount
-            ? `<button class="actions-btn" onclick="openUserProfile('${user.phone}')" style="background: var(--secondary); color: white; border-color: var(--secondary);"><i class="fa-solid fa-user-gear"></i> עריכה מלאה</button>`
-            : `<button class="actions-btn" disabled style="opacity:0.5; cursor:not-allowed;"><i class="fa-solid fa-user-gear"></i></button>`;
+            ? `<button class="actions-btn" onclick="openUserProfile('${user.phone}')" style="background: var(--secondary); color: white; border-color: var(--secondary);"><i class="fa-solid fa-user-gear"></i> ניהול מלא</button>`
+            : `<button class="actions-btn" disabled style="opacity:0.5; cursor:not-allowed;"><i class="fa-solid fa-user-gear"></i> ניהול מלא</button>`;
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td style="text-align: center; padding: 6px;">${picHtml}</td>
             <td style="font-weight:700; direction:ltr; text-align:right;">${user.phone}</td>
-            <td>${user.name}</td>
+            <td style="font-weight:600;">${user.name}</td>
             <td>${yemotBadge}</td>
             <td>${webBadge}</td>
+            <td style="text-align:center; font-size: 0.85rem; color: var(--text-light);">${user.createdAt ? formatDateStr(user.createdAt) : '-'}</td>
             <td style="text-align:center;">${togglesHtml}</td>
             <td>${actionBtn}</td>
         `;
@@ -139,7 +138,7 @@ window.quickTogglePermission = async function(phone, field, newValue) {
             const userObj = window.adminUsersList.find(u => u.phone === phone);
             if (userObj) {
                 userObj[field] = newValue;
-                renderAdminUsersTable(); // עדכון ויזואלי מיידי
+                renderAdminUsersTable(); 
             }
         } else {
             showToast(data.error || 'שגיאה בעדכון ההרשאה', 'error');
@@ -243,6 +242,7 @@ window.openUserProfile = async function(phone) {
     document.getElementById('prof_listen_whitelist').value = '';
     document.getElementById('prof_listen_blacklist').value = '';
     document.getElementById('prof_picture_url').value = '';
+    document.getElementById('prof_lock_picture').checked = false;
     document.getElementById('prof_yemot_status').innerHTML = '';
     document.getElementById('prof-sessions-tbody').innerHTML = '<tr><td colspan="4" class="empty-state">טוען...</td></tr>';
     
