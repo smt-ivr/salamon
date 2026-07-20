@@ -6,13 +6,12 @@ let currentPlayingId = null;
 let pollingInterval = null;
 
 document.addEventListener('DOMContentLoaded', () => {
-    injectMainModals(); // <--- הזרקת המודלים ל-HTML
+    injectMainModals(); // הזרקת המודלים ל-HTML
     
     const path = window.location.pathname;
     const savedUserToken = localStorage.getItem('userToken');
     const savedAdminToken = localStorage.getItem('adminToken');
     
-    // זיהוי הפנייה מהאימייל לשירות החסימה
     const urlParams = new URLSearchParams(window.location.search);
     const unsubscribeToken = urlParams.get('token');
 
@@ -20,7 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof handleUnsubscribeFlow === 'function') {
             handleUnsubscribeFlow(unsubscribeToken);
         }
-        return; // עוצר את הזרימה הרגילה של האתר כדי למקד את המשתמש בחסימה בלבד
+        return; 
     }
 
     if (path.includes('/admin')) {
@@ -121,6 +120,29 @@ async function loadSystemMessage() {
 function openAnnouncementModal() { document.getElementById('announcementModal').classList.add('active'); }
 function closeAnnouncementModal() { document.getElementById('announcementModal').classList.remove('active'); }
 
+/* מערכת ההודעות הקופצות החדשה - Toast System */
+window.showToast = function(message, type = 'info') {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    let icon = '<i class="fa-solid fa-circle-info"></i>';
+    if (type === 'success') icon = '<i class="fa-solid fa-circle-check" style="color:#10b981;"></i>';
+    if (type === 'error') icon = '<i class="fa-solid fa-triangle-exclamation" style="color:#ef4444;"></i>';
+    
+    toast.innerHTML = `${icon} <span>${message}</span>`;
+    container.appendChild(toast);
+    
+    // Trigger animation
+    setTimeout(() => toast.classList.add('show'), 10);
+    
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 400);
+    }, 3500);
+}
+
 function showMessage(containerId, msg, type = 'info') {
     const box = document.getElementById(containerId);
     if (!box) return;
@@ -179,9 +201,7 @@ function switchAdminTab(tabName) {
     if(btn) btn.classList.add('active');
 
     if (tabName === 'users' && typeof loadAdminUsers === 'function') loadAdminUsers();
-    if (tabName === 'tzintuk' && typeof refreshTzintukData === 'function') { 
-        refreshTzintukData();
-    }
+    if (tabName === 'tzintuk' && typeof refreshTzintukData === 'function') refreshTzintukData();
 }
 
 function setLoading(btnId, isLoading, originalText = '') {
