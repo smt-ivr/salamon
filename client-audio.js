@@ -45,7 +45,7 @@ async function toggleChatRecording() {
         document.getElementById('uploadReviewModal').classList.add('active');
         startRecordingTimer();
     } catch (err) {
-        showToast("שגיאה בגישה למיקרופון: יש לאשר הרשאת מיקרופון לדפדפן", "error");
+        alert("שגיאה בגישה למיקרופון: יש לאשר הרשאת מיקרופון לדפדפן בהגדרות המכשיר.");
     }
 }
 
@@ -164,12 +164,12 @@ async function confirmUpload() {
             showUploadSuccessUI();
             if(typeof loadMessages === 'function') loadMessages(); 
         } else {
-            showToast(`שגיאה בהעלאה: ${result.message || result.error || 'נכשל'}`, 'error');
+            alert(`שגיאה בהעלאה: ${result.message || result.error || 'נכשל'}`);
             confirmBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> שלח הודעה';
             confirmBtn.disabled = false;
         }
     } catch (err) {
-        showToast('שגיאת תקשורת בשליחה', 'error');
+        alert('שגיאת תקשורת בשליחה. אנא נסה שוב.');
         confirmBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> שלח הודעה';
         confirmBtn.disabled = false;
     }
@@ -204,7 +204,7 @@ function updateTzintukTimerDisplay() {
 async function triggerTzintuk() {
     clearInterval(tzintukTimerInterval);
     const btn = document.getElementById('btn-send-tzintuk');
-    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> שולח...';
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> שולח פקודה...';
     btn.disabled = true;
     try {
         const res = await fetch(`${API_BASE_URL}/messages/tzintuk`, {
@@ -262,6 +262,8 @@ async function attemptDeleteMessage(fileName, fileId) {
 function closeDeleteModal() {
     document.getElementById('deleteConfirmModal').classList.remove('active');
     pendingDeleteFileName = null;
+    
+    // החזרת המודל למצבו המקורי לאחר שהוסתר
     setTimeout(() => {
         document.getElementById('delete-confirm-ui').style.display = 'block';
         document.getElementById('delete-success-ui').style.display = 'none';
@@ -286,7 +288,6 @@ async function confirmDeleteMessage() {
             document.getElementById('delete-confirm-ui').style.display = 'none';
             document.getElementById('delete-success-ui').style.display = 'block';
             if(typeof loadMessages === 'function') loadMessages(); 
-            showToast('ההודעה נמחקה בהצלחה', 'success');
             setTimeout(() => { closeDeleteModal(); }, 2500);
         } else {
             closeDeleteModal();
@@ -357,7 +358,7 @@ function injectAudioModals() {
                         <div id="tzintuk-action-buttons" style="display: flex; gap: 10px; justify-content: center;">
                             <button class="btn-pro-secondary" onclick="closeUploadModal()">לא כרגע</button>
                             <button id="btn-send-tzintuk" class="btn-pro-primary" onclick="triggerTzintuk()">
-                                <i class="fa-solid fa-phone-volume"></i> צינתוק עכשיו
+                                <i class="fa-solid fa-phone-volume"></i> שלח צינתוק עכשיו
                             </button>
                         </div>
                         <div id="tzintuk-status-msg" class="tzintuk-status-msg"></div>
