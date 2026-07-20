@@ -21,7 +21,7 @@ async function adminLogin(e) {
 
         state.adminToken = data.adminToken;
         localStorage.setItem('adminToken', data.adminToken);
-        
+        showToast('התחברת בהצלחה כמנהל', 'success');
         showView('admin-dash-view');
         loadAdminUsers();
     } catch (err) {
@@ -35,7 +35,7 @@ window.adminUsersList = [];
 async function loadAdminUsers() {
     if (!state.adminToken) return;
     const tbody = document.getElementById('admin-users-table-body');
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען נתונים... (מסתנכרן מול ימות המשיח)</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> מסנכרן נתונים מול השרת...</td></tr>';
     setLoading('btn-refresh-users', true);
     try {
         const res = await fetch(`${API_BASE_URL}/admin/users`, {
@@ -47,16 +47,17 @@ async function loadAdminUsers() {
         
         if (!res.ok) {
             if (res.status === 401 || res.status === 403) { logout(); return; }
-            showMessage('alert-admin-dash', data.message || data.error || 'שגיאה', 'error');
+            showToast(data.error || 'שגיאה בטעינת משתמשים', 'error');
             tbody.innerHTML = '<tr><td colspan="7" class="empty-state" style="color:var(--danger);">שגיאה בטעינה</td></tr>';
             return;
         }
 
         window.adminUsersList = data.users || [];
+        showToast('הנתונים סונכרנו בהצלחה', 'success');
         renderAdminUsersTable(); 
     } catch (err) {
         setLoading('btn-refresh-users', false, '<i class="fa-solid fa-rotate-right"></i> רענן נתונים');
-        showMessage('alert-admin-dash', 'שגיאת שרת', 'error');
+        showToast('שגיאת תקשורת בטעינת משתמשים', 'error');
     }
 }
 
@@ -77,28 +78,75 @@ window.renderAdminUsersTable = function() {
     }
 
     filteredUsers.forEach(user => {
-        const yemotBadge = user.yemotActive ? '<span class="status-ok">פעיל</span>' : '<span class="status-bad">מנותק / חסר</span>';
-        
+        // רנדור התמונה או האות באדמין בצורה קטנה ואלגנטית
+        let picHtml = '';
+        if (user.profilePictureUrl && user.profilePictureUrl.trim() !== '') {
+            picHtml = `<div class="avatar" style="width:36px; height:36px;"><img src="${user.profilePictureUrl}" class="avatar-img" alt="Profile"></div>`;
+        } else {
+            const firstLetter = (user.name && user.name.trim().length > 0) ? user.name.trim().charAt(0) : 'א';
+            picHtml = `<div class="avatar" style="width:36px; height:36px;"><span class="avatar-letter" style="font-size:1.1rem;">${firstLetter}</span></div>`;
+        }
+
+        const yemotBadge = user.yemotActive ? '<span class="status-ok">פעיל</span>' : '<span class="status-bad">מנותק</span>';
         const webBadge = user.hasWebAccount 
-            ? '<i class="fa-solid fa-globe" style="color:var(--secondary);" title="רשום באתר"></i>' 
+            ? `<div style="font-size:0.8rem;"><i class="fa-solid fa-envelope" style="color:var(--secondary);"></i> ${user.email || 'ללא אימייל'}</div>`
             : `<button class="actions-btn" onclick="openAdminCreateUserModal('${user.phone}')" style="background:#eff6ff; color:#2563eb; border: 1px solid #bfdbfe; padding:4px 8px; font-size:0.8rem;"><i class="fa-solid fa-user-plus"></i> פתח חשבון</button>`;
         
+        // כפתורי עריכה מהירה Inline Editing להרשאות כתיבה והאזנה
+        let togglesHtml = '-';
+        if (user.hasWebAccount) {
+            togglesHtml = `
+                <div style="display:flex; gap:6px; justify-content:center; direction:ltr;">
+                    <button class="icon-toggle ${user.canListen ? 'active' : 'danger-type'}" onclick="quickTogglePermission('${user.phone}', 'canListen', ${!user.canListen})" title="${user.canListen ? 'חסום האזנה' : 'אפשר האזנה'}"><i class="fa-solid fa-headphones"></i></button>
+                    <button class="icon-toggle ${user.canTzintuk ? 'active' : ''}" onclick="quickTogglePermission('${user.phone}', 'canTzintuk', ${!user.canTzintuk})" title="${user.canTzintuk ? 'חסום צינתוק' : 'אפשר צינתוק'}"><i class="fa-solid fa-phone-volume"></i></button>
+                    <button class="icon-toggle ${user.canUpload ? 'active' : ''}" onclick="quickTogglePermission('${user.phone}', 'canUpload', ${!user.canUpload})" title="${user.canUpload ? 'חסום העלאה' : 'אפשר העלאה'}"><i class="fa-solid fa-upload"></i></button>
+                    <button class="icon-toggle ${user.canRecord ? 'active' : ''}" onclick="quickTogglePermission('${user.phone}', 'canRecord', ${!user.canRecord})" title="${user.canRecord ? 'חסום הקלטה' : 'אפשר הקלטה'}"><i class="fa-solid fa-microphone"></i></button>
+                </div>
+            `;
+        }
+
         const actionBtn = user.hasWebAccount
-            ? `<button class="actions-btn" onclick="openUserProfile('${user.phone}')" style="background: var(--secondary); color: white; border-color: var(--secondary);"><i class="fa-solid fa-user-gear"></i> ניהול תיק</button>`
-            : `<button class="actions-btn" disabled style="opacity:0.5; cursor:not-allowed;"><i class="fa-solid fa-user-gear"></i> מותנה בחשבון</button>`;
+            ? `<button class="actions-btn" onclick="openUserProfile('${user.phone}')" style="background: var(--secondary); color: white; border-color: var(--secondary);"><i class="fa-solid fa-user-gear"></i> עריכה מלאה</button>`
+            : `<button class="actions-btn" disabled style="opacity:0.5; cursor:not-allowed;"><i class="fa-solid fa-user-gear"></i></button>`;
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
+            <td style="text-align: center; padding: 6px;">${picHtml}</td>
             <td style="font-weight:700; direction:ltr; text-align:right;">${user.phone}</td>
             <td>${user.name}</td>
-            <td dir="ltr" style="text-align:right;">${user.email || '-'}</td>
             <td>${yemotBadge}</td>
-            <td style="text-align:center;">${webBadge}</td>
-            <td style="text-align:center; font-size: 0.85rem; color: var(--text-light);">${user.createdAt ? formatDateStr(user.createdAt) : '-'}</td>
+            <td>${webBadge}</td>
+            <td style="text-align:center;">${togglesHtml}</td>
             <td>${actionBtn}</td>
         `;
         tbody.appendChild(tr);
     });
+};
+
+window.quickTogglePermission = async function(phone, field, newValue) {
+    const payload = { adminToken: state.adminToken, phone: phone };
+    payload[field] = newValue;
+    
+    try {
+        const res = await fetch(`${API_BASE_URL}/admin/update-user`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+            showToast('ההרשאה עודכנה בהצלחה', 'success');
+            const userObj = window.adminUsersList.find(u => u.phone === phone);
+            if (userObj) {
+                userObj[field] = newValue;
+                renderAdminUsersTable(); // עדכון ויזואלי מיידי
+            }
+        } else {
+            showToast(data.error || 'שגיאה בעדכון ההרשאה', 'error');
+        }
+    } catch (e) {
+        showToast('שגיאת תקשורת', 'error');
+    }
 };
 
 window.openAdminCreateUserModal = function(phone) {
@@ -123,7 +171,7 @@ window.submitAdminCreateUser = async function(e) {
     const password = document.getElementById('create_password').value;
     
     if (!/^\d{4,10}$/.test(password)) {
-        showMessage('alert-admin-create', 'הסיסמה חייבת להכיל בין 4 ל-10 ספרות', 'error');
+        showToast('הסיסמה חייבת להכיל בין 4 ל-10 ספרות', 'error');
         return;
     }
 
@@ -153,14 +201,14 @@ window.submitAdminCreateUser = async function(e) {
         
         if (res.ok && data.success) {
             closeCreateUserModal();
-            alert('החשבון נוצר בהצלחה! המשתמש יכול כעת להתחבר עם הסיסמה שהגדרת.');
+            showToast('החשבון נוצר בהצלחה!', 'success');
             loadAdminUsers();
         } else {
-            showMessage('alert-admin-create', data.error || 'אירעה שגיאה ביצירת החשבון.', 'error');
+            showToast(data.error || 'אירעה שגיאה ביצירת החשבון', 'error');
         }
     } catch (e) {
         setLoading('btn-submit-create-user', false, 'צור חשבון <i class="fa-solid fa-check"></i>');
-        showMessage('alert-admin-create', 'שגיאת תקשורת מול השרת.', 'error');
+        showToast('שגיאת תקשורת מול השרת', 'error');
     }
 };
 
@@ -194,6 +242,7 @@ window.openUserProfile = async function(phone) {
     document.getElementById('prof_password').value = '';
     document.getElementById('prof_listen_whitelist').value = '';
     document.getElementById('prof_listen_blacklist').value = '';
+    document.getElementById('prof_picture_url').value = '';
     document.getElementById('prof_yemot_status').innerHTML = '';
     document.getElementById('prof-sessions-tbody').innerHTML = '<tr><td colspan="4" class="empty-state">טוען...</td></tr>';
     
@@ -207,7 +256,7 @@ window.openUserProfile = async function(phone) {
         });
         const data = await res.json();
         
-        if (!res.ok) { showMessage('alert-admin-profile', data.error || 'שגיאה בטעינת פרופיל', 'error'); return; }
+        if (!res.ok) { showToast(data.error || 'שגיאה בטעינת פרופיל', 'error'); return; }
 
         const p = data.profile;
         document.getElementById('prof_name').value = p.yemot.name || 'לא הוגדר במערכת בימות';
@@ -226,6 +275,8 @@ window.openUserProfile = async function(phone) {
             document.getElementById('prof_google_only').checked = p.user.google_login_only === 1;
             document.getElementById('prof_listen_whitelist').value = p.user.listen_whitelist || '';
             document.getElementById('prof_listen_blacklist').value = p.user.listen_blacklist || '';
+            document.getElementById('prof_picture_url').value = p.user.profile_picture_url || '';
+            document.getElementById('prof_lock_picture').checked = p.user.lock_profile_picture === 1;
         }
 
         const tbody = document.getElementById('prof-sessions-tbody');
@@ -246,7 +297,7 @@ window.openUserProfile = async function(phone) {
                 tbody.appendChild(tr);
             });
         }
-    } catch (e) { showMessage('alert-admin-profile', 'שגיאת תקשורת מול השרת.', 'error'); }
+    } catch (e) { showToast('שגיאת תקשורת מול השרת', 'error'); }
 };
 
 window.submitAdminUserUpdate = async function(e) {
@@ -264,7 +315,9 @@ window.submitAdminUserUpdate = async function(e) {
         receiveEmails: document.getElementById('prof_receive_emails').checked,
         googleLoginOnly: document.getElementById('prof_google_only').checked,
         listenWhitelist: document.getElementById('prof_listen_whitelist').value,
-        listenBlacklist: document.getElementById('prof_listen_blacklist').value
+        listenBlacklist: document.getElementById('prof_listen_blacklist').value,
+        profilePictureUrl: document.getElementById('prof_picture_url').value,
+        lockProfilePicture: document.getElementById('prof_lock_picture').checked
     };
 
     setLoading('btn-save-user-profile', true);
@@ -272,14 +325,14 @@ window.submitAdminUserUpdate = async function(e) {
         const res = await fetch(`${API_BASE_URL}/admin/update-user`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         const data = await res.json();
         setLoading('btn-save-user-profile', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
-        if (!res.ok) { showMessage('alert-admin-profile', data.error || 'שגיאה בעדכון', 'error'); return; }
+        if (!res.ok) { showToast(data.error || 'שגיאה בעדכון', 'error'); return; }
         
-        showMessage('alert-admin-profile', 'ההגדרות נשמרו בהצלחה!', 'success');
+        showToast('הגדרות המשתמש נשמרו בהצלחה', 'success');
         document.getElementById('prof_password').value = ''; 
         loadAdminUsers();
     } catch (err) {
         setLoading('btn-save-user-profile', false, 'שמור שינויים <i class="fa-solid fa-check"></i>');
-        showMessage('alert-admin-profile', 'שגיאת תקשורת', 'error');
+        showToast('שגיאת תקשורת', 'error');
     }
 };
 
@@ -291,9 +344,9 @@ window.disconnectAdminUserToken = async function(tokenId) {
     try {
         const res = await fetch(`${API_BASE_URL}/admin/user-tokens/delete`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: state.adminToken, phone: phone, tokenId: tokenId }) });
         const data = await res.json();
-        if (res.ok) { showMessage('alert-admin-profile', data.message || 'הניתוק בוצע בהצלחה', 'success'); openUserProfile(phone); }
-        else { showMessage('alert-admin-profile', data.error || 'שגיאה בניתוק', 'error'); }
-    } catch (err) { showMessage('alert-admin-profile', 'שגיאת תקשורת', 'error'); }
+        if (res.ok) { showToast(data.message || 'הניתוק בוצע בהצלחה', 'success'); openUserProfile(phone); }
+        else { showToast(data.error || 'שגיאה בניתוק', 'error'); }
+    } catch (err) { showToast('שגיאת תקשורת', 'error'); }
 };
 
 window.adminDeleteAccount = async function() {
@@ -312,14 +365,14 @@ window.adminDeleteAccount = async function() {
         const data = await res.json();
         
         if (res.ok && data.success) {
-            alert('החשבון נמחק בהצלחה לצמיתות.');
+            showToast('החשבון נמחק בהצלחה לצמיתות', 'success');
             closeUserProfileModal();
             loadAdminUsers();
         } else {
-            showMessage('alert-admin-profile', data.error || 'אירעה שגיאה במחיקת החשבון.', 'error');
+            showToast(data.error || 'אירעה שגיאה במחיקת החשבון', 'error');
         }
     } catch (e) {
-        showMessage('alert-admin-profile', 'שגיאת תקשורת מול השרת.', 'error');
+        showToast('שגיאת תקשורת מול השרת', 'error');
     }
 };
 
@@ -328,6 +381,7 @@ window.refreshTzintukData = async function() {
     if (btn) { btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מרענן נתונים...'; btn.disabled = true; }
     await Promise.all([loadVerifyBlocks(), loadVerifyLogs()]);
     if (btn) { btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> רענן נתונים'; btn.disabled = false; }
+    showToast('הנתונים רועננו בהצלחה', 'success');
 };
 
 window.loadVerifyBlocks = async function() {
@@ -396,17 +450,31 @@ window.submitManualBlock = async function(e) {
         const res = await fetch(`${API_BASE_URL}/verify/admin/block`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: state.adminToken, type, value, reason, durationValue: duration, durationUnit: unit }) });
         const data = await res.json();
         setLoading('btn-submit-block', false, 'החל חסימה <i class="fa-solid fa-lock"></i>');
-        if (res.ok) { document.getElementById('block_value').value = ''; document.getElementById('block_reason').value = ''; refreshTzintukData(); }
-        else alert(data.error || 'שגיאה ביצירת חסימה');
-    } catch (err) { setLoading('btn-submit-block', false, 'החל חסימה <i class="fa-solid fa-lock"></i>'); alert('שגיאת תקשורת'); }
+        if (res.ok) { 
+            document.getElementById('block_value').value = ''; 
+            document.getElementById('block_reason').value = ''; 
+            refreshTzintukData(); 
+            showToast('החסימה הופעלה בהצלחה', 'success');
+        } else {
+            showToast(data.error || 'שגיאה ביצירת חסימה', 'error');
+        }
+    } catch (err) { 
+        setLoading('btn-submit-block', false, 'החל חסימה <i class="fa-solid fa-lock"></i>'); 
+        showToast('שגיאת תקשורת', 'error');
+    }
 };
 
 window.unblockUser = async function(type, value) {
     if (!confirm(`לשחרר חסימה על ${value}?`)) return;
     try {
         const res = await fetch(`${API_BASE_URL}/verify/admin/unblock`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: state.adminToken, type, target: value }) });
-        if (res.ok) refreshTzintukData(); else alert((await res.json()).error || 'שגיאה');
-    } catch (err) { alert('שגיאת תקשורת'); }
+        if (res.ok) {
+            refreshTzintukData();
+            showToast('החסימה הוסרה', 'success');
+        } else {
+            showToast((await res.json()).error || 'שגיאה', 'error');
+        }
+    } catch (err) { showToast('שגיאת תקשורת', 'error'); }
 };
 
 window.cleanOldLogs = async function() {
@@ -416,8 +484,14 @@ window.cleanOldLogs = async function() {
     btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מנקה...'; btn.disabled = true;
     try {
         const res = await fetch(`${API_BASE_URL}/verify/admin/clean`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ adminToken: state.adminToken }) });
-        if (res.ok) refreshTzintukData(); else alert((await res.json()).error || 'שגיאה');
-    } catch (err) { alert('שגיאת תקשורת'); } finally { btn.innerHTML = originalText; btn.disabled = false; }
+        if (res.ok) {
+            refreshTzintukData();
+            showToast('לוגים ישנים נוקו בהצלחה', 'success');
+        } else {
+            showToast((await res.json()).error || 'שגיאה', 'error');
+        }
+    } catch (err) { showToast('שגיאת תקשורת', 'error'); } 
+    finally { btn.innerHTML = originalText; btn.disabled = false; }
 };
 
 function formatDateStr(dateStr) {
