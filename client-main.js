@@ -236,7 +236,6 @@ function closeErrorModal() {
     document.getElementById('errorAlertModal').classList.remove('active');
 }
 
-// === פונקציית הזרקת המודלים ===
 function injectMainModals() {
     const modalsContainer = document.createElement('div');
     modalsContainer.innerHTML = `
