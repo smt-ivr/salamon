@@ -8,7 +8,6 @@ let tzintukTimerInterval = null;
 let tzintukSecondsLeft = 90;
 let pendingDeleteFileName = null;
 
-// הזרקת מודלים בטעינת העמוד
 document.addEventListener('DOMContentLoaded', injectAudioModals);
 
 function resetRecordingUI() {
@@ -46,7 +45,7 @@ async function toggleChatRecording() {
         document.getElementById('uploadReviewModal').classList.add('active');
         startRecordingTimer();
     } catch (err) {
-        alert("שגיאה בגישה למיקרופון: יש לאשר הרשאת מיקרופון לדפדפן בהגדרות המכשיר.");
+        showToast("שגיאה בגישה למיקרופון: יש לאשר הרשאת מיקרופון לדפדפן", "error");
     }
 }
 
@@ -137,7 +136,7 @@ function closeUploadModal() {
     if (tzintukActionBtns) tzintukActionBtns.style.display = 'flex';
     
     const tzintukBtn = document.getElementById('btn-send-tzintuk');
-    if (tzintukBtn) { tzintukBtn.disabled = false; tzintukBtn.innerHTML = '<i class="fa-solid fa-phone-volume" style="margin-left: 5px;"></i> שלח צינתוק עכשיו'; }
+    if (tzintukBtn) { tzintukBtn.disabled = false; tzintukBtn.innerHTML = '<i class="fa-solid fa-phone-volume"></i> שלח צינתוק עכשיו'; }
 
     const statusMsg = document.getElementById('tzintuk-status-msg');
     if (statusMsg) statusMsg.style.display = 'none';
@@ -165,12 +164,12 @@ async function confirmUpload() {
             showUploadSuccessUI();
             if(typeof loadMessages === 'function') loadMessages(); 
         } else {
-            alert(`שגיאה בהעלאה: ${result.message || result.error || 'נכשל'}`);
+            showToast(`שגיאה בהעלאה: ${result.message || result.error || 'נכשל'}`, 'error');
             confirmBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> שלח הודעה';
             confirmBtn.disabled = false;
         }
     } catch (err) {
-        alert('שגיאת תקשורת בשליחה. אנא נסה שוב.');
+        showToast('שגיאת תקשורת בשליחה', 'error');
         confirmBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> שלח הודעה';
         confirmBtn.disabled = false;
     }
@@ -205,7 +204,7 @@ function updateTzintukTimerDisplay() {
 async function triggerTzintuk() {
     clearInterval(tzintukTimerInterval);
     const btn = document.getElementById('btn-send-tzintuk');
-    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> שולח פקודה...';
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> שולח...';
     btn.disabled = true;
     try {
         const res = await fetch(`${API_BASE_URL}/messages/tzintuk`, {
@@ -263,8 +262,6 @@ async function attemptDeleteMessage(fileName, fileId) {
 function closeDeleteModal() {
     document.getElementById('deleteConfirmModal').classList.remove('active');
     pendingDeleteFileName = null;
-    
-    // החזרת המודל למצבו המקורי לאחר שהוסתר
     setTimeout(() => {
         document.getElementById('delete-confirm-ui').style.display = 'block';
         document.getElementById('delete-success-ui').style.display = 'none';
@@ -289,6 +286,7 @@ async function confirmDeleteMessage() {
             document.getElementById('delete-confirm-ui').style.display = 'none';
             document.getElementById('delete-success-ui').style.display = 'block';
             if(typeof loadMessages === 'function') loadMessages(); 
+            showToast('ההודעה נמחקה בהצלחה', 'success');
             setTimeout(() => { closeDeleteModal(); }, 2500);
         } else {
             closeDeleteModal();
@@ -309,7 +307,6 @@ function attemptFileUpload() {
     }
 }
 
-// === פונקציית הזרקת המודלים ===
 function injectAudioModals() {
     const modalsContainer = document.createElement('div');
     modalsContainer.innerHTML = `
@@ -360,7 +357,7 @@ function injectAudioModals() {
                         <div id="tzintuk-action-buttons" style="display: flex; gap: 10px; justify-content: center;">
                             <button class="btn-pro-secondary" onclick="closeUploadModal()">לא כרגע</button>
                             <button id="btn-send-tzintuk" class="btn-pro-primary" onclick="triggerTzintuk()">
-                                <i class="fa-solid fa-phone-volume"></i> שלח צינתוק עכשיו
+                                <i class="fa-solid fa-phone-volume"></i> צינתוק עכשיו
                             </button>
                         </div>
                         <div id="tzintuk-status-msg" class="tzintuk-status-msg"></div>
