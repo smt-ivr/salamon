@@ -214,9 +214,10 @@
                 <div class="sidebar-header">
                     <div class="user-profile-wrap">
                         <div class="avatar"><i class="fa-solid fa-user"></i></div>
+                        <div id="ui-auth-badges" style="display: flex; flex-direction: column; gap: 4px;"></div>
                         <div class="user-details">
                             <h2 id="ui-user-name" style="display:flex; align-items:center; gap:6px;">טוען...</h2>
-                            <p style="display:flex; align-items:center; gap:8px;"><span id="ui-user-phone">---</span><span id="ui-auth-badges" style="display:flex; gap:4px;"></span></p>
+                            <p id="ui-user-phone" style="display:flex; align-items:center; gap:8px;">---</p>
                         </div>
                     </div>
                     <div class="sidebar-actions">
@@ -263,8 +264,8 @@
             <aside class="app-sidebar" style="border-top: 4px solid var(--secondary);">
                 <div class="sidebar-header">
                     <div class="user-profile-wrap">
-                        <div class="avatar" style="background: var(--secondary); border: none; border-radius: 10px;"><i class="fa-solid fa-shield-halved"></i></div>
-                        <div class="user-details"><h2>פאנל הנהלה</h2><p>מחובר כמנהל</p></div>
+                        <div class="avatar" style="background: var(--secondary); border: none;"><i class="fa-solid fa-shield-halved" style="color:white;"></i></div>
+                        <div class="user-details"><h2 style="margin:0; padding:0;">פאנל הנהלה</h2><p style="margin:0; padding:0;">מחובר כמנהל</p></div>
                     </div>
                     <div class="sidebar-actions">
                         <button title="התנתק" class="logout-btn" onclick="logout()"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
