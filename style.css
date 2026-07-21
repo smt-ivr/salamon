@@ -135,27 +135,39 @@ button {
 /* ================== עיצוב תמונת פרופיל מתקדם ================== */
 .avatar { 
     width: 48px; height: 48px; 
-    border-radius: 14px; 
-    background: linear-gradient(135deg, #1e293b, #334155); 
-    color: white; 
+    border-radius: 50%; /* עיגול מושלם מראה יוקרתי יותר */
+    background: #ffffff; /* רקע לבן טהור תמיד */
+    color: var(--text-main); 
     display: flex; align-items: center; justify-content: center; 
     font-size: 1.4rem; flex-shrink: 0; overflow: hidden; 
-    box-shadow: 0 4px 10px rgba(0,0,0,0.12); 
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08); 
     border: 2px solid #ffffff;
     position: relative;
 }
-.avatar-img { width: 100%; height: 100%; object-fit: cover; pointer-events: none; user-select: none; -webkit-user-drag: none; }
+.avatar-img { 
+    width: 100%; height: 100%; 
+    object-fit: cover; 
+    background: #ffffff;
+    pointer-events: none; user-select: none; -webkit-user-drag: none; 
+}
 .avatar-letter { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-weight: 800; text-shadow: 1px 1px 2px rgba(0,0,0,0.2); }
 
 /* ================== אזור האפליקציה ================== */
 .app-layout { flex-direction: row; }
 .app-sidebar { width: 320px; background: var(--surface); display: flex; flex-direction: column; border-left: 1px solid var(--border-color); z-index: 20; flex-shrink: 0; }
 .sidebar-header { height: 75px; padding: 0 15px; background: var(--header-bg); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); }
-.user-profile-wrap { display: flex; align-items: center; gap: 14px; padding: 6px; border-radius: 12px; transition: background 0.2s; cursor: default; }
+
+.user-profile-wrap { 
+    display: flex; align-items: center; gap: 10px; padding: 6px; 
+    border-radius: 12px; transition: background 0.2s; cursor: default; 
+    flex: 1; min-width: 0; /* מונע פריצת תוכן ומאפשר חיתוך טקסט חכם */
+}
 .user-profile-wrap:hover { background: rgba(0,0,0,0.04); }
 
-/* תיקון יישור ושבירת שורות בסיידבר */
-.user-details { display: flex; flex-direction: column; justify-content: center; overflow: hidden; }
+.user-details { 
+    display: flex; flex-direction: column; justify-content: center; 
+    overflow: hidden; flex: 1; min-width: 0;
+}
 .user-details h2 { font-size: 1.05rem; font-weight: 800; margin-bottom: 4px; white-space: nowrap; color: var(--text-dark); text-overflow: ellipsis; overflow: hidden; }
 .user-details p { font-size: 0.85rem; color: var(--text-light); display: flex; align-items: center; gap: 8px; margin: 0; }
 
@@ -163,13 +175,14 @@ button {
     display: inline-flex; align-items: center; justify-content: center; 
     width: 22px; height: 22px; border-radius: 50%; background: #f8fafc; 
     border: 1px solid #e2e8f0; font-size: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    flex-shrink: 0;
 }
 .auth-icon-circle.google { color: #ea4335; border-color: #fecaca; background: #fef2f2; }
 .auth-icon-circle.password { color: #d97706; border-color: #fde68a; background: #fffbeb; }
 .auth-icon-circle.perm { color: #10b981; border-color: #bbf7d0; background: #f0fdf4; }
 .auth-icon-circle.temp { color: #64748b; border-color: #e2e8f0; background: #f8fafc; }
 
-.sidebar-actions { display: flex; align-items: center; gap: 5px; }
+.sidebar-actions { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
 .sidebar-actions button { background: none; border: none; color: var(--text-light); font-size: 1.25rem; cursor: pointer; padding: 8px; border-radius: 50%; transition: 0.2s; }
 .sidebar-actions button:hover { background: rgba(0,0,0,0.05); color: var(--text-main); }
 .logout-btn { color: var(--danger) !important; }
@@ -387,7 +400,7 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 5px; cur
     .chat-header-fixed { height: 55px; padding: 0 12px; gap: 5px; }
     .header-title-group { overflow: hidden; min-width: 0; }
     .user-profile-wrap { padding: 4px; gap: 10px; }
-    .avatar, .header-icon { width: 36px; height: 36px; font-size: 1.1rem; border-radius: 10px; }
+    .avatar, .header-icon { width: 36px; height: 36px; font-size: 1.1rem; border-radius: 50%; }
     .user-details h2 { font-size: 0.9rem; margin-bottom: 0px; }
     .user-details p { font-size: 0.75rem; }
     .header-title h3 { font-size: 0.95rem; margin-bottom: 0px; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
