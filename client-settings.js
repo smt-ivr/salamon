@@ -10,14 +10,15 @@ function updateDashboardUI() {
     // סידור מספר הטלפון משמאל לימין בתוך הטקסט
     document.getElementById('ui-user-phone').innerHTML = `<span dir="ltr" style="font-weight:600; color:var(--text-main); font-family: monospace; font-size: 0.9rem;">${user.phone}</span>`;
     
-    // עדכון תמונת פרופיל או הצגת האות הראשונה כ-FallBack
+    // עדכון תמונת פרופיל מתקדמת - יוקרתית ונקייה
     const avatarDiv = document.querySelector('.user-profile-wrap .avatar');
     if (avatarDiv) {
         if (user.profilePictureUrl && user.profilePictureUrl.trim() !== '') {
             avatarDiv.innerHTML = `<img src="${user.profilePictureUrl}" class="avatar-img" draggable="false" oncontextmenu="return false;" alt="פרופיל">`;
         } else {
+            // עיצוב יוקרתי למי שאין תמונה - אות בתוך עיגול עם צבעים רכים
             const firstLetter = (user.name && user.name.trim().length > 0) ? user.name.trim().charAt(0) : 'א';
-            avatarDiv.innerHTML = `<span class="avatar-letter">${firstLetter}</span>`;
+            avatarDiv.innerHTML = `<div style="width: 100%; height: 100%; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.6rem; font-family: system-ui;">${firstLetter}</div>`;
         }
     }
     
