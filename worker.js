@@ -8,9 +8,10 @@ import settingsJs from './client-settings.js';
 import adminJs from './client-admin.js';
 import adsJs from './client-ads.js';
 import adminAdsJs from './client-admin-ads.js';
-
-// ייבוא הקובץ החדש למערכת ה-Worker
 import adminAdvancedJs from './client-admin-advanced.js';
+
+// ייבוא הקובץ החדש למערכת ה-Worker (ניהול הצ'אט)
+import adminChatJs from './client-admin-chat.js';
 
 export default {
     async fetch(request, env, ctx) {
@@ -41,7 +42,6 @@ export default {
         if (path === '/salamon/client-admin.js') {
             return new Response(adminJs, { headers: { 'Content-Type': 'application/javascript; charset=utf-8' } });
         }
-        // הוספת הניתוב לקובץ החדש
         if (path === '/salamon/client-admin-advanced.js') {
             return new Response(adminAdvancedJs, { headers: { 'Content-Type': 'application/javascript; charset=utf-8' } });
         }
@@ -50,6 +50,11 @@ export default {
         }
         if (path === '/salamon/client-admin-ads.js') {
             return new Response(adminAdsJs, { headers: { 'Content-Type': 'application/javascript; charset=utf-8' } });
+        }
+        
+        // הוספת הניתוב לקובץ הצ'אט החדש
+        if (path === '/salamon/client-admin-chat.js') {
+            return new Response(adminChatJs, { headers: { 'Content-Type': 'application/javascript; charset=utf-8' } });
         }
 
         return new Response('Not Found', { status: 404 });
