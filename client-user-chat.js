@@ -6,9 +6,6 @@ let lastMessagesHash = "";
 document.addEventListener('DOMContentLoaded', () => {
     injectUserChatModal();
     
-    // טיימר חכם: רץ כל 3 שניות
-    // כשהמודל פתוח -> מרענן את השיחה בשקט כל 3 שניות
-    // כשהמודל סגור -> בודק באג' (badge) רק כל סיבוב שלישי (כ-9 שניות) כדי לחסוך קריאות
     let tick = 0;
     setInterval(() => {
         if (!state.userToken) return;
@@ -30,11 +27,11 @@ document.addEventListener('DOMContentLoaded', () => {
 function injectUserChatModal() {
     const chatStyles = document.createElement('style');
     chatStyles.innerHTML = `
-        .user-chat-modal .modal-content { max-width: 450px; height: 80vh; max-height: 700px; display: flex; flex-direction: column; padding: 0; background: #efeae2; }
+        .user-chat-modal .modal-content { max-width: 450px; height: 85vh; max-height: 700px; display: flex; flex-direction: column; padding: 0; background: #efeae2; overflow: hidden; }
         .user-chat-header { background: #0f172a; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
-        .user-chat-header h3 { margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 10px; }
-        .user-chat-close { background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; opacity: 0.8; transition: 0.2s; }
-        .user-chat-close:hover { opacity: 1; transform: scale(1.1); }
+        .user-chat-header h3 { margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 10px; font-weight: 700; }
+        .user-chat-close { background: none; border: none; color: white; font-size: 1.3rem; cursor: pointer; opacity: 0.8; transition: 0.2s; }
+        .user-chat-close:hover { opacity: 1; transform: scale(1.1); color: #ef4444; }
         
         .user-chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; background-image: url('https://www.transparenttextures.com/patterns/cubes.png'); }
         
@@ -46,7 +43,7 @@ function injectUserChatModal() {
         .user-chat-text { font-size: 0.95rem; line-height: 1.4; word-wrap: break-word; color: #111b21; }
         .user-chat-meta { display: flex; align-items: center; justify-content: flex-end; gap: 5px; font-size: 0.7rem; color: #64748b; }
         
-        .user-chat-input-area { background: #f0f2f5; padding: 10px 15px; display: flex; gap: 10px; align-items: center; flex-shrink: 0; }
+        .user-chat-input-area { background: #f0f2f5; padding: 12px 15px; display: flex; gap: 10px; align-items: center; flex-shrink: 0; border-top: 1px solid var(--border-color); }
         .user-chat-input { flex: 1; border: none; padding: 12px 18px; border-radius: 24px; outline: none; font-size: 0.95rem; box-shadow: 0 1px 1px rgba(0,0,0,0.05); }
         .user-chat-send { background: var(--play-out); color: white; border: none; width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; cursor: pointer; transition: 0.2s; flex-shrink: 0; }
         .user-chat-send:hover:not(:disabled) { background: #15803d; transform: scale(1.05); }
@@ -76,10 +73,8 @@ function injectUserChatModal() {
     document.body.appendChild(container.firstElementChild);
 }
 
-// פונקציית עיצוב תאריכים חכמה (היום, אתמול, וכו')
 function formatChatSmartDate(dateStr) {
     if (!dateStr) return '';
-    // התיקון החשוב: ללא תוספת 'Z' בסוף, כדי שהדפדפן יתייחס לזה כזמן מקומי
     const msgDate = new Date(dateStr.replace(' ', 'T'));
     if (isNaN(msgDate)) return dateStr;
 
@@ -103,15 +98,14 @@ function formatChatSmartDate(dateStr) {
 async function checkUnreadMessages() {
     if (!state.userToken || isChatFetching) return;
     try {
-        const res = await fetch(`${API_BASE_URL}/chat/list`, {
+        const res = await fetch(`${API_BASE_URL}/chat/unread`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userToken: state.userToken })
         });
         const data = await res.json();
         
         if (res.ok && data.success) {
-            const unreadCount = data.messages.filter(m => m.sender === 'admin' && !m.isRead).length;
-            updateChatBadge(unreadCount);
+            updateChatBadge(data.unreadCount);
         }
     } catch (e) {}
 }
@@ -127,17 +121,15 @@ async function silentRefreshChat() {
         const data = await res.json();
         
         if (res.ok && data.success) {
-            // אם המודל פתוח ויש הודעות שלא נקראו - נסמן כנקרא
             const unreadCount = data.messages.filter(m => m.sender === 'admin' && !m.isRead).length;
             if (unreadCount > 0) {
                 markUserChatAsRead(); 
             }
             
-            // בודק אם צריך לעדכן את המסך
             const newHash = JSON.stringify(data.messages);
             if (newHash !== lastMessagesHash) {
                 lastMessagesHash = newHash;
-                renderUserChatMessages(data.messages, true); // true = silent update
+                renderUserChatMessages(data.messages, true);
             }
         }
     } catch (e) {} finally {
@@ -160,8 +152,6 @@ window.openUserChatModal = async function() {
     document.getElementById('userChatModal').classList.add('active');
     
     const msgContainer = document.getElementById('user-chat-msg-container');
-    
-    // מנקים רק אם אין כלום או שהמידע ישן (כדי למנוע הבהובים בכניסה מחדש)
     if (lastMessagesHash === "") {
         msgContainer.innerHTML = '<div class="empty-state" style="margin-top: 50px;"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען...</div>';
     }
@@ -205,8 +195,7 @@ async function markUserChatAsRead() {
 function renderUserChatMessages(messages, isSilent = false) {
     const container = document.getElementById('user-chat-msg-container');
     
-    // שמירת מצב הגלילה כדי לדעת אם להקפיץ למטה אוטומטית או לא
-    // אם הוא כבר בסוף (סטייה של 50 פיקסלים), נגלול אותו למטה. 
+    // מניעת הקפצה - נגלול רק אם המשתמש כבר נמצא למטה
     const isScrolledToBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 50;
     
     container.innerHTML = '';
@@ -225,21 +214,22 @@ function renderUserChatMessages(messages, isSilent = false) {
     messages.forEach(msg => {
         const isOut = msg.sender === 'user';
         const bubbleClass = isOut ? 'user-chat-out' : 'user-chat-in';
-        const isDeleted = msg.isDeleted;
         
         const timeStr = formatChatSmartDate(msg.createdAt);
         
         let readTicks = '';
-        if (isOut && !isDeleted) {
-            readTicks = msg.isRead ? '<i class="fa-solid fa-check-double" style="color: #3b82f6;"></i>' : '<i class="fa-solid fa-check" style="color: #94a3b8;"></i>';
+        if (isOut) {
+            // אם isRead מהמסד זה אומר שהמנהל קרא = 2 וי כחול. 
+            // אם לא קרא = 2 וי אפור. (הוי הבודד קיים רק זמנית בזמן השליחה)
+            readTicks = msg.isRead 
+                ? '<i class="fa-solid fa-check-double" style="color: #3b82f6;"></i>' 
+                : '<i class="fa-solid fa-check-double" style="color: #94a3b8;"></i>';
         }
         
-        const textContent = isDeleted ? '🚫 ההודעה נמחקה' : msg.text;
-        
         const bubble = document.createElement('div');
-        bubble.className = `user-chat-bubble ${bubbleClass} ${isDeleted ? 'user-chat-deleted' : ''}`;
+        bubble.className = `user-chat-bubble ${bubbleClass}`;
         bubble.innerHTML = `
-            <div class="user-chat-text">${textContent}</div>
+            <div class="user-chat-text">${msg.text}</div>
             <div class="user-chat-meta">
                 <span dir="ltr">${timeStr}</span>
                 ${readTicks}
@@ -248,7 +238,6 @@ function renderUserChatMessages(messages, isSilent = false) {
         container.appendChild(bubble);
     });
     
-    // גלילה אוטומטית רק אם המשתמש לא "מטייל" למעלה בשיחה כרגע
     if (!isSilent || isScrolledToBottom) {
         container.scrollTop = container.scrollHeight;
     }
@@ -260,33 +249,45 @@ window.sendUserChatMessage = async function(e) {
     const text = input.value.trim();
     if (!text) return;
     
+    // ציור הבועה הזמנית מיד (וי אחד אפור)
+    const container = document.getElementById('user-chat-msg-container');
+    const timeStr = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+    const tempBubble = document.createElement('div');
+    tempBubble.className = `user-chat-bubble user-chat-out`;
+    tempBubble.innerHTML = `
+        <div class="user-chat-text">${text}</div>
+        <div class="user-chat-meta">
+            <span dir="ltr">היום, ${timeStr}</span>
+            <i class="fa-solid fa-check" style="color: #94a3b8;"></i>
+        </div>
+    `;
+    container.appendChild(tempBubble);
+    container.scrollTop = container.scrollHeight;
+
+    input.value = '';
     const btn = document.getElementById('user-chat-submit');
     btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
     
     try {
         const res = await fetch(`${API_BASE_URL}/chat/send`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userToken: state.userToken, text: text })
         });
-        const data = await res.json();
         
         btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i>';
         
-        if (res.ok && data.success) {
-            input.value = '';
-            // טוען וגולל למטה בכוח כי המשתמש הרגע שלח הודעה
+        if (res.ok) {
+            // מיד לאחר שההודעה נשלחה למסד הנתונים קוראים לרענון שקט שיחזיר 2 וי אפורים
             silentRefreshChat().then(() => {
-                const container = document.getElementById('user-chat-msg-container');
                 container.scrollTop = container.scrollHeight;
             });
         } else {
-            showToast(data.error || 'שגיאה בשליחת הודעה', 'error');
+            showToast('שגיאה בשליחת הודעה', 'error');
+            tempBubble.remove();
         }
     } catch (err) {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i>';
         showToast('שגיאת תקשורת מול השרת', 'error');
+        tempBubble.remove();
     }
 };
