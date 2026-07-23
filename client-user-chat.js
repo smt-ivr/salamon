@@ -1,16 +1,30 @@
 // client-user-chat.js
 
-let userChatPollingInterval = null;
+let isChatFetching = false;
+let lastMessagesHash = "";
 
 document.addEventListener('DOMContentLoaded', () => {
     injectUserChatModal();
     
-    // בדיקת הודעות שלא נקראו כל 10 שניות
+    // טיימר חכם: רץ כל 3 שניות
+    // כשהמודל פתוח -> מרענן את השיחה בשקט כל 3 שניות
+    // כשהמודל סגור -> בודק באג' (badge) רק כל סיבוב שלישי (כ-9 שניות) כדי לחסוך קריאות
+    let tick = 0;
     setInterval(() => {
-        if (state.userToken && !document.getElementById('userChatModal').classList.contains('active')) {
-            checkUnreadMessages();
+        if (!state.userToken) return;
+        
+        const isModalOpen = document.getElementById('userChatModal').classList.contains('active');
+        
+        if (isModalOpen) {
+            silentRefreshChat();
+        } else {
+            tick++;
+            if (tick >= 3) {
+                checkUnreadMessages();
+                tick = 0;
+            }
         }
-    }, 10000);
+    }, 3000);
 });
 
 function injectUserChatModal() {
@@ -65,7 +79,8 @@ function injectUserChatModal() {
 // פונקציית עיצוב תאריכים חכמה (היום, אתמול, וכו')
 function formatChatSmartDate(dateStr) {
     if (!dateStr) return '';
-    const msgDate = new Date(dateStr.replace(' ', 'T') + 'Z');
+    // התיקון החשוב: ללא תוספת 'Z' בסוף, כדי שהדפדפן יתייחס לזה כזמן מקומי
+    const msgDate = new Date(dateStr.replace(' ', 'T'));
     if (isNaN(msgDate)) return dateStr;
 
     const now = new Date();
@@ -86,7 +101,7 @@ function formatChatSmartDate(dateStr) {
 }
 
 async function checkUnreadMessages() {
-    if (!state.userToken) return;
+    if (!state.userToken || isChatFetching) return;
     try {
         const res = await fetch(`${API_BASE_URL}/chat/list`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -95,16 +110,39 @@ async function checkUnreadMessages() {
         const data = await res.json();
         
         if (res.ok && data.success) {
-            // סופרים הודעות מההנהלה שלא נקראו
             const unreadCount = data.messages.filter(m => m.sender === 'admin' && !m.isRead).length;
             updateChatBadge(unreadCount);
-            
-            // אם המודל פתוח, נרנדר את השיחה כדי לקבל נתונים חיים
-            if (document.getElementById('userChatModal').classList.contains('active')) {
-                renderUserChatMessages(data.messages);
-            }
         }
     } catch (e) {}
+}
+
+async function silentRefreshChat() {
+    if (!state.userToken || isChatFetching) return;
+    isChatFetching = true;
+    try {
+        const res = await fetch(`${API_BASE_URL}/chat/list`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userToken: state.userToken })
+        });
+        const data = await res.json();
+        
+        if (res.ok && data.success) {
+            // אם המודל פתוח ויש הודעות שלא נקראו - נסמן כנקרא
+            const unreadCount = data.messages.filter(m => m.sender === 'admin' && !m.isRead).length;
+            if (unreadCount > 0) {
+                markUserChatAsRead(); 
+            }
+            
+            // בודק אם צריך לעדכן את המסך
+            const newHash = JSON.stringify(data.messages);
+            if (newHash !== lastMessagesHash) {
+                lastMessagesHash = newHash;
+                renderUserChatMessages(data.messages, true); // true = silent update
+            }
+        }
+    } catch (e) {} finally {
+        isChatFetching = false;
+    }
 }
 
 function updateChatBadge(count) {
@@ -122,7 +160,11 @@ window.openUserChatModal = async function() {
     document.getElementById('userChatModal').classList.add('active');
     
     const msgContainer = document.getElementById('user-chat-msg-container');
-    msgContainer.innerHTML = '<div class="empty-state" style="margin-top: 50px;"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען...</div>';
+    
+    // מנקים רק אם אין כלום או שהמידע ישן (כדי למנוע הבהובים בכניסה מחדש)
+    if (lastMessagesHash === "") {
+        msgContainer.innerHTML = '<div class="empty-state" style="margin-top: 50px;"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען...</div>';
+    }
     
     try {
         const res = await fetch(`${API_BASE_URL}/chat/list`, {
@@ -132,8 +174,8 @@ window.openUserChatModal = async function() {
         const data = await res.json();
         
         if (res.ok && data.success) {
-            renderUserChatMessages(data.messages);
-            // אם פתחנו את הצ'אט, אנחנו מסמנים את ההודעות כנקראו
+            lastMessagesHash = JSON.stringify(data.messages);
+            renderUserChatMessages(data.messages, false);
             markUserChatAsRead();
         } else {
             msgContainer.innerHTML = `<div class="empty-state" style="color:var(--danger); margin-top: 50px;">${data.error || 'שגיאה בשליפה'}</div>`;
@@ -160,8 +202,13 @@ async function markUserChatAsRead() {
     } catch (e) {}
 }
 
-function renderUserChatMessages(messages) {
+function renderUserChatMessages(messages, isSilent = false) {
     const container = document.getElementById('user-chat-msg-container');
+    
+    // שמירת מצב הגלילה כדי לדעת אם להקפיץ למטה אוטומטית או לא
+    // אם הוא כבר בסוף (סטייה של 50 פיקסלים), נגלול אותו למטה. 
+    const isScrolledToBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 50;
+    
     container.innerHTML = '';
     
     if (messages.length === 0) {
@@ -201,8 +248,10 @@ function renderUserChatMessages(messages) {
         container.appendChild(bubble);
     });
     
-    // גלילה אוטומטית למטה
-    container.scrollTop = container.scrollHeight;
+    // גלילה אוטומטית רק אם המשתמש לא "מטייל" למעלה בשיחה כרגע
+    if (!isSilent || isScrolledToBottom) {
+        container.scrollTop = container.scrollHeight;
+    }
 }
 
 window.sendUserChatMessage = async function(e) {
@@ -227,8 +276,11 @@ window.sendUserChatMessage = async function(e) {
         
         if (res.ok && data.success) {
             input.value = '';
-            // טעינת ההודעות מחדש לאחר השליחה
-            openUserChatModal();
+            // טוען וגולל למטה בכוח כי המשתמש הרגע שלח הודעה
+            silentRefreshChat().then(() => {
+                const container = document.getElementById('user-chat-msg-container');
+                container.scrollTop = container.scrollHeight;
+            });
         } else {
             showToast(data.error || 'שגיאה בשליחת הודעה', 'error');
         }
