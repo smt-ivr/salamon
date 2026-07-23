@@ -1,3 +1,4 @@
+// worker.js
 import htmlContent from './index.html';
 import cssContent from './style.css';
 import mainJs from './client-main.js';
@@ -9,9 +10,8 @@ import adminJs from './client-admin.js';
 import adsJs from './client-ads.js';
 import adminAdsJs from './client-admin-ads.js';
 import adminAdvancedJs from './client-admin-advanced.js';
-
-// ייבוא הקובץ החדש למערכת ה-Worker (ניהול הצ'אט)
 import adminChatJs from './client-admin-chat.js';
+import userChatJs from './client-user-chat.js';
 
 export default {
     async fetch(request, env, ctx) {
@@ -51,10 +51,11 @@ export default {
         if (path === '/salamon/client-admin-ads.js') {
             return new Response(adminAdsJs, { headers: { 'Content-Type': 'application/javascript; charset=utf-8' } });
         }
-        
-        // הוספת הניתוב לקובץ הצ'אט החדש
         if (path === '/salamon/client-admin-chat.js') {
             return new Response(adminChatJs, { headers: { 'Content-Type': 'application/javascript; charset=utf-8' } });
+        }
+        if (path === '/salamon/client-user-chat.js') {
+            return new Response(userChatJs, { headers: { 'Content-Type': 'application/javascript; charset=utf-8' } });
         }
 
         return new Response('Not Found', { status: 404 });
