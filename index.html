@@ -71,6 +71,7 @@
     <script src="/salamon/client-ads.js" defer></script>
     <script src="/salamon/client-admin-ads.js" defer></script>
     <script src="/salamon/client-admin-chat.js" defer></script>
+    <script src="/salamon/client-user-chat.js" defer></script>
 </head>
 <body>
     <div id="toast-container"></div>
@@ -245,6 +246,13 @@
                         </div>
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <button class="mobile-announcement-btn" id="mobile-announcement-btn-id" onclick="openAnnouncementModal()"><i class="fa-solid fa-bullhorn"></i> <span style="margin-right:4px;">מודעה</span></button>
+                            
+                            <!-- כפתור הצ'אט החדש -->
+                            <button class="icon-btn" id="user-chat-open-btn" onclick="openUserChatModal()" style="position:relative;" title="צ'אט עם ההנהלה">
+                                <i class="fa-solid fa-headset"></i>
+                                <span id="user-chat-badge" style="display:none; position:absolute; top:-4px; right:-4px; background:var(--danger); color:white; border-radius:50%; width:18px; height:18px; font-size:10px; font-weight:bold; align-items:center; justify-content:center; border: 2px solid var(--header-bg);">0</span>
+                            </button>
+                            
                             <button class="icon-btn" onclick="loadMessages(); loadSystemStats();" title="רענן"><i class="fa-solid fa-rotate-right"></i></button>
                         </div>
                     </div>
