@@ -12,6 +12,7 @@ import adminAdsJs from './client-admin-ads.js';
 import adminAdvancedJs from './client-admin-advanced.js';
 import adminChatJs from './client-admin-chat.js';
 import userChatJs from './client-user-chat.js';
+import smartAdminJs from './client-smart-admin.js';
 
 export default {
     async fetch(request, env, ctx) {
@@ -56,6 +57,9 @@ export default {
         }
         if (path === '/salamon/client-user-chat.js') {
             return new Response(userChatJs, { headers: { 'Content-Type': 'application/javascript; charset=utf-8' } });
+        }
+        if (path === '/salamon/client-smart-admin.js') {
+            return new Response(smartAdminJs, { headers: { 'Content-Type': 'application/javascript; charset=utf-8' } });
         }
 
         return new Response('Not Found', { status: 404 });
