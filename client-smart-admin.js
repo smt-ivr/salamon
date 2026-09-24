@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function injectSmartAdminStyles() {
     const styles = document.createElement('style');
     styles.innerHTML = `
-        .smart-admin-modal .modal-content { max-width: 1000px; width: 95%; height: 85vh; max-height: 800px; display: flex; flex-direction: row; padding: 0; background: #f8fafc; overflow: hidden; border-radius: 16px; }
+        .smart-admin-modal .modal-content { max-width: 1100px; width: 98%; height: 90vh; max-height: 900px; display: flex; flex-direction: row; padding: 0; background: #f8fafc; overflow: hidden; border-radius: 16px; }
         .smart-admin-sidebar { width: 250px; background: #0f172a; color: white; display: flex; flex-direction: column; flex-shrink: 0; }
         .smart-admin-header { padding: 20px; border-bottom: 1px solid #1e293b; }
         .smart-admin-header h2 { margin: 0; font-size: 1.2rem; font-weight: 800; color: #f8fafc; }
@@ -28,19 +28,26 @@ function injectSmartAdminStyles() {
         .smart-admin-tab-btn:hover { background: #1e293b; color: white; }
         .smart-admin-tab-btn.active { background: #1e293b; color: var(--secondary); border-right-color: var(--secondary); font-weight: bold; }
         .smart-admin-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #f8fafc; position: relative; }
-        .smart-admin-top { display: flex; justify-content: space-between; align-items: center; padding: 15px 25px; background: white; border-bottom: 1px solid #e2e8f0; }
+        .smart-admin-top { display: flex; justify-content: space-between; align-items: center; padding: 15px 25px; background: white; border-bottom: 1px solid #e2e8f0; flex-shrink: 0;}
         .smart-admin-top h3 { margin: 0; font-size: 1.2rem; color: #1e293b; font-weight:800; }
-        .smart-admin-content { flex: 1; overflow-y: auto; padding: 25px; }
-        .smart-admin-panel { display: none; animation: fadeIn 0.3s ease; }
-        .smart-admin-panel.active { display: block; }
-        .placeholder-card { background: white; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 40px; text-align: center; color: #64748b; }
+        .smart-admin-content { flex: 1; overflow: hidden; padding: 20px; display: flex; flex-direction: column; }
+        
+        .smart-admin-panel { display: none; height: 100%; animation: fadeIn 0.3s ease; }
+        .smart-admin-panel.active { display: flex; flex-direction: column; }
+        
+        .compact-table th, .compact-table td { padding: 8px 12px !important; }
+        .compact-input { padding: 6px 10px !important; font-size: 0.9rem !important; }
+        
+        .placeholder-card { background: white; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 40px; text-align: center; color: #64748b; margin: auto; width: 100%; max-width: 500px;}
         .placeholder-card i { font-size: 3rem; color: #cbd5e1; margin-bottom: 15px; }
+
         @media (max-width: 768px) {
             .smart-admin-modal .modal-content { flex-direction: column; }
             .smart-admin-sidebar { width: 100%; height: auto; }
             .smart-admin-menu { display: flex; overflow-x: auto; padding: 0; }
             .smart-admin-tab-btn { white-space: nowrap; border-right: none; border-bottom: 3px solid transparent; justify-content: center; }
             .smart-admin-tab-btn.active { border-right: none; border-bottom-color: var(--secondary); }
+            .smart-admin-content { padding: 15px; }
         }
     `;
     document.head.appendChild(styles);
@@ -97,10 +104,10 @@ window.loadSmartYemotNames = async function() {
     const tbody = document.getElementById('smart_yemot_names_tbody');
     
     if (btn) {
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> טוען...';
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מושך נתונים...';
         btn.disabled = true;
     }
-    tbody.innerHTML = '<tr><td colspan="4" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> מושך נתונים מימות המשיח...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> מסנכרן שמות מול ימות המשיח...</td></tr>';
 
     try {
         const res = await fetch(`${API_BASE_URL}/admin/yemot-names`, {
@@ -110,7 +117,7 @@ window.loadSmartYemotNames = async function() {
         const data = await res.json();
         
         if (btn) {
-            btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> טען משתמשים';
+            btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> רענן נתונים';
             btn.disabled = false;
         }
 
@@ -118,13 +125,12 @@ window.loadSmartYemotNames = async function() {
             window.smartYemotNamesList = data.list;
             window.smartIsMainAdmin = data.isMainAdmin;
             renderSmartYemotNames();
-            showToast('הרשימה המלאה נטענה בהצלחה', 'success');
         } else {
             tbody.innerHTML = `<tr><td colspan="4" class="empty-state" style="color:var(--danger);">${data.error || 'שגיאה'}</td></tr>`;
         }
     } catch (err) {
         if (btn) {
-            btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> טען משתמשים';
+            btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> רענן נתונים';
             btn.disabled = false;
         }
         tbody.innerHTML = '<tr><td colspan="4" class="empty-state" style="color:var(--danger);">שגיאת תקשורת מול השרת</td></tr>';
@@ -138,39 +144,56 @@ window.filterSmartYemotNames = function() {
 window.renderSmartYemotNames = function() {
     const tbody = document.getElementById('smart_yemot_names_tbody');
     const searchVal = document.getElementById('smart_names_search').value.toLowerCase();
+    const statsContainer = document.getElementById('smart_names_stats');
     
-    const filtered = window.smartYemotNamesList.filter(u => 
-        u.phone.includes(searchVal) || (u.name && u.name.toLowerCase().includes(searchVal))
-    );
+    let missingNamesCount = 0;
+
+    const filtered = window.smartYemotNamesList.filter(u => {
+        if (!u.name || u.name.trim() === '') missingNamesCount++;
+        return u.phone.includes(searchVal) || (u.name && u.name.toLowerCase().includes(searchVal));
+    });
+
+    // עדכון הסטטיסטיקה למעלה
+    if (statsContainer) {
+        statsContainer.innerHTML = `
+            <span style="color: var(--text-light);">סה"כ מנויים: <span style="color: var(--text-dark);">${window.smartYemotNamesList.length}</span></span>
+            <span style="color: #b91c1c; background: #fee2e2; padding: 4px 10px; border-radius: 12px; border: 1px solid #fca5a5;">
+                <i class="fa-solid fa-triangle-exclamation"></i> ללא שם: ${missingNamesCount}
+            </span>
+        `;
+    }
 
     tbody.innerHTML = '';
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">לא נמצאו מנויים התואמים לחיפוש.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">לא נמצאו מנויים.</td></tr>';
         return;
     }
 
     filtered.forEach(u => {
         const isLocked = u.isProtected && !window.smartIsMainAdmin;
         const statusBadge = u.active 
-            ? '<span class="status-ok" style="font-size:0.85rem;">פעיל</span>' 
-            : '<span class="status-bad" style="font-size:0.85rem;">חסום</span>';
+            ? '<span class="status-ok" style="font-size:0.8rem; padding: 2px 6px;">פעיל</span>' 
+            : '<span class="status-bad" style="font-size:0.8rem; padding: 2px 6px;">חסום</span>';
         
         const safeName = u.name.replace(/"/g, '&quot;');
+        const noNameStyle = !safeName && !isLocked ? 'border-color: #fca5a5; background: #fff5f5;' : '';
         
         const inputHtml = isLocked
-            ? `<input type="text" class="input-modern" value="${safeName}" disabled style="background:#f1f5f9; cursor:not-allowed;" title="משתמש מוגן מעריכה">`
-            : `<input type="text" id="name_input_${u.phone}" class="input-modern" value="${safeName}" placeholder="ללא שם" onkeypress="if(event.key === 'Enter') saveInlineSmartName('${u.phone}')">`;
+            ? `<input type="text" class="input-modern compact-input" value="${safeName}" disabled style="background:transparent; border:none; cursor:not-allowed; color:#94a3b8; font-weight:bold;" title="מוגן">`
+            : `<input type="text" id="name_input_${u.phone}" class="input-modern compact-input" value="${safeName}" placeholder="ללא שם..." onkeypress="if(event.key === 'Enter') saveInlineSmartName('${u.phone}')" style="${noNameStyle}">`;
         
         const btnHtml = isLocked
-            ? `<button class="actions-btn" disabled style="opacity:0.5; cursor:not-allowed;"><i class="fa-solid fa-lock"></i> מוגן</button>`
-            : `<button id="btn_save_name_${u.phone}" class="actions-btn" onclick="saveInlineSmartName('${u.phone}')" style="background:#f0fdf4; color:#15803d; border-color:#bbf7d0;"><i class="fa-solid fa-check"></i> שמור</button>`;
+            ? `<button class="actions-btn" disabled style="opacity:0.4; cursor:not-allowed; padding: 4px 8px; font-size: 0.8rem; background: transparent; border: none;"><i class="fa-solid fa-lock"></i> מוגן</button>`
+            : `<button id="btn_save_name_${u.phone}" class="actions-btn" onclick="saveInlineSmartName('${u.phone}')" style="background:#f0fdf4; color:#15803d; border-color:#bbf7d0; padding: 4px 12px; font-size: 0.8rem;"><i class="fa-solid fa-check"></i></button>`;
 
         const tr = document.createElement('tr');
+        if (isLocked) tr.style.backgroundColor = '#f1f5f9'; // שורה אפורה למי שמוגן
+        
         tr.innerHTML = `
-            <td dir="ltr" style="font-weight:bold; text-align:right;">${u.phone}</td>
+            <td dir="ltr" style="font-weight:bold; text-align:right; font-size: 0.9rem; color: ${isLocked ? '#94a3b8' : 'inherit'};">${u.phone}</td>
             <td>${statusBadge}</td>
-            <td style="min-width: 200px;">${inputHtml}</td>
-            <td>${btnHtml}</td>
+            <td style="min-width: 220px;">${inputHtml}</td>
+            <td style="text-align: left;">${btnHtml}</td>
         `;
         tbody.appendChild(tr);
     });
@@ -182,6 +205,13 @@ window.saveInlineSmartName = async function(phone) {
     if (!input || !btn) return;
     
     const newName = input.value.trim();
+    const user = window.smartYemotNamesList.find(u => u.phone === phone);
+
+    // חוסם שליחה מיותרת לשרת אם לא בוצע שינוי בטקסט
+    if (user && user.name === newName) {
+        showToast('לא בוצע שינוי בטקסט', 'info');
+        return;
+    }
     
     const originalBtnHtml = btn.innerHTML;
     btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
@@ -198,13 +228,23 @@ window.saveInlineSmartName = async function(phone) {
         btn.disabled = false;
 
         if (res.ok && data.success) {
-            showToast(`השם עודכן ל-${newName || 'ריק'}`, 'success');
-            const user = window.smartYemotNamesList.find(u => u.phone === phone);
+            showToast(`השם נשמר: ${newName || 'ללא שם'}`, 'success');
             if (user) user.name = newName;
             
             // אפקט חזותי להצלחה
             input.style.backgroundColor = '#dcfce7';
-            setTimeout(() => { input.style.backgroundColor = ''; }, 1000);
+            input.style.borderColor = '#bbf7d0';
+            setTimeout(() => { 
+                input.style.backgroundColor = ''; 
+                input.style.borderColor = ''; 
+                if (!newName) { // מחזיר לאדום אם עדיין ריק
+                    input.style.backgroundColor = '#fff5f5';
+                    input.style.borderColor = '#fca5a5';
+                }
+            }, 1000);
+
+            // מרענן כדי לעדכן את הספירה הכוללת למעלה
+            renderSmartYemotNames();
         } else {
             showToast(data.error || 'שגיאה בעדכון השם', 'error');
         }
@@ -220,37 +260,36 @@ const SMART_ADMIN_MODULES = [
     {
         id: 'manage_names',
         icon: 'fa-address-book',
-        title: 'ספר טלפונים (מנויים)',
+        title: 'ספר טלפונים',
         html: `
-            <div class="clean-settings-card" style="padding: 25px; border:none; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h3 style="margin: 0; color:var(--text-dark); font-weight:800;"><i class="fa-solid fa-address-book"></i> ספר טלפונים - רשימת "members"</h3>
-                    <button onclick="loadSmartYemotNames()" id="btn_refresh_yemot_names" class="btn-primary small-btn" style="width: auto; background: var(--secondary);"><i class="fa-solid fa-rotate-right"></i> טען רשימה</button>
-                </div>
+            <div class="clean-settings-card" style="display: flex; flex-direction: column; height: 100%; border:none; box-shadow: none; margin: 0; overflow: hidden;">
                 
-                <div style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; padding: 12px 15px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9rem; line-height: 1.5;">
-                    <i class="fa-solid fa-circle-info" style="color: #3b82f6;"></i> <strong>שים לב:</strong> כאן מוצגים כלל המנויים הרשומים במערכת הטלפונית. ניתן לחפש מנוי ולעדכן את שמו בקלות (לחץ אנטר בתוך השדה או על כפתור השמירה). מנויים מוגנים מסומנים ולא יאפשרו עריכה.
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <div style="display: flex; gap: 15px; flex: 1;">
+                        <input type="text" id="smart_names_search" class="input-modern compact-input" placeholder="חפש לפי טלפון או שם..." onkeyup="filterSmartYemotNames()" style="max-width: 300px;">
+                    </div>
+                    <div id="smart_names_stats" style="font-size: 0.9rem; font-weight: 600; display: flex; gap: 15px; align-items: center; margin-left: 15px;">
+                        <!-- נתונים יוזרקו לכאן -->
+                    </div>
+                    <button onclick="loadSmartYemotNames()" id="btn_refresh_yemot_names" class="btn-primary small-btn" style="width: auto; background: var(--secondary); padding: 8px 15px; font-size: 0.9rem;"><i class="fa-solid fa-rotate-right"></i> רענן</button>
                 </div>
 
-                <div style="margin-bottom: 15px;">
-                    <input type="text" id="smart_names_search" class="input-modern" placeholder="חפש לפי מספר טלפון או שם..." onkeyup="filterSmartYemotNames()" style="max-width: 400px;">
-                </div>
-
-                <div class="table-wrapper" style="max-height: 50vh; overflow-y: auto;">
-                    <table class="modern-table">
+                <div class="table-wrapper" style="flex: 1; overflow-y: auto; margin-bottom: 0; border-radius: 8px;">
+                    <table class="modern-table compact-table">
                         <thead style="position: sticky; top: 0; z-index: 10; background: var(--header-bg); box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
                             <tr>
-                                <th>מספר טלפון</th>
-                                <th>סטטוס צינתוקים</th>
-                                <th>שם מנוי (ניתן לעריכה)</th>
-                                <th>פעולה</th>
+                                <th style="width: 140px;">טלפון מנוי</th>
+                                <th style="width: 80px;">צינתוקים</th>
+                                <th>שם משתמש (ניתן לעריכה ישירה)</th>
+                                <th style="width: 80px; text-align: left;">שמירה</th>
                             </tr>
                         </thead>
                         <tbody id="smart_yemot_names_tbody">
-                            <tr><td colspan="4" class="empty-state">יש ללחוץ על "טען רשימה" להצגת הנתונים</td></tr>
+                            <tr><td colspan="4" class="empty-state">יש ללחוץ על "רענן נתונים" כדי להציג את הרשימה</td></tr>
                         </tbody>
                     </table>
                 </div>
+
             </div>
         `
     },
@@ -310,7 +349,7 @@ function switchSmartAdminTab(moduleId, moduleTitle) {
 
     document.getElementById('smart-admin-current-title').innerText = moduleTitle;
 
-    // טעינה אוטומטית אם נכנסים למסך השמות והוא טרם נטען
+    // טעינה אוטומטית למודול השמות
     if (moduleId === 'manage_names' && window.smartYemotNamesList.length === 0) {
         loadSmartYemotNames();
     }
