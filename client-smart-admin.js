@@ -153,7 +153,6 @@ window.renderSmartYemotNames = function() {
         return u.phone.includes(searchVal) || (u.name && u.name.toLowerCase().includes(searchVal));
     });
 
-    // עדכון הסטטיסטיקה למעלה
     if (statsContainer) {
         statsContainer.innerHTML = `
             <span style="color: var(--text-light);">סה"כ מנויים: <span style="color: var(--text-dark);">${window.smartYemotNamesList.length}</span></span>
@@ -165,29 +164,33 @@ window.renderSmartYemotNames = function() {
 
     tbody.innerHTML = '';
     if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">לא נמצאו מנויים.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">לא נמצאו מנויים התואמים לחיפוש.</td></tr>';
         return;
     }
 
     filtered.forEach(u => {
         const isLocked = u.isProtected && !window.smartIsMainAdmin;
+        
         const statusBadge = u.active 
             ? '<span class="status-ok" style="font-size:0.8rem; padding: 2px 6px;">פעיל</span>' 
             : '<span class="status-bad" style="font-size:0.8rem; padding: 2px 6px;">חסום</span>';
         
         const safeName = u.name.replace(/"/g, '&quot;');
-        const noNameStyle = !safeName && !isLocked ? 'border-color: #fca5a5; background: #fff5f5;' : '';
         
-        const inputHtml = isLocked
-            ? `<input type="text" class="input-modern compact-input" value="${safeName}" disabled style="background:transparent; border:none; cursor:not-allowed; color:#94a3b8; font-weight:bold;" title="מוגן">`
-            : `<input type="text" id="name_input_${u.phone}" class="input-modern compact-input" value="${safeName}" placeholder="ללא שם..." onkeypress="if(event.key === 'Enter') saveInlineSmartName('${u.phone}')" style="${noNameStyle}">`;
-        
-        const btnHtml = isLocked
-            ? `<button class="actions-btn" disabled style="opacity:0.4; cursor:not-allowed; padding: 4px 8px; font-size: 0.8rem; background: transparent; border: none;"><i class="fa-solid fa-lock"></i> מוגן</button>`
-            : `<button id="btn_save_name_${u.phone}" class="actions-btn" onclick="saveInlineSmartName('${u.phone}')" style="background:#f0fdf4; color:#15803d; border-color:#bbf7d0; padding: 4px 12px; font-size: 0.8rem;"><i class="fa-solid fa-check"></i></button>`;
+        let inputHtml = '';
+        let btnHtml = '';
+
+        if (isLocked) {
+            inputHtml = `<div style="padding: 6px 10px; color: #94a3b8; font-weight: 600; font-size: 0.9rem;">${safeName || 'ללא שם'}</div>`;
+            btnHtml = ``; 
+        } else {
+            const noNameStyle = !safeName ? 'border-color: #fca5a5; background: #fff5f5;' : '';
+            inputHtml = `<input type="text" id="name_input_${u.phone}" class="input-modern compact-input" value="${safeName}" placeholder="ללא שם..." onkeypress="if(event.key === 'Enter') saveInlineSmartName('${u.phone}')" style="${noNameStyle}">`;
+            btnHtml = `<button id="btn_save_name_${u.phone}" class="actions-btn" onclick="saveInlineSmartName('${u.phone}')" style="background:#f0fdf4; color:#15803d; border-color:#bbf7d0; padding: 4px 12px; font-size: 0.8rem;"><i class="fa-solid fa-check"></i></button>`;
+        }
 
         const tr = document.createElement('tr');
-        if (isLocked) tr.style.backgroundColor = '#f1f5f9'; // שורה אפורה למי שמוגן
+        if (isLocked) tr.style.backgroundColor = '#f8fafc'; 
         
         tr.innerHTML = `
             <td dir="ltr" style="font-weight:bold; text-align:right; font-size: 0.9rem; color: ${isLocked ? '#94a3b8' : 'inherit'};">${u.phone}</td>
@@ -207,7 +210,6 @@ window.saveInlineSmartName = async function(phone) {
     const newName = input.value.trim();
     const user = window.smartYemotNamesList.find(u => u.phone === phone);
 
-    // חוסם שליחה מיותרת לשרת אם לא בוצע שינוי בטקסט
     if (user && user.name === newName) {
         showToast('לא בוצע שינוי בטקסט', 'info');
         return;
@@ -231,19 +233,17 @@ window.saveInlineSmartName = async function(phone) {
             showToast(`השם נשמר: ${newName || 'ללא שם'}`, 'success');
             if (user) user.name = newName;
             
-            // אפקט חזותי להצלחה
             input.style.backgroundColor = '#dcfce7';
             input.style.borderColor = '#bbf7d0';
             setTimeout(() => { 
                 input.style.backgroundColor = ''; 
                 input.style.borderColor = ''; 
-                if (!newName) { // מחזיר לאדום אם עדיין ריק
+                if (!newName) { 
                     input.style.backgroundColor = '#fff5f5';
                     input.style.borderColor = '#fca5a5';
                 }
             }, 1000);
 
-            // מרענן כדי לעדכן את הספירה הכוללת למעלה
             renderSmartYemotNames();
         } else {
             showToast(data.error || 'שגיאה בעדכון השם', 'error');
@@ -314,7 +314,6 @@ function openSmartAdminModal() {
     renderSmartAdminMenu(allowedModules);
     document.getElementById('smartAdminModal').classList.add('active');
     
-    // פתיחת המודול הראשון האפשרי והפעלת פונקציית טעינה אם קיימת
     const firstModule = allowedModules[0];
     switchSmartAdminTab(firstModule.id, firstModule.title);
 }
@@ -349,7 +348,6 @@ function switchSmartAdminTab(moduleId, moduleTitle) {
 
     document.getElementById('smart-admin-current-title').innerText = moduleTitle;
 
-    // טעינה אוטומטית למודול השמות
     if (moduleId === 'manage_names' && window.smartYemotNamesList.length === 0) {
         loadSmartYemotNames();
     }
