@@ -4,7 +4,6 @@ document.addEventListener('DOMContentLoaded', () => {
     injectSmartAdminStyles();
     injectSmartAdminModal();
     
-    // משיכת רשימת ההרשאות בתחילת העבודה כדי שהמודלים יזהו אותם
     if(typeof loadAvailablePermissions === 'function') loadAvailablePermissions();
     
     if (typeof window.updateDashboardUI === 'function') {
@@ -89,13 +88,103 @@ function setupSmartAdminAccess() {
     }
 }
 
-window.submitSmartNameUpdate = async function(e) {
-    e.preventDefault();
-    const phone = document.getElementById('smart_name_phone').value.trim();
-    const newName = document.getElementById('smart_name_value').value.trim();
-    const btn = document.getElementById('btn_smart_update_name');
+// מערכת טבלת השמות החדשה (Inline Editing)
+window.smartYemotNamesList = [];
+window.smartIsMainAdmin = false;
+
+window.loadSmartYemotNames = async function() {
+    const btn = document.getElementById('btn_refresh_yemot_names');
+    const tbody = document.getElementById('smart_yemot_names_tbody');
     
-    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מתעדכן מול השרת...';
+    if (btn) {
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> טוען...';
+        btn.disabled = true;
+    }
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> מושך נתונים מימות המשיח...</td></tr>';
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/admin/yemot-names`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userToken: state.userToken })
+        });
+        const data = await res.json();
+        
+        if (btn) {
+            btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> טען משתמשים';
+            btn.disabled = false;
+        }
+
+        if (res.ok && data.success) {
+            window.smartYemotNamesList = data.list;
+            window.smartIsMainAdmin = data.isMainAdmin;
+            renderSmartYemotNames();
+            showToast('הרשימה המלאה נטענה בהצלחה', 'success');
+        } else {
+            tbody.innerHTML = `<tr><td colspan="4" class="empty-state" style="color:var(--danger);">${data.error || 'שגיאה'}</td></tr>`;
+        }
+    } catch (err) {
+        if (btn) {
+            btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> טען משתמשים';
+            btn.disabled = false;
+        }
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state" style="color:var(--danger);">שגיאת תקשורת מול השרת</td></tr>';
+    }
+};
+
+window.filterSmartYemotNames = function() {
+    renderSmartYemotNames();
+};
+
+window.renderSmartYemotNames = function() {
+    const tbody = document.getElementById('smart_yemot_names_tbody');
+    const searchVal = document.getElementById('smart_names_search').value.toLowerCase();
+    
+    const filtered = window.smartYemotNamesList.filter(u => 
+        u.phone.includes(searchVal) || (u.name && u.name.toLowerCase().includes(searchVal))
+    );
+
+    tbody.innerHTML = '';
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">לא נמצאו מנויים התואמים לחיפוש.</td></tr>';
+        return;
+    }
+
+    filtered.forEach(u => {
+        const isLocked = u.isProtected && !window.smartIsMainAdmin;
+        const statusBadge = u.active 
+            ? '<span class="status-ok" style="font-size:0.85rem;">פעיל</span>' 
+            : '<span class="status-bad" style="font-size:0.85rem;">חסום</span>';
+        
+        const safeName = u.name.replace(/"/g, '&quot;');
+        
+        const inputHtml = isLocked
+            ? `<input type="text" class="input-modern" value="${safeName}" disabled style="background:#f1f5f9; cursor:not-allowed;" title="משתמש מוגן מעריכה">`
+            : `<input type="text" id="name_input_${u.phone}" class="input-modern" value="${safeName}" placeholder="ללא שם" onkeypress="if(event.key === 'Enter') saveInlineSmartName('${u.phone}')">`;
+        
+        const btnHtml = isLocked
+            ? `<button class="actions-btn" disabled style="opacity:0.5; cursor:not-allowed;"><i class="fa-solid fa-lock"></i> מוגן</button>`
+            : `<button id="btn_save_name_${u.phone}" class="actions-btn" onclick="saveInlineSmartName('${u.phone}')" style="background:#f0fdf4; color:#15803d; border-color:#bbf7d0;"><i class="fa-solid fa-check"></i> שמור</button>`;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td dir="ltr" style="font-weight:bold; text-align:right;">${u.phone}</td>
+            <td>${statusBadge}</td>
+            <td style="min-width: 200px;">${inputHtml}</td>
+            <td>${btnHtml}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+};
+
+window.saveInlineSmartName = async function(phone) {
+    const input = document.getElementById(`name_input_${phone}`);
+    const btn = document.getElementById(`btn_save_name_${phone}`);
+    if (!input || !btn) return;
+    
+    const newName = input.value.trim();
+    
+    const originalBtnHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
     btn.disabled = true;
 
     try {
@@ -105,18 +194,22 @@ window.submitSmartNameUpdate = async function(e) {
         });
         const data = await res.json();
         
-        btn.innerHTML = '<i class="fa-solid fa-save"></i> שמור שם במערכת';
+        btn.innerHTML = originalBtnHtml;
         btn.disabled = false;
 
         if (res.ok && data.success) {
-            showToast('השם עודכן בהצלחה במערכת!', 'success');
-            document.getElementById('smart_name_phone').value = '';
-            document.getElementById('smart_name_value').value = '';
+            showToast(`השם עודכן ל-${newName || 'ריק'}`, 'success');
+            const user = window.smartYemotNamesList.find(u => u.phone === phone);
+            if (user) user.name = newName;
+            
+            // אפקט חזותי להצלחה
+            input.style.backgroundColor = '#dcfce7';
+            setTimeout(() => { input.style.backgroundColor = ''; }, 1000);
         } else {
             showToast(data.error || 'שגיאה בעדכון השם', 'error');
         }
     } catch (err) {
-        btn.innerHTML = '<i class="fa-solid fa-save"></i> שמור שם במערכת';
+        btn.innerHTML = originalBtnHtml;
         btn.disabled = false;
         showToast('שגיאת תקשורת', 'error');
     }
@@ -127,26 +220,37 @@ const SMART_ADMIN_MODULES = [
     {
         id: 'manage_names',
         icon: 'fa-address-book',
-        title: 'עדכון שמות מנויים',
+        title: 'ספר טלפונים (מנויים)',
         html: `
             <div class="clean-settings-card" style="padding: 25px; border:none; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                <h3 style="margin-bottom: 15px; color:var(--text-dark); font-weight:800;"><i class="fa-solid fa-pen-nib"></i> עדכון שם בספר הטלפונים של המערכת</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="margin: 0; color:var(--text-dark); font-weight:800;"><i class="fa-solid fa-address-book"></i> ספר טלפונים - רשימת "members"</h3>
+                    <button onclick="loadSmartYemotNames()" id="btn_refresh_yemot_names" class="btn-primary small-btn" style="width: auto; background: var(--secondary);"><i class="fa-solid fa-rotate-right"></i> טען רשימה</button>
+                </div>
                 
                 <div style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; padding: 12px 15px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9rem; line-height: 1.5;">
-                    <i class="fa-solid fa-circle-info" style="color: #3b82f6;"></i> <strong>שים לב:</strong> משתמשים המוגדרים כ"מוגנים" (Protected) אינם ניתנים לעריכה באמצעות פאנל זה. שינויים למשתמשים אלו יאושרו רק דרך המערכת המרכזית.
+                    <i class="fa-solid fa-circle-info" style="color: #3b82f6;"></i> <strong>שים לב:</strong> כאן מוצגים כלל המנויים הרשומים במערכת הטלפונית. ניתן לחפש מנוי ולעדכן את שמו בקלות (לחץ אנטר בתוך השדה או על כפתור השמירה). מנויים מוגנים מסומנים ולא יאפשרו עריכה.
                 </div>
 
-                <form onsubmit="submitSmartNameUpdate(event)">
-                    <div class="form-group" style="text-align: right;">
-                        <label style="font-weight:bold;">מספר טלפון לזיהוי המנוי:</label>
-                        <input type="text" id="smart_name_phone" class="input-modern ltr-input" required placeholder="למשל: 0501234567" pattern="^[0-9]{9,15}$" title="נא להזין מספר טלפון תקין המכיל ספרות בלבד">
-                    </div>
-                    <div class="form-group" style="text-align: right;">
-                        <label style="font-weight:bold;">השם המלא והחדש למנוי זה:</label>
-                        <input type="text" id="smart_name_value" class="input-modern" required placeholder="ישראל ישראלי">
-                    </div>
-                    <button type="submit" id="btn_smart_update_name" class="btn-pro-primary" style="width:100%; margin-top:10px;"><i class="fa-solid fa-save"></i> שמור שם במערכת</button>
-                </form>
+                <div style="margin-bottom: 15px;">
+                    <input type="text" id="smart_names_search" class="input-modern" placeholder="חפש לפי מספר טלפון או שם..." onkeyup="filterSmartYemotNames()" style="max-width: 400px;">
+                </div>
+
+                <div class="table-wrapper" style="max-height: 50vh; overflow-y: auto;">
+                    <table class="modern-table">
+                        <thead style="position: sticky; top: 0; z-index: 10; background: var(--header-bg); box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                            <tr>
+                                <th>מספר טלפון</th>
+                                <th>סטטוס צינתוקים</th>
+                                <th>שם מנוי (ניתן לעריכה)</th>
+                                <th>פעולה</th>
+                            </tr>
+                        </thead>
+                        <tbody id="smart_yemot_names_tbody">
+                            <tr><td colspan="4" class="empty-state">יש ללחוץ על "טען רשימה" להצגת הנתונים</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         `
     },
@@ -170,7 +274,10 @@ function openSmartAdminModal() {
 
     renderSmartAdminMenu(allowedModules);
     document.getElementById('smartAdminModal').classList.add('active');
-    switchSmartAdminTab(allowedModules[0].id, allowedModules[0].title);
+    
+    // פתיחת המודול הראשון האפשרי והפעלת פונקציית טעינה אם קיימת
+    const firstModule = allowedModules[0];
+    switchSmartAdminTab(firstModule.id, firstModule.title);
 }
 
 function renderSmartAdminMenu(allowedModules) {
@@ -202,6 +309,11 @@ function switchSmartAdminTab(moduleId, moduleTitle) {
     if (activePanel) activePanel.classList.add('active');
 
     document.getElementById('smart-admin-current-title').innerText = moduleTitle;
+
+    // טעינה אוטומטית אם נכנסים למסך השמות והוא טרם נטען
+    if (moduleId === 'manage_names' && window.smartYemotNamesList.length === 0) {
+        loadSmartYemotNames();
+    }
 }
 
 function closeSmartAdminModal() { document.getElementById('smartAdminModal').classList.remove('active'); }
