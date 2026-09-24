@@ -130,11 +130,16 @@ const SMART_ADMIN_MODULES = [
         title: 'עדכון שמות מנויים',
         html: `
             <div class="clean-settings-card" style="padding: 25px; border:none; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                <h3 style="margin-bottom: 20px; color:var(--text-dark); font-weight:800;"><i class="fa-solid fa-pen-nib"></i> עדכון שם בספר הטלפונים של המערכת</h3>
+                <h3 style="margin-bottom: 15px; color:var(--text-dark); font-weight:800;"><i class="fa-solid fa-pen-nib"></i> עדכון שם בספר הטלפונים של המערכת</h3>
+                
+                <div style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; padding: 12px 15px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9rem; line-height: 1.5;">
+                    <i class="fa-solid fa-circle-info" style="color: #3b82f6;"></i> <strong>שים לב:</strong> משתמשים המוגדרים כ"מוגנים" (Protected) אינם ניתנים לעריכה באמצעות פאנל זה. שינויים למשתמשים אלו יאושרו רק דרך המערכת המרכזית.
+                </div>
+
                 <form onsubmit="submitSmartNameUpdate(event)">
                     <div class="form-group" style="text-align: right;">
                         <label style="font-weight:bold;">מספר טלפון לזיהוי המנוי:</label>
-                        <input type="text" id="smart_name_phone" class="input-modern ltr-input" required placeholder="למשל: 0501234567">
+                        <input type="text" id="smart_name_phone" class="input-modern ltr-input" required placeholder="למשל: 0501234567" pattern="^[0-9]{9,15}$" title="נא להזין מספר טלפון תקין המכיל ספרות בלבד">
                     </div>
                     <div class="form-group" style="text-align: right;">
                         <label style="font-weight:bold;">השם המלא והחדש למנוי זה:</label>
