@@ -21,7 +21,7 @@ async function adminLogin(e) {
 
         state.adminToken = data.adminToken;
         localStorage.setItem('adminToken', data.adminToken);
-        showToast('התחברת בהצלחה כמנהל', 'success');
+        showToast('התחברת בהצלחה כמנהל ראשי', 'success');
         showView('admin-dash-view');
         loadAdminUsers();
     } catch (err) {
@@ -86,6 +86,11 @@ window.renderAdminUsersTable = function() {
             picHtml = `<div class="avatar" style="width:36px; height:36px; border-radius:10px;"><span class="avatar-letter" style="font-size:1.1rem;">${firstLetter}</span></div>`;
         }
 
+        // חיווי ויזואלי אם המשתמש הוא מנהל צוות
+        const nameDisplay = user.isAdmin 
+            ? `${user.name} <i class="fa-solid fa-user-shield" style="color: var(--danger); font-size: 0.8rem; margin-right: 4px;" title="חבר צוות הנהלה"></i>` 
+            : user.name;
+
         const yemotBadge = user.yemotActive ? '<span class="status-ok">פעיל</span>' : '<span class="status-bad">מנותק</span>';
         const webBadge = user.hasWebAccount 
             ? `<div style="font-size:0.85rem;"><i class="fa-solid fa-envelope" style="color:var(--secondary); margin-left:4px;"></i> ${user.email || 'ללא אימייל'}</div>`
@@ -111,7 +116,7 @@ window.renderAdminUsersTable = function() {
         tr.innerHTML = `
             <td style="text-align: center; padding: 6px;">${picHtml}</td>
             <td style="font-weight:700; direction:ltr; text-align:right;">${user.phone}</td>
-            <td style="font-weight:600;">${user.name}</td>
+            <td style="font-weight:600;">${nameDisplay}</td>
             <td>${yemotBadge}</td>
             <td>${webBadge}</td>
             <td style="text-align:center; font-size: 0.85rem; color: var(--text-light);">${user.createdAt ? formatDateStr(user.createdAt) : '-'}</td>
@@ -157,6 +162,11 @@ window.openAdminCreateUserModal = function(phone) {
     document.getElementById('create_can_upload').checked = false;
     document.getElementById('create_can_tzintuk').checked = true;
     document.getElementById('create_receive_emails').checked = true;
+    
+    // איפוס שדות הניהול במודל יצירה
+    document.getElementById('create_is_admin').checked = false;
+    document.getElementById('create_admin_permissions').value = '';
+
     document.getElementById('adminCreateUserModal').classList.add('active');
 };
 
@@ -183,6 +193,8 @@ window.submitAdminCreateUser = async function(e) {
         canUpload: document.getElementById('create_can_upload').checked,
         canTzintuk: document.getElementById('create_can_tzintuk').checked,
         receiveEmails: document.getElementById('create_receive_emails').checked,
+        isAdmin: document.getElementById('create_is_admin').checked,
+        adminPermissions: document.getElementById('create_admin_permissions').value.trim(),
         googleLoginOnly: false,
         canListen: true,
         listenWhitelist: '',
@@ -244,6 +256,11 @@ window.openUserProfile = async function(phone) {
     document.getElementById('prof_picture_url').value = '';
     document.getElementById('prof_lock_picture').checked = false;
     document.getElementById('prof_yemot_status').innerHTML = '';
+    
+    // איפוס שדות ההרשאות
+    document.getElementById('prof_is_admin').checked = false;
+    document.getElementById('prof_admin_permissions').value = '';
+    
     document.getElementById('prof-sessions-tbody').innerHTML = '<tr><td colspan="4" class="empty-state">טוען...</td></tr>';
     
     switchAdminProfileTab('info');
@@ -277,6 +294,10 @@ window.openUserProfile = async function(phone) {
             document.getElementById('prof_listen_blacklist').value = p.user.listen_blacklist || '';
             document.getElementById('prof_picture_url').value = p.user.profile_picture_url || '';
             document.getElementById('prof_lock_picture').checked = p.user.lock_profile_picture === 1;
+            
+            // הזנת נתוני ההרשאות החכמות
+            document.getElementById('prof_is_admin').checked = p.user.is_admin === 1;
+            document.getElementById('prof_admin_permissions').value = p.user.admin_permissions || '';
         }
 
         const tbody = document.getElementById('prof-sessions-tbody');
@@ -317,7 +338,11 @@ window.submitAdminUserUpdate = async function(e) {
         listenWhitelist: document.getElementById('prof_listen_whitelist').value,
         listenBlacklist: document.getElementById('prof_listen_blacklist').value,
         profilePictureUrl: document.getElementById('prof_picture_url').value,
-        lockProfilePicture: document.getElementById('prof_lock_picture').checked
+        lockProfilePicture: document.getElementById('prof_lock_picture').checked,
+        
+        // שליחת שדות ההרשאות המתקדמות
+        isAdmin: document.getElementById('prof_is_admin').checked,
+        adminPermissions: document.getElementById('prof_admin_permissions').value.trim()
     };
 
     setLoading('btn-save-user-profile', true);
