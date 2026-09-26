@@ -4,23 +4,21 @@ let allLoadedMessages = [];
 let currentFilesFrom = 0;
 const FILES_LIMIT = 40;
 let isFetchingMessages = false;
-let currentPage = 1; // משתנה למעקב אחר העמוד הנוכחי
+let currentPage = 1;
 
 async function loadMessages(isSilent = false, loadMore = false) {
     if (isFetchingMessages) return;
     const token = state.userToken || localStorage.getItem('userToken');
     if (!token) return;
 
-    // מניעת רענון המסך בעת האזנה פעילה
     if (isSilent && currentPlayingId) return;
 
     const container = document.getElementById('messages-container');
     if (!container) return;
 
-    // איפוס מוחלט רק אם זו טעינה רגילה מאפס
     if (!loadMore && !isSilent) {
         currentFilesFrom = 0;
-        currentPage = 1; // איפוס מספור העמודים
+        currentPage = 1; 
         allLoadedMessages = [];
         container.innerHTML = '<div class="loading-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען הודעות...</div>';
     }
@@ -30,7 +28,7 @@ async function loadMessages(isSilent = false, loadMore = false) {
     if (loadMore) {
         const btn = document.getElementById('load-more-btn');
         if (btn) btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> טוען הודעות קודמות...';
-        currentPage++; // קידום מספור העמוד
+        currentPage++; 
     }
 
     try {
@@ -42,7 +40,7 @@ async function loadMessages(isSilent = false, loadMore = false) {
                 userToken: token, 
                 filesLimit: FILES_LIMIT, 
                 filesFrom: fetchFrom,
-                page: currentPage // שליחת פרמטר העמוד לשרת
+                page: currentPage
             })
         });
         const data = await res.json();
@@ -54,7 +52,6 @@ async function loadMessages(isSilent = false, loadMore = false) {
             return;
         }
 
-        // במקרה שהגענו לסוף והשרת מחזיר 0 הודעות
         if (!data.messages || data.messages.length === 0) {
             if (!isSilent && !loadMore) container.innerHTML = '<div class="loading-state">אין הודעות להצגה כרגע.</div>';
             if (loadMore) {
@@ -62,14 +59,13 @@ async function loadMessages(isSilent = false, loadMore = false) {
                 if (btn) {
                     btn.innerHTML = '<i class="fa-solid fa-check"></i> הוצגו כל ההודעות';
                     btn.disabled = true;
-                    btn.classList.remove('btn-load-more'); // עצירת הגלילה האוטומטית
+                    btn.classList.remove('btn-load-more');
                 }
             }
             if (!loadMore) currentRenderedMessagesHash = '';
             return;
         }
 
-        // עדכון המערך הכללי למעקב, אבל לא שולחים את כולו לרינדור מחדש
         if (loadMore) {
             currentFilesFrom = fetchFrom;
             allLoadedMessages.push(...data.messages);
@@ -88,10 +84,8 @@ async function loadMessages(isSilent = false, loadMore = false) {
         currentRenderedMessagesHash = newMessagesHash;
         const hasMore = true; 
         
-        // כאן התיקון: אנחנו שולחים לפונקציית הרינדור *רק* את ההודעות החדשות שהגיעו
         renderMessages(data.messages, hasMore, loadMore);
         
-        // טעינת סטטיסטיקות רק להודעות החדשות שנמשכו
         fetchAllStats(data.messages, token, false);
 
     } catch (err) {
@@ -142,21 +136,18 @@ async function fetchMessageStats(fileId, token, isSilentRefresh = false) {
     }
 }
 
-let lastRenderedDate = "-"; // משתנה גלובלי שעוקב אחרי התאריך האחרון שהודפס
+let lastRenderedDate = "-"; 
 
 function renderMessages(messages, hasMore, isLoadMore = false) {
     const container = document.getElementById('messages-container');
 
-    // אם זו טעינה חדשה - מנקים את המסך. אם זו הוספת הודעות ישנות - לא נוגעים בקיים!
     if (!isLoadMore) {
         container.innerHTML = '';
         lastRenderedDate = messages.length > 0 && messages[0].mtime ? messages[0].mtime.split(" ")[0] : "-";
     } else {
-        // מסירים רק את כפתור הטעינה הישן כדי שנוכל לדחוף את ההודעות החדשות
         const oldLoadMore = document.querySelector('.load-more-wrapper');
         if (oldLoadMore) oldLoadMore.remove();
 
-        // מסירים את חותמת התאריך העליונה ביותר כדי למנוע כפילויות אם התאריך לא התחלף
         if (container.lastElementChild && container.lastElementChild.classList.contains('date-divider')) {
             container.lastElementChild.remove();
         }
@@ -169,7 +160,6 @@ function renderMessages(messages, hasMore, isLoadMore = false) {
         let datePart = "-", timePart = "-";
         if(fullDateTime.includes(" ")) [datePart, timePart] = fullDateTime.split(" ");
 
-        // טיפול בחוצצי תאריכים
         if (datePart !== lastRenderedDate && lastRenderedDate !== "-") {
             const divider = document.createElement('div');
             divider.className = 'date-divider';
@@ -206,10 +196,13 @@ function renderMessages(messages, hasMore, isLoadMore = false) {
             `;
         }
 
-        // בדיקה האם למשתמש הנוכחי יש הרשאת מנהל כללית כדי להציג את פח האשפה לכל הודעה
+        // בדיקה האם למשתמש הנוכחי יש הרשאת מחיקה ספציפית או 'all'
         let hasDeletePerm = false;
         if (state.currentUser && state.currentUser.isAdmin) {
-            hasDeletePerm = true;
+            const perms = (state.currentUser.adminPermissions || '').split(',').map(p => p.trim());
+            if (perms.includes('all') || perms.includes('delete_messages')) {
+                hasDeletePerm = true;
+            }
         }
 
         const showDeleteBtn = isOut || hasDeletePerm;
@@ -251,11 +244,9 @@ function renderMessages(messages, hasMore, isLoadMore = false) {
                 </div>
             </div>
         `;
-        // הוספת ההודעה בסוף ה-DOM (שזה בעצם למעלה בגלל column-reverse)
         container.appendChild(bubble);
     });
 
-    // הוספת חותמת תאריך אחרונה שתסגור את הקבוצה שהרגע נטענה
     if (lastRenderedDate !== "-") {
         const finalDivider = document.createElement('div');
         finalDivider.className = 'date-divider';
@@ -263,7 +254,6 @@ function renderMessages(messages, hasMore, isLoadMore = false) {
         container.appendChild(finalDivider);
     }
 
-    // החזרת כפתור "טען הודעות קודמות" למעלה
     if (hasMore) {
         const loadMoreContainer = document.createElement('div');
         loadMoreContainer.className = 'load-more-wrapper';
@@ -277,7 +267,6 @@ function renderMessages(messages, hasMore, isLoadMore = false) {
         loadMoreContainer.appendChild(loadMoreBtn);
         container.appendChild(loadMoreContainer);
 
-        // הפעלת טעינה אוטומטית כשהכפתור נכנס למסך
         try {
             const observer = new IntersectionObserver((entries) => {
                 if (entries[0].isIntersecting && !isFetchingMessages) {
