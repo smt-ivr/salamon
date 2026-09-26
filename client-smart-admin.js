@@ -4,7 +4,12 @@ document.addEventListener('DOMContentLoaded', () => {
     injectSmartAdminStyles();
     injectSmartAdminModal();
     
-    if(typeof loadAvailablePermissions === 'function') loadAvailablePermissions();
+    // שליחת הבקשה להרשאות תתבצע רק כאשר ה-URL מכיל את '/admin'
+    if(typeof loadAvailablePermissions === 'function') {
+        if (window.location.pathname.includes('/admin')) {
+            loadAvailablePermissions();
+        }
+    }
     
     if (typeof window.updateDashboardUI === 'function') {
         const originalUpdateDashboardUI = window.updateDashboardUI;
@@ -95,7 +100,6 @@ function setupSmartAdminAccess() {
     }
 }
 
-// מערכת טבלת השמות החדשה (Inline Editing)
 window.smartYemotNamesList = [];
 window.smartIsMainAdmin = false;
 
