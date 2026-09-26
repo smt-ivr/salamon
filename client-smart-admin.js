@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function injectSmartAdminStyles() {
     const styles = document.createElement('style');
     styles.innerHTML = `
-        .smart-admin-modal .modal-content { max-width: 1100px; width: 98%; height: 90vh; max-height: 900px; display: flex; flex-direction: row; padding: 0; background: #f8fafc; overflow: hidden; border-radius: 16px; }
+        .smart-admin-modal .modal-content { max-width: 1200px; width: 98%; height: 90vh; max-height: 900px; display: flex; flex-direction: row; padding: 0; background: #f8fafc; overflow: hidden; border-radius: 16px; }
         .smart-admin-sidebar { width: 250px; background: #0f172a; color: white; display: flex; flex-direction: column; flex-shrink: 0; }
         .smart-admin-header { padding: 20px; border-bottom: 1px solid #1e293b; }
         .smart-admin-header h2 { margin: 0; font-size: 1.2rem; font-weight: 800; color: #f8fafc; }
@@ -95,7 +95,7 @@ function setupSmartAdminAccess() {
     }
 }
 
-// מערכת טבלת השמות החדשה (Inline Editing)
+// מערכת טבלת השמות (Inline Editing)
 window.smartYemotNamesList = [];
 window.smartIsMainAdmin = false;
 
@@ -107,7 +107,7 @@ window.loadSmartYemotNames = async function() {
         btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מושך נתונים...';
         btn.disabled = true;
     }
-    tbody.innerHTML = '<tr><td colspan="4" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> מסנכרן שמות מול ימות המשיח...</td></tr>';
+    if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> מסנכרן שמות מול ימות המשיח...</td></tr>';
 
     try {
         const res = await fetch(`${API_BASE_URL}/admin/yemot-names`, {
@@ -125,7 +125,7 @@ window.loadSmartYemotNames = async function() {
             window.smartYemotNamesList = data.list;
             window.smartIsMainAdmin = data.isMainAdmin;
             renderSmartYemotNames();
-        } else {
+        } else if(tbody) {
             tbody.innerHTML = `<tr><td colspan="4" class="empty-state" style="color:var(--danger);">${data.error || 'שגיאה'}</td></tr>`;
         }
     } catch (err) {
@@ -133,7 +133,7 @@ window.loadSmartYemotNames = async function() {
             btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> רענן נתונים';
             btn.disabled = false;
         }
-        tbody.innerHTML = '<tr><td colspan="4" class="empty-state" style="color:var(--danger);">שגיאת תקשורת מול השרת</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="empty-state" style="color:var(--danger);">שגיאת תקשורת מול השרת</td></tr>';
     }
 };
 
@@ -143,9 +143,12 @@ window.filterSmartYemotNames = function() {
 
 window.renderSmartYemotNames = function() {
     const tbody = document.getElementById('smart_yemot_names_tbody');
-    const searchVal = document.getElementById('smart_names_search').value.toLowerCase();
+    const searchInput = document.getElementById('smart_names_search');
+    const searchVal = searchInput ? searchInput.value.toLowerCase() : '';
     const statsContainer = document.getElementById('smart_names_stats');
     
+    if (!tbody) return;
+
     let missingNamesCount = 0;
 
     const filtered = window.smartYemotNamesList.filter(u => {
@@ -256,24 +259,49 @@ window.saveInlineSmartName = async function(phone) {
 };
 
 const SMART_ADMIN_MODULES = [
-    { id: 'manage_users', icon: 'fa-users', title: 'ניהול משתמשים', html: `<div class="placeholder-card"><i class="fa-solid fa-users-gear"></i><h3>טבלת משתמשים</h3><p>לחץ כדי לנהל את המשתמשים במערכת</p></div>` },
+    { 
+        id: 'manage_users', 
+        icon: 'fa-users', 
+        title: 'ניהול משתמשים', 
+        html: `
+            <div class="clean-settings-card" style="display: flex; flex-direction: column; height: 100%; border:none; box-shadow: none; margin: 0; overflow: hidden;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <div>
+                        <label style="display: flex; align-items: center; gap: 8px; font-weight: bold; cursor: pointer; font-size: 0.95rem; color: var(--secondary);">
+                            <input type="checkbox" id="filter_web_users" checked onchange="renderAdminUsersTable()" style="width: 18px; height: 18px; accent-color: var(--secondary);">
+                            הצג רק משתמשים שפתחו חשבון באתר
+                        </label>
+                    </div>
+                    <button onclick="loadAdminUsers()" class="btn-primary small-btn" id="btn-refresh-users" style="width: auto; background: var(--secondary); padding: 8px 15px; font-size: 0.9rem;"><i class="fa-solid fa-rotate-right"></i> רענן נתונים</button>
+                </div>
+                <div class="table-wrapper" style="flex: 1; overflow-y: auto; margin-bottom: 0; border-radius: 8px;">
+                    <table class="modern-table compact-table">
+                        <thead style="position: sticky; top: 0; z-index: 10; background: var(--header-bg); box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                            <tr>
+                                <th>תמונה</th><th>טלפון / מזהה</th><th>שם משתמש</th><th>סטטוס בימות</th><th>חשבון באתר</th><th>הצטרפות</th><th style="text-align: center;">עריכה מהירה - הרשאות כתיבה</th><th>פעולות</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-users-table-body">
+                            <tr><td colspan="8" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען נתונים...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        ` 
+    },
     {
         id: 'manage_names',
         icon: 'fa-address-book',
         title: 'ספר טלפונים',
         html: `
             <div class="clean-settings-card" style="display: flex; flex-direction: column; height: 100%; border:none; box-shadow: none; margin: 0; overflow: hidden;">
-                
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <div style="display: flex; gap: 15px; flex: 1;">
                         <input type="text" id="smart_names_search" class="input-modern compact-input" placeholder="חפש לפי טלפון או שם..." onkeyup="filterSmartYemotNames()" style="max-width: 300px;">
                     </div>
-                    <div id="smart_names_stats" style="font-size: 0.9rem; font-weight: 600; display: flex; gap: 15px; align-items: center; margin-left: 15px;">
-                        <!-- נתונים יוזרקו לכאן -->
-                    </div>
+                    <div id="smart_names_stats" style="font-size: 0.9rem; font-weight: 600; display: flex; gap: 15px; align-items: center; margin-left: 15px;"></div>
                     <button onclick="loadSmartYemotNames()" id="btn_refresh_yemot_names" class="btn-primary small-btn" style="width: auto; background: var(--secondary); padding: 8px 15px; font-size: 0.9rem;"><i class="fa-solid fa-rotate-right"></i> רענן</button>
                 </div>
-
                 <div class="table-wrapper" style="flex: 1; overflow-y: auto; margin-bottom: 0; border-radius: 8px;">
                     <table class="modern-table compact-table">
                         <thead style="position: sticky; top: 0; z-index: 10; background: var(--header-bg); box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
@@ -285,17 +313,82 @@ const SMART_ADMIN_MODULES = [
                             </tr>
                         </thead>
                         <tbody id="smart_yemot_names_tbody">
-                            <tr><td colspan="4" class="empty-state">יש ללחוץ על "רענן נתונים" כדי להציג את הרשימה</td></tr>
+                            <tr><td colspan="4" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען נתונים...</td></tr>
                         </tbody>
                     </table>
                 </div>
-
             </div>
         `
     },
-    { id: 'manage_chat', icon: 'fa-headset', title: 'צ\'אט והודעות', html: `<div class="placeholder-card"><i class="fa-solid fa-comments"></i><h3>אזור הודעות לקוחות</h3></div>` },
-    { id: 'manage_ads', icon: 'fa-bullhorn', title: 'מודעות וקמפיינים', html: `<div class="placeholder-card"><i class="fa-solid fa-rectangle-ad"></i><h3>סטודיו המודעות</h3></div>` },
-    { id: 'manage_system', icon: 'fa-database', title: 'מסד נתונים ולוגים', html: `<div class="placeholder-card"><i class="fa-solid fa-terminal"></i><h3>מסוף נתונים מתקדם</h3></div>` }
+    { 
+        id: 'manage_chat', 
+        icon: 'fa-headset', 
+        title: 'צ\'אט והודעות', 
+        html: `
+            <div class="clean-settings-card" style="display: flex; flex-direction: column; height: 100%; border:none; box-shadow: none; margin: 0; overflow: hidden;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <div style="display:flex; gap:10px;">
+                        <button onclick="openCustomEmailModal()" class="btn-primary small-btn" style="width: auto; background: #0f172a; padding: 8px 15px; font-size: 0.9rem;"><i class="fa-solid fa-envelope"></i> שלח מייל חופשי</button>
+                        <button onclick="promptNewChat()" class="btn-primary small-btn" style="width: auto; background: var(--secondary); padding: 8px 15px; font-size: 0.9rem;"><i class="fa-solid fa-plus"></i> התחל שיחה חדשה</button>
+                    </div>
+                    <input type="text" id="admin-chat-search" class="input-modern compact-input" placeholder="חפש לפי מספר טלפון או שם..." onkeyup="filterAdminConversations()" style="max-width: 300px;">
+                </div>
+                <div id="admin-chat-conv-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px; flex: 1; overflow-y: auto;">
+                    <div class="empty-state" style="padding: 20px; grid-column: 1 / -1;"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען שיחות...</div>
+                </div>
+            </div>
+        ` 
+    },
+    { 
+        id: 'manage_ads', 
+        icon: 'fa-bullhorn', 
+        title: 'מודעות וקמפיינים', 
+        html: `
+            <div class="clean-settings-card" style="display: flex; flex-direction: column; height: 100%; border:none; box-shadow: none; margin: 0; overflow: hidden;">
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 15px;">
+                    <button onclick="openEditAdModal()" class="btn-primary small-btn" style="width: auto; background: var(--secondary); padding: 8px 15px; font-size: 0.9rem;"><i class="fa-solid fa-plus"></i> צור מודעה חדשה</button>
+                </div>
+                <div class="table-wrapper" style="flex: 1; overflow-y: auto; margin-bottom: 0; border-radius: 8px;">
+                    <table class="modern-table compact-table">
+                        <thead style="position: sticky; top: 0; z-index: 10; background: var(--header-bg); box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                            <tr><th>כותרת</th><th>סוג חשיפה</th><th>סך הכל חשיפות</th><th>משתמשים ייחודיים</th><th>סטטוס</th><th>פעולות</th></tr>
+                        </thead>
+                        <tbody id="admin-ads-table-body">
+                            <tr><td colspan="6" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        ` 
+    },
+    { 
+        id: 'manage_system', 
+        icon: 'fa-database', 
+        title: 'מסד נתונים ולוגים', 
+        html: `
+            <div class="clean-settings-card" style="display: flex; flex-direction: column; height: 100%; border:none; box-shadow: none; margin: 0; overflow: auto;">
+                <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+                    <div class="form-group" style="flex: 1; margin: 0;">
+                        <select id="sql_table_select" class="input-modern compact-input"><option value="">טוען טבלאות...</option></select>
+                    </div>
+                    <button type="button" class="btn-primary" style="width: auto; background: var(--secondary); padding: 8px 25px; font-size: 0.9rem;" onclick="executeQuickTableQuery()">הצג נתונים לעריכה</button>
+                </div>
+                <div class="sql-terminal" style="margin-bottom: 15px;">
+                    <form onsubmit="executeSqlQuery(event)">
+                        <textarea id="sql_query_input" rows="4" placeholder="הזן פקודת SQL כאן (לדוגמה: SELECT * FROM users)" style="padding: 10px;"></textarea>
+                        <div style="display: flex; justify-content: flex-end; margin-top: 10px;">
+                            <button type="submit" id="btn-run-sql" class="btn-primary" style="width: auto; background: #10b981; padding: 8px 25px; font-size: 0.9rem;"><i class="fa-solid fa-play"></i> הרץ שאילתה</button>
+                        </div>
+                    </form>
+                </div>
+                <div id="sql_error_container" class="alert-box error" style="display: none; direction: ltr; text-align: left;"></div>
+                <div id="sql_meta_container" style="margin-bottom: 15px; font-weight: bold; font-size: 0.9rem;"></div>
+                <div class="table-wrapper" style="overflow: visible;" id="sql_results_container">
+                    <div class="empty-state" style="padding: 20px;">התוצאות יוצגו כאן. לחץ על תא בתוצאות כדי לערוך אותו.</div>
+                </div>
+            </div>
+        ` 
+    }
 ];
 
 function openSmartAdminModal() {
@@ -348,8 +441,17 @@ function switchSmartAdminTab(moduleId, moduleTitle) {
 
     document.getElementById('smart-admin-current-title').innerText = moduleTitle;
 
-    if (moduleId === 'manage_names' && window.smartYemotNamesList.length === 0) {
+    // הפעלת פונקציות המשיכה בהתאם לטאב שנבחר
+    if (moduleId === 'manage_users' && typeof window.loadAdminUsers === 'function') {
+        window.loadAdminUsers();
+    } else if (moduleId === 'manage_names' && window.smartYemotNamesList.length === 0) {
         loadSmartYemotNames();
+    } else if (moduleId === 'manage_chat' && typeof window.loadAdminChatConversations === 'function') {
+        window.loadAdminChatConversations();
+    } else if (moduleId === 'manage_ads' && typeof window.loadAdminAds === 'function') {
+        window.loadAdminAds();
+    } else if (moduleId === 'manage_system' && typeof window.loadSqlTables === 'function') {
+        window.loadSqlTables();
     }
 }
 
