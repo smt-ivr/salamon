@@ -21,25 +21,41 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
     document.head.appendChild(badgeStyle);
 
-    // שליחת בקשה ראשונה לבדיקת הודעות חדשות זמן קצר לאחר פתיחת האתר והתחברות
-    setTimeout(() => {
-        if (state.userToken) {
-            checkUnreadMessages();
-        }
-    }, 1500);
+    // ניהול משיכה אוטומטית שרצה מיד בהתחברות הראשונית
+    let chatPollingActive = false;
+    let chatPollingInterval = null;
 
-    // הרצת בדיקה קבועה כל 10 שניות בדיוק
+    function initChatPolling() {
+        if (chatPollingActive) return;
+        chatPollingActive = true;
+        
+        // קריאה מיידית ברגע שהטוקן זמין
+        checkUnreadMessages();
+
+        // ולאחר מכן במחזוריות של 10 שניות
+        chatPollingInterval = setInterval(() => {
+            if (!state.userToken) {
+                chatPollingActive = false;
+                clearInterval(chatPollingInterval);
+                return;
+            }
+            
+            const isModalOpen = document.getElementById('userChatModal').classList.contains('active');
+            
+            if (isModalOpen) {
+                silentRefreshChat();
+            } else {
+                checkUnreadMessages();
+            }
+        }, 10000);
+    }
+
+    // מאזין קל שבודק האם הטוקן הפך לזמין (בהתחברות או ברענון) ומפעיל את הפולינג במיידי
     setInterval(() => {
-        if (!state.userToken) return;
-        
-        const isModalOpen = document.getElementById('userChatModal').classList.contains('active');
-        
-        if (isModalOpen) {
-            silentRefreshChat();
-        } else {
-            checkUnreadMessages();
+        if (state.userToken && !chatPollingActive) {
+            initChatPolling();
         }
-    }, 10000);
+    }, 500);
 });
 
 function injectUserChatModal() {
@@ -109,7 +125,7 @@ function formatChatSmartDate(dateStr) {
     } else if (msgDay.getTime() === yesterday.getTime()) {
         return `אתמול, ${timeStr}`;
     } else {
-        return `${msgDate.toLocaleDateString('he-IL')}${timeStr}`;
+        return `${msgDate.toLocaleDateString('he-IL')} ${timeStr}`;
     }
 }
 
@@ -161,7 +177,6 @@ function updateChatBadge(count) {
     if (count > 0) {
         badge.innerText = count;
         badge.style.display = 'flex';
-        // עיצוב משודרג ובולט יותר
         badge.classList.add('chat-badge-pulse');
         badge.style.width = '22px';
         badge.style.height = '22px';
@@ -221,7 +236,6 @@ async function markUserChatAsRead() {
 function renderUserChatMessages(messages, isSilent = false) {
     const container = document.getElementById('user-chat-msg-container');
     
-    // מניעת הקפצה - נגלול רק אם המשתמש כבר נמצא למטה
     const isScrolledToBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 50;
     
     container.innerHTML = '';
@@ -245,8 +259,6 @@ function renderUserChatMessages(messages, isSilent = false) {
         
         let readTicks = '';
         if (isOut) {
-            // אם isRead מהמסד זה אומר שהמנהל קרא = 2 וי כחול. 
-            // אם לא קרא = 2 וי אפור. (הוי הבודד קיים רק זמנית בזמן השליחה)
             readTicks = msg.isRead 
                 ? '<i class="fa-solid fa-check-double" style="color: #3b82f6;"></i>' 
                 : '<i class="fa-solid fa-check-double" style="color: #94a3b8;"></i>';
@@ -257,7 +269,8 @@ function renderUserChatMessages(messages, isSilent = false) {
         bubble.innerHTML = `
             <div class="user-chat-text">${msg.text}</div>
             <div class="user-chat-meta">
-                <span dir="ltr">${timeStr}</span>${readTicks}
+                <span dir="ltr">${timeStr}</span>
+                ${readTicks}
             </div>
         `;
         container.appendChild(bubble);
@@ -274,7 +287,6 @@ window.sendUserChatMessage = async function(e) {
     const text = input.value.trim();
     if (!text) return;
     
-    // ציור הבועה הזמנית מיד (וי אחד אפור)
     const container = document.getElementById('user-chat-msg-container');
     const timeStr = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
     const tempBubble = document.createElement('div');
@@ -302,7 +314,6 @@ window.sendUserChatMessage = async function(e) {
         btn.disabled = false;
         
         if (res.ok) {
-            // מיד לאחר שההודעה נשלחה למסד הנתונים קוראים לרענון שקט שיחזיר 2 וי אפורים
             silentRefreshChat().then(() => {
                 container.scrollTop = container.scrollHeight;
             });
