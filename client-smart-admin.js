@@ -18,43 +18,34 @@ document.addEventListener('DOMContentLoaded', () => {
 function injectSmartAdminStyles() {
     const styles = document.createElement('style');
     styles.innerHTML = `
-        /* Smart Admin Base Styles */
-        .smart-admin-modal { z-index: 2000 !important; }
-        .smart-admin-modal .modal-content { max-width: 1200px; width: 98%; height: 90vh; max-height: 900px; display: flex; flex-direction: row; padding: 0; background: #f8fafc; overflow: hidden; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
-        .smart-admin-sidebar { width: 260px; background: #0f172a; color: white; display: flex; flex-direction: column; flex-shrink: 0; }
-        .smart-admin-header { padding: 25px 20px; border-bottom: 1px solid #1e293b; background: #0b1120; }
-        .smart-admin-header h2 { margin: 0; font-size: 1.3rem; font-weight: 800; color: #f8fafc; display: flex; align-items: center; gap: 10px; }
-        .smart-admin-header p { margin: 8px 0 0; font-size: 0.85rem; color: #94a3b8; }
-        
+        .smart-admin-modal .modal-content { max-width: 1100px; width: 98%; height: 90vh; max-height: 900px; display: flex; flex-direction: row; padding: 0; background: #f8fafc; overflow: hidden; border-radius: 16px; }
+        .smart-admin-sidebar { width: 250px; background: #0f172a; color: white; display: flex; flex-direction: column; flex-shrink: 0; }
+        .smart-admin-header { padding: 20px; border-bottom: 1px solid #1e293b; }
+        .smart-admin-header h2 { margin: 0; font-size: 1.2rem; font-weight: 800; color: #f8fafc; }
+        .smart-admin-header p { margin: 5px 0 0; font-size: 0.8rem; color: #94a3b8; }
         .smart-admin-menu { flex: 1; overflow-y: auto; padding: 15px 0; }
-        .smart-admin-tab-btn { width: 100%; text-align: right; background: none; border: none; outline: none; color: #cbd5e1; padding: 14px 25px; font-size: 1rem; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 15px; border-right: 4px solid transparent; }
-        .smart-admin-tab-btn i { width: 20px; text-align: center; font-size: 1.1rem; }
+        .smart-admin-tab-btn { width: 100%; text-align: right; background: none; border: none; outline: none; color: #cbd5e1; padding: 12px 20px; font-size: 0.95rem; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 12px; border-right: 4px solid transparent; }
         .smart-admin-tab-btn:hover { background: #1e293b; color: white; }
         .smart-admin-tab-btn.active { background: #1e293b; color: var(--secondary); border-right-color: var(--secondary); font-weight: bold; }
+        .smart-admin-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #f8fafc; position: relative; }
+        .smart-admin-top { display: flex; justify-content: space-between; align-items: center; padding: 15px 25px; background: white; border-bottom: 1px solid #e2e8f0; flex-shrink: 0;}
+        .smart-admin-top h3 { margin: 0; font-size: 1.2rem; color: #1e293b; font-weight:800; }
+        .smart-admin-content { flex: 1; overflow: hidden; padding: 20px; display: flex; flex-direction: column; }
         
-        .smart-admin-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #f1f5f9; position: relative; }
-        .smart-admin-top { display: flex; justify-content: space-between; align-items: center; padding: 20px 30px; background: white; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.02);}
-        .smart-admin-top h3 { margin: 0; font-size: 1.4rem; color: #0f172a; font-weight:800; }
-        .smart-admin-content { flex: 1; overflow: hidden; padding: 25px 30px; display: flex; flex-direction: column; }
+        .smart-admin-panel { display: none; height: 100%; animation: fadeIn 0.3s ease; }
+        .smart-admin-panel.active { display: flex; flex-direction: column; }
         
-        .smart-admin-panel { display: none; height: 100%; animation: fadeIn 0.3s ease; flex-direction: column; }
-        .smart-admin-panel.active { display: flex; }
+        .compact-table th, .compact-table td { padding: 8px 12px !important; }
+        .compact-input { padding: 6px 10px !important; font-size: 0.9rem !important; }
         
-        .smart-card { background: white; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
-        .smart-card-header { padding: 15px 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc; }
-        
-        .compact-table th { background: #f8fafc; text-transform: uppercase; font-size: 0.8rem; letter-spacing: 0.5px; }
-        .compact-table th, .compact-table td { padding: 12px 16px !important; }
-        .compact-input { padding: 8px 12px !important; font-size: 0.95rem !important; border-radius: 8px; }
-
-        /* תתי-חלונות - מודלים שנפתחים מעל הניהול החכם */
-        .sub-modal-elevated { z-index: 3000 !important; }
+        .placeholder-card { background: white; border: 1px dashed #cbd5e1; border-radius: 12px; padding: 40px; text-align: center; color: #64748b; margin: auto; width: 100%; max-width: 500px;}
+        .placeholder-card i { font-size: 3rem; color: #cbd5e1; margin-bottom: 15px; }
 
         @media (max-width: 768px) {
             .smart-admin-modal .modal-content { flex-direction: column; }
             .smart-admin-sidebar { width: 100%; height: auto; }
             .smart-admin-menu { display: flex; overflow-x: auto; padding: 0; }
-            .smart-admin-tab-btn { white-space: nowrap; border-right: none; border-bottom: 3px solid transparent; justify-content: center; padding: 12px 15px;}
+            .smart-admin-tab-btn { white-space: nowrap; border-right: none; border-bottom: 3px solid transparent; justify-content: center; }
             .smart-admin-tab-btn.active { border-right: none; border-bottom-color: var(--secondary); }
             .smart-admin-content { padding: 15px; }
         }
@@ -67,10 +58,7 @@ function injectSmartAdminModal() {
         <div class="modal-overlay smart-admin-modal" id="smartAdminModal">
             <div class="modal-content professional-modal">
                 <div class="smart-admin-sidebar">
-                    <div class="smart-admin-header">
-                        <h2><i class="fa-solid fa-bolt"></i> מערכת ניהול Pro</h2>
-                        <p>סביבת עבודה מתקדמת למנהלים</p>
-                    </div>
+                    <div class="smart-admin-header"><h2><i class="fa-solid fa-bolt"></i> פאנל חכם</h2><p>מותאם אישית להרשאות שלך</p></div>
                     <div class="smart-admin-menu" id="smart-admin-menu-container"></div>
                 </div>
                 <div class="smart-admin-main">
@@ -107,211 +95,207 @@ function setupSmartAdminAccess() {
     }
 }
 
-// פונקציית עזר להרמת מודלים (z-index גבוה יותר לחלונות משניים)
-function elevateSubModal(modalId) {
-    const modal = document.getElementById(modalId);
-    if (modal) {
-        modal.classList.add('active', 'sub-modal-elevated');
+// מערכת טבלת השמות החדשה (Inline Editing)
+window.smartYemotNamesList = [];
+window.smartIsMainAdmin = false;
+
+window.loadSmartYemotNames = async function() {
+    const btn = document.getElementById('btn_refresh_yemot_names');
+    const tbody = document.getElementById('smart_yemot_names_tbody');
+    
+    if (btn) {
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> מושך נתונים...';
+        btn.disabled = true;
     }
-}
+    tbody.innerHTML = '<tr><td colspan="4" class="empty-state"><i class="fa-solid fa-circle-notch fa-spin"></i> מסנכרן שמות מול ימות המשיח...</td></tr>';
 
-// ==========================================
-// מודול צ'אט והודעות מותאם (Smart Chat Module)
-// ==========================================
-window.smartAllConversations = [];
-
-window.loadSmartChatConversations = async function() {
-    const listContainer = document.getElementById('smart-chat-conv-list');
-    if (!listContainer) return;
-    
-    listContainer.innerHTML = '<div class="empty-state" style="padding: 40px; grid-column: 1 / -1;"><i class="fa-solid fa-circle-notch fa-spin" style="font-size:2rem; color:var(--secondary); margin-bottom:15px;"></i><br>טוען נתוני צ\'אט...</div>';
-    
     try {
-        // שימוש ב-userToken במקום adminToken כדי לפתור את שגיאת ה-403
-        const payload = { userToken: state.userToken, adminToken: state.userToken }; // שולח את שניהם לגיבוי תאימות שרת
-        const res = await fetch(`${API_BASE_URL}/admin/chat/conversations`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+        const res = await fetch(`${API_BASE_URL}/admin/yemot-names`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userToken: state.userToken })
         });
         const data = await res.json();
         
-        if (res.ok && data.success) {
-            window.smartAllConversations = data.conversations;
-            renderSmartConversationList();
-        } else {
-            listContainer.innerHTML = `<div class="empty-state" style="color:var(--danger); grid-column: 1 / -1;">${data.error || 'שגיאה בשליפת שיחות'}</div>`;
+        if (btn) {
+            btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> רענן נתונים';
+            btn.disabled = false;
         }
-    } catch(e) { 
-        listContainer.innerHTML = '<div class="empty-state" style="color:var(--danger); grid-column: 1 / -1;">שגיאת תקשורת מול השרת</div>'; 
+
+        if (res.ok && data.success) {
+            window.smartYemotNamesList = data.list;
+            window.smartIsMainAdmin = data.isMainAdmin;
+            renderSmartYemotNames();
+        } else {
+            tbody.innerHTML = `<tr><td colspan="4" class="empty-state" style="color:var(--danger);">${data.error || 'שגיאה'}</td></tr>`;
+        }
+    } catch (err) {
+        if (btn) {
+            btn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> רענן נתונים';
+            btn.disabled = false;
+        }
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state" style="color:var(--danger);">שגיאת תקשורת מול השרת</td></tr>';
     }
 };
 
-window.renderSmartConversationList = function() {
-    const listContainer = document.getElementById('smart-chat-conv-list');
-    if (!listContainer) return;
+window.filterSmartYemotNames = function() {
+    renderSmartYemotNames();
+};
 
-    const searchInput = document.getElementById('smart-chat-search');
-    const searchVal = searchInput ? searchInput.value.toLowerCase() : '';
+window.renderSmartYemotNames = function() {
+    const tbody = document.getElementById('smart_yemot_names_tbody');
+    const searchVal = document.getElementById('smart_names_search').value.toLowerCase();
+    const statsContainer = document.getElementById('smart_names_stats');
     
-    const filtered = window.smartAllConversations.filter(c => c.user_phone.includes(searchVal) || (c.user_name && c.user_name.toLowerCase().includes(searchVal)));
-    
-    listContainer.innerHTML = '';
-    if (filtered.length === 0) { 
-        listContainer.innerHTML = '<div class="empty-state" style="padding: 20px; grid-column: 1 / -1;">לא נמצאו שיחות.</div>'; 
-        return; 
-    }
-    
-    filtered.forEach(conv => {
-        let dateStr = conv.last_message_time;
-        try { dateStr = new Date(conv.last_message_time.replace(' ', 'T')).toLocaleString('he-IL', {hour:'2-digit', minute:'2-digit', day:'2-digit', month:'2-digit'}); } catch(e){}
-        
-        const item = document.createElement('div');
-        item.className = 'conv-card';
-        item.style.cssText = 'background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 15px; cursor: pointer; transition: 0.2s; display: flex; justify-content: space-between; align-items: center;';
-        item.onmouseover = () => { item.style.borderColor = 'var(--secondary)'; item.style.transform = 'translateY(-2px)'; item.style.boxShadow = '0 4px 6px rgba(0,0,0,0.05)'; };
-        item.onmouseout = () => { item.style.borderColor = '#e2e8f0'; item.style.transform = 'none'; item.style.boxShadow = 'none'; };
-        item.onclick = () => {
-            // פתיחת חלון הצ'אט האקטיבי מעל הניהול החכם
-            if (typeof openAdminChatModal === 'function') {
-                openAdminChatModal(conv.user_phone);
-                elevateSubModal('adminChatActiveModal');
-            }
-        };
-        
-        let badgeHtml = conv.unread_count > 0 ? `<div style="background:var(--danger); color:white; padding:4px 10px; border-radius:20px; font-size:0.85rem; font-weight:bold;">${conv.unread_count} חדשות</div>` : '';
-        
-        item.innerHTML = `
-            <div style="display: flex; flex-direction: column; gap: 5px;">
-                <span style="font-weight: 800; font-size: 1.05rem; color: #0f172a;">${conv.user_name || 'אורח'} <span dir="ltr" style="font-family: monospace; color: var(--text-light); font-size:0.9rem;">(${conv.user_phone})</span></span>
-                <span style="font-size: 0.8rem; color: #64748b;"><i class="fa-solid fa-clock"></i> הודעה אחרונה: ${dateStr}</span>
-            </div>
-            ${badgeHtml}
+    let missingNamesCount = 0;
+
+    const filtered = window.smartYemotNamesList.filter(u => {
+        if (!u.name || u.name.trim() === '') missingNamesCount++;
+        return u.phone.includes(searchVal) || (u.name && u.name.toLowerCase().includes(searchVal));
+    });
+
+    if (statsContainer) {
+        statsContainer.innerHTML = `
+            <span style="color: var(--text-light);">סה"כ מנויים: <span style="color: var(--text-dark);">${window.smartYemotNamesList.length}</span></span>
+            <span style="color: #b91c1c; background: #fee2e2; padding: 4px 10px; border-radius: 12px; border: 1px solid #fca5a5;">
+                <i class="fa-solid fa-triangle-exclamation"></i> ללא שם: ${missingNamesCount}
+            </span>
         `;
-        listContainer.appendChild(item);
+    }
+
+    tbody.innerHTML = '';
+    if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">לא נמצאו מנויים התואמים לחיפוש.</td></tr>';
+        return;
+    }
+
+    filtered.forEach(u => {
+        const isLocked = u.isProtected && !window.smartIsMainAdmin;
+        
+        const statusBadge = u.active 
+            ? '<span class="status-ok" style="font-size:0.8rem; padding: 2px 6px;">פעיל</span>' 
+            : '<span class="status-bad" style="font-size:0.8rem; padding: 2px 6px;">חסום</span>';
+        
+        const safeName = u.name.replace(/"/g, '&quot;');
+        
+        let inputHtml = '';
+        let btnHtml = '';
+
+        if (isLocked) {
+            inputHtml = `<div style="padding: 6px 10px; color: #94a3b8; font-weight: 600; font-size: 0.9rem;">${safeName || 'ללא שם'}</div>`;
+            btnHtml = ``; 
+        } else {
+            const noNameStyle = !safeName ? 'border-color: #fca5a5; background: #fff5f5;' : '';
+            inputHtml = `<input type="text" id="name_input_${u.phone}" class="input-modern compact-input" value="${safeName}" placeholder="ללא שם..." onkeypress="if(event.key === 'Enter') saveInlineSmartName('${u.phone}')" style="${noNameStyle}">`;
+            btnHtml = `<button id="btn_save_name_${u.phone}" class="actions-btn" onclick="saveInlineSmartName('${u.phone}')" style="background:#f0fdf4; color:#15803d; border-color:#bbf7d0; padding: 4px 12px; font-size: 0.8rem;"><i class="fa-solid fa-check"></i></button>`;
+        }
+
+        const tr = document.createElement('tr');
+        if (isLocked) tr.style.backgroundColor = '#f8fafc'; 
+        
+        tr.innerHTML = `
+            <td dir="ltr" style="font-weight:bold; text-align:right; font-size: 0.9rem; color: ${isLocked ? '#94a3b8' : 'inherit'};">${u.phone}</td>
+            <td>${statusBadge}</td>
+            <td style="min-width: 220px;">${inputHtml}</td>
+            <td style="text-align: left;">${btnHtml}</td>
+        `;
+        tbody.appendChild(tr);
     });
 };
 
-// ==========================================
-// תפריט ומודולים (Smart Admin Modules)
-// ==========================================
+window.saveInlineSmartName = async function(phone) {
+    const input = document.getElementById(`name_input_${phone}`);
+    const btn = document.getElementById(`btn_save_name_${phone}`);
+    if (!input || !btn) return;
+    
+    const newName = input.value.trim();
+    const user = window.smartYemotNamesList.find(u => u.phone === phone);
+
+    if (user && user.name === newName) {
+        showToast('לא בוצע שינוי בטקסט', 'info');
+        return;
+    }
+    
+    const originalBtnHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/admin/update-yemot-name`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userToken: state.userToken, phone: phone, newName: newName })
+        });
+        const data = await res.json();
+        
+        btn.innerHTML = originalBtnHtml;
+        btn.disabled = false;
+
+        if (res.ok && data.success) {
+            showToast(`השם נשמר: ${newName || 'ללא שם'}`, 'success');
+            if (user) user.name = newName;
+            
+            input.style.backgroundColor = '#dcfce7';
+            input.style.borderColor = '#bbf7d0';
+            setTimeout(() => { 
+                input.style.backgroundColor = ''; 
+                input.style.borderColor = ''; 
+                if (!newName) { 
+                    input.style.backgroundColor = '#fff5f5';
+                    input.style.borderColor = '#fca5a5';
+                }
+            }, 1000);
+
+            renderSmartYemotNames();
+        } else {
+            showToast(data.error || 'שגיאה בעדכון השם', 'error');
+        }
+    } catch (err) {
+        btn.innerHTML = originalBtnHtml;
+        btn.disabled = false;
+        showToast('שגיאת תקשורת', 'error');
+    }
+};
+
 const SMART_ADMIN_MODULES = [
-    { 
-        id: 'manage_users', 
-        icon: 'fa-users', 
-        title: 'ניהול משתמשים', 
-        html: `
-            <div class="smart-card">
-                <div class="smart-card-header">
-                    <label style="display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer; font-size: 0.95rem; color: var(--text-dark);">
-                        <input type="checkbox" id="filter_web_users" checked onchange="if(typeof renderAdminUsersTable === 'function') renderAdminUsersTable()" style="width: 18px; height: 18px; accent-color: var(--secondary);">
-                        הצג משתמשים רשומים באתר בלבד
-                    </label>
-                    <button onclick="if(typeof loadAdminUsers === 'function') loadAdminUsers()" class="btn-pro-secondary" style="padding: 8px 15px;"><i class="fa-solid fa-rotate-right"></i> סנכרן</button>
-                </div>
-                <div class="table-wrapper" style="flex: 1; overflow-y: auto; margin: 0; border: none; border-radius: 0;">
-                    <table class="modern-table compact-table">
-                        <thead style="position: sticky; top: 0; z-index: 10;">
-                            <tr><th>תמונה</th><th>טלפון / מזהה</th><th>שם משתמש</th><th>סטטוס בימות</th><th>חשבון באתר</th><th>הצטרפות</th><th style="text-align: center;">הרשאות כתיבה מהירות</th><th>פעולות</th></tr>
-                        </thead>
-                        <tbody id="admin-users-table-body">
-                            <tr><td colspan="8" class="empty-state">טוען נתונים...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        ` 
-    },
+    { id: 'manage_users', icon: 'fa-users', title: 'ניהול משתמשים', html: `<div class="placeholder-card"><i class="fa-solid fa-users-gear"></i><h3>טבלת משתמשים</h3><p>לחץ כדי לנהל את המשתמשים במערכת</p></div>` },
     {
         id: 'manage_names',
         icon: 'fa-address-book',
         title: 'ספר טלפונים',
         html: `
-            <div class="smart-card">
-                <div class="smart-card-header">
-                    <input type="text" id="smart_names_search" class="input-modern compact-input" placeholder="חיפוש חכם (שם או טלפון)..." onkeyup="filterSmartYemotNames()" style="max-width: 350px; background: white;">
-                    <div id="smart_names_stats" style="font-size: 0.9rem; display: flex; gap: 15px; align-items: center;"></div>
-                    <button onclick="loadSmartYemotNames()" id="btn_refresh_yemot_names" class="btn-pro-secondary" style="padding: 8px 15px;"><i class="fa-solid fa-rotate-right"></i> רענן</button>
+            <div class="clean-settings-card" style="display: flex; flex-direction: column; height: 100%; border:none; box-shadow: none; margin: 0; overflow: hidden;">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <div style="display: flex; gap: 15px; flex: 1;">
+                        <input type="text" id="smart_names_search" class="input-modern compact-input" placeholder="חפש לפי טלפון או שם..." onkeyup="filterSmartYemotNames()" style="max-width: 300px;">
+                    </div>
+                    <div id="smart_names_stats" style="font-size: 0.9rem; font-weight: 600; display: flex; gap: 15px; align-items: center; margin-left: 15px;">
+                        <!-- נתונים יוזרקו לכאן -->
+                    </div>
+                    <button onclick="loadSmartYemotNames()" id="btn_refresh_yemot_names" class="btn-primary small-btn" style="width: auto; background: var(--secondary); padding: 8px 15px; font-size: 0.9rem;"><i class="fa-solid fa-rotate-right"></i> רענן</button>
                 </div>
-                <div class="table-wrapper" style="flex: 1; overflow-y: auto; margin: 0; border: none; border-radius: 0;">
+
+                <div class="table-wrapper" style="flex: 1; overflow-y: auto; margin-bottom: 0; border-radius: 8px;">
                     <table class="modern-table compact-table">
-                        <thead style="position: sticky; top: 0; z-index: 10;">
-                            <tr><th style="width: 140px;">טלפון מנוי</th><th style="width: 80px;">סטטוס</th><th>שם המנוי (לחץ לעריכה)</th><th style="width: 100px;">פעולה</th></tr>
+                        <thead style="position: sticky; top: 0; z-index: 10; background: var(--header-bg); box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                            <tr>
+                                <th style="width: 140px;">טלפון מנוי</th>
+                                <th style="width: 80px;">צינתוקים</th>
+                                <th>שם משתמש (ניתן לעריכה ישירה)</th>
+                                <th style="width: 80px; text-align: left;">שמירה</th>
+                            </tr>
                         </thead>
                         <tbody id="smart_yemot_names_tbody">
-                            <tr><td colspan="4" class="empty-state">טוען נתונים...</td></tr>
+                            <tr><td colspan="4" class="empty-state">יש ללחוץ על "רענן נתונים" כדי להציג את הרשימה</td></tr>
                         </tbody>
                     </table>
                 </div>
+
             </div>
         `
     },
-    { 
-        id: 'manage_chat', 
-        icon: 'fa-comments', 
-        title: 'צ\'אט שירות לקוחות', 
-        html: `
-            <div class="smart-card">
-                <div class="smart-card-header" style="background: #fff;">
-                    <div style="display:flex; gap:10px;">
-                        <button onclick="if(typeof openCustomEmailModal === 'function'){ openCustomEmailModal(); elevateSubModal('adminCustomEmailModal'); }" class="btn-pro-secondary" style="padding: 8px 15px; background:#f1f5f9; color:#0f172a;"><i class="fa-solid fa-envelope"></i> מייל חופשי</button>
-                        <button onclick="if(typeof promptNewChat === 'function') promptNewChat()" class="btn-pro-primary" style="padding: 8px 15px;"><i class="fa-solid fa-plus"></i> התחל שיחה</button>
-                    </div>
-                    <input type="text" id="smart-chat-search" class="input-modern compact-input" placeholder="חיפוש בשיחות..." onkeyup="renderSmartConversationList()" style="max-width: 250px;">
-                </div>
-                <div id="smart-chat-conv-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 15px; padding: 20px; flex: 1; overflow-y: auto; background: #f8fafc;">
-                    <div class="empty-state" style="grid-column: 1 / -1;">טוען שיחות...</div>
-                </div>
-            </div>
-        ` 
-    },
-    { 
-        id: 'manage_ads', 
-        icon: 'fa-bullhorn', 
-        title: 'מערכת פרסום', 
-        html: `
-            <div class="smart-card">
-                <div class="smart-card-header">
-                    <span style="font-weight:bold; color:var(--text-dark);">ניהול קמפיינים ופופאפים</span>
-                    <button onclick="if(typeof openEditAdModal === 'function') { openEditAdModal(); elevateSubModal('adEditModal'); }" class="btn-pro-primary" style="padding: 8px 15px;"><i class="fa-solid fa-plus"></i> יצירת מודעה</button>
-                </div>
-                <div class="table-wrapper" style="flex: 1; overflow-y: auto; margin: 0; border: none; border-radius: 0;">
-                    <table class="modern-table compact-table">
-                        <thead style="position: sticky; top: 0; z-index: 10;">
-                            <tr><th>כותרת המודעה</th><th>סוג</th><th>חשיפות</th><th>יוניקים</th><th>סטטוס</th><th>פעולות</th></tr>
-                        </thead>
-                        <tbody id="admin-ads-table-body">
-                            <tr><td colspan="6" class="empty-state">טוען קמפיינים...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        ` 
-    },
-    { 
-        id: 'manage_system', 
-        icon: 'fa-terminal', 
-        title: 'מסוף Database', 
-        html: `
-            <div class="smart-card" style="background: #f1f5f9; border: none;">
-                <div style="display: flex; gap: 15px; margin-bottom: 20px;">
-                    <select id="sql_table_select" class="input-modern compact-input" style="flex:1; max-width:300px; background:white;"><option value="">טוען טבלאות...</option></select>
-                    <button type="button" class="btn-pro-secondary" style="padding: 8px 20px;" onclick="if(typeof executeQuickTableQuery === 'function') executeQuickTableQuery()">שלוף נתונים</button>
-                </div>
-                <div class="sql-terminal" style="margin-bottom: 15px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                    <form onsubmit="if(typeof executeSqlQuery === 'function') executeSqlQuery(event)">
-                        <textarea id="sql_query_input" rows="4" placeholder="הזן פקודת SQL כאן (לדוגמה: SELECT * FROM users)" style="border:none; border-radius:0;"></textarea>
-                        <div style="background: #0f172a; padding: 10px 15px; display: flex; justify-content: flex-end; border-top: 1px solid #1e293b;">
-                            <button type="submit" id="btn-run-sql" class="btn-pro-primary" style="padding: 8px 25px; background: #10b981; box-shadow: none;"><i class="fa-solid fa-play"></i> הרץ שאילתה</button>
-                        </div>
-                    </form>
-                </div>
-                <div id="sql_error_container" class="alert-box error" style="display: none; direction: ltr; text-align: left;"></div>
-                <div id="sql_meta_container" style="margin-bottom: 15px; font-size: 0.9rem;"></div>
-                <div class="table-wrapper smart-card" style="overflow: visible; flex:1;" id="sql_results_container">
-                    <div class="empty-state" style="padding: 40px;">תוצאות המסד יוצגו כאן.</div>
-                </div>
-            </div>
-        ` 
-    }
+    { id: 'manage_chat', icon: 'fa-headset', title: 'צ\'אט והודעות', html: `<div class="placeholder-card"><i class="fa-solid fa-comments"></i><h3>אזור הודעות לקוחות</h3></div>` },
+    { id: 'manage_ads', icon: 'fa-bullhorn', title: 'מודעות וקמפיינים', html: `<div class="placeholder-card"><i class="fa-solid fa-rectangle-ad"></i><h3>סטודיו המודעות</h3></div>` },
+    { id: 'manage_system', icon: 'fa-database', title: 'מסד נתונים ולוגים', html: `<div class="placeholder-card"><i class="fa-solid fa-terminal"></i><h3>מסוף נתונים מתקדם</h3></div>` }
 ];
 
 function openSmartAdminModal() {
@@ -323,14 +307,13 @@ function openSmartAdminModal() {
     const allowedModules = SMART_ADMIN_MODULES.filter(module => hasAll || permsArray.includes(module.id));
 
     if (allowedModules.length === 0) {
-        showToast('הגישה נדחתה: אין לך הרשאות למודולים בפאנל החכם.', 'error');
+        showToast('יש לך הרשאת ניהול, אך לא הוקצו לך מודולים. פנה למנהל הראשי.', 'error');
         return;
     }
 
     renderSmartAdminMenu(allowedModules);
     document.getElementById('smartAdminModal').classList.add('active');
     
-    // פתיחת המודול הראשון כברירת מחדל
     const firstModule = allowedModules[0];
     switchSmartAdminTab(firstModule.id, firstModule.title);
 }
@@ -343,7 +326,7 @@ function renderSmartAdminMenu(allowedModules) {
     allowedModules.forEach(module => {
         const btn = document.createElement('button');
         btn.className = 'smart-admin-tab-btn'; btn.id = `smart-tab-btn-${module.id}`;
-        btn.innerHTML = `<i class="fa-solid ${module.icon}"></i> <span>${module.title}</span>`;
+        btn.innerHTML = `<i class="fa-solid ${module.icon}"></i> ${module.title}`;
         btn.onclick = () => switchSmartAdminTab(module.id, module.title);
         menuContainer.appendChild(btn);
 
@@ -365,51 +348,9 @@ function switchSmartAdminTab(moduleId, moduleTitle) {
 
     document.getElementById('smart-admin-current-title').innerText = moduleTitle;
 
-    // חיווט חכם להפעלת הלוגיקה של כל טאב בנפרד תוך עקיפת בעיית הטוקן
-    if (moduleId === 'manage_users' && typeof window.loadAdminUsers === 'function') {
-        // עקיפה זמנית עבור loadAdminUsers - הגדרת adminToken שווה ל-userToken
-        const originalToken = state.adminToken;
-        state.adminToken = state.userToken;
-        window.loadAdminUsers().finally(() => { state.adminToken = originalToken; });
-    } 
-    else if (moduleId === 'manage_names' && window.smartYemotNamesList.length === 0) {
-        window.loadSmartYemotNames();
-    } 
-    else if (moduleId === 'manage_chat') {
-        window.loadSmartChatConversations();
-    } 
-    else if (moduleId === 'manage_ads' && typeof window.loadAdminAds === 'function') {
-        const originalToken = state.adminToken;
-        state.adminToken = state.userToken;
-        window.loadAdminAds().finally(() => { state.adminToken = originalToken; });
-    } 
-    else if (moduleId === 'manage_system' && typeof window.loadSqlTables === 'function') {
-        const originalToken = state.adminToken;
-        state.adminToken = state.userToken;
-        window.loadSqlTables().finally(() => { state.adminToken = originalToken; });
+    if (moduleId === 'manage_names' && window.smartYemotNamesList.length === 0) {
+        loadSmartYemotNames();
     }
 }
 
-// דריסה (Override) לפונקציות קיימות שיפתחו מעל הפאנל החכם
-const originalOpenUserProfile = window.openUserProfile;
-if (originalOpenUserProfile) {
-    window.openUserProfile = async function(phone) {
-        const originalToken = state.adminToken;
-        state.adminToken = state.userToken; // מעביר את הטוקן למשיכת הפרופיל
-        await originalOpenUserProfile(phone);
-        state.adminToken = originalToken;
-        elevateSubModal('adminUserProfileModal');
-    };
-}
-
-const originalOpenAdminCreateUserModal = window.openAdminCreateUserModal;
-if (originalOpenAdminCreateUserModal) {
-    window.openAdminCreateUserModal = function(phone) {
-        originalOpenAdminCreateUserModal(phone);
-        elevateSubModal('adminCreateUserModal');
-    };
-}
-
-function closeSmartAdminModal() { 
-    document.getElementById('smartAdminModal').classList.remove('active'); 
-}
+function closeSmartAdminModal() { document.getElementById('smartAdminModal').classList.remove('active'); }
