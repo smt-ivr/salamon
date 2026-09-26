@@ -6,7 +6,29 @@ let lastMessagesHash = "";
 document.addEventListener('DOMContentLoaded', () => {
     injectUserChatModal();
     
-    let tick = 0;
+    // הוספת סגנון עבור אנימציית הפעימה (Pulse) לאייקון הצאט
+    const badgeStyle = document.createElement('style');
+    badgeStyle.innerHTML = `
+        .chat-badge-pulse {
+            animation: badgePulse 1.5s infinite;
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+        }
+        @keyframes badgePulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+    `;
+    document.head.appendChild(badgeStyle);
+
+    // שליחת בקשה ראשונה לבדיקת הודעות חדשות זמן קצר לאחר פתיחת האתר והתחברות
+    setTimeout(() => {
+        if (state.userToken) {
+            checkUnreadMessages();
+        }
+    }, 1500);
+
+    // הרצת בדיקה קבועה כל 10 שניות בדיוק
     setInterval(() => {
         if (!state.userToken) return;
         
@@ -15,13 +37,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isModalOpen) {
             silentRefreshChat();
         } else {
-            tick++;
-            if (tick >= 3) {
-                checkUnreadMessages();
-                tick = 0;
-            }
+            checkUnreadMessages();
         }
-    }, 3000);
+    }, 10000);
 });
 
 function injectUserChatModal() {
@@ -91,7 +109,7 @@ function formatChatSmartDate(dateStr) {
     } else if (msgDay.getTime() === yesterday.getTime()) {
         return `אתמול, ${timeStr}`;
     } else {
-        return `${msgDate.toLocaleDateString('he-IL')} ${timeStr}`;
+        return `${msgDate.toLocaleDateString('he-IL')}${timeStr}`;
     }
 }
 
@@ -143,8 +161,16 @@ function updateChatBadge(count) {
     if (count > 0) {
         badge.innerText = count;
         badge.style.display = 'flex';
+        // עיצוב משודרג ובולט יותר
+        badge.classList.add('chat-badge-pulse');
+        badge.style.width = '22px';
+        badge.style.height = '22px';
+        badge.style.fontSize = '12px';
+        badge.style.top = '-6px';
+        badge.style.right = '-6px';
     } else {
         badge.style.display = 'none';
+        badge.classList.remove('chat-badge-pulse');
     }
 }
 
@@ -231,8 +257,7 @@ function renderUserChatMessages(messages, isSilent = false) {
         bubble.innerHTML = `
             <div class="user-chat-text">${msg.text}</div>
             <div class="user-chat-meta">
-                <span dir="ltr">${timeStr}</span>
-                ${readTicks}
+                <span dir="ltr">${timeStr}</span>${readTicks}
             </div>
         `;
         container.appendChild(bubble);
