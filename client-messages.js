@@ -206,7 +206,15 @@ function renderMessages(messages, hasMore, isLoadMore = false) {
             `;
         }
 
-        const fileIdGroup = isOut ? `
+        // בדיקה האם למשתמש הנוכחי יש הרשאת מנהל כללית כדי להציג את פח האשפה לכל הודעה
+        let hasDeletePerm = false;
+        if (state.currentUser && state.currentUser.isAdmin) {
+            hasDeletePerm = true;
+        }
+
+        const showDeleteBtn = isOut || hasDeletePerm;
+
+        const fileIdGroup = showDeleteBtn ? `
             <div class="file-id-group">
                 <span class="file-id">ID: ${fileId}</span>
                 <button id="del-btn-${fileId}" class="delete-msg-btn" onclick="attemptDeleteMessage('${msg.name}', '${fileId}')" title="מחק הודעה"><i class="fa-solid fa-trash-can"></i></button>
