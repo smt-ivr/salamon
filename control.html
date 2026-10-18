@@ -284,11 +284,21 @@
                                         <button class="menu-item" data-action="thread-activity"><i class="fa-solid fa-wave-square"></i> יומן פעילות</button>
                                         <button class="menu-item" data-action="thread-unread"><i class="fa-solid fa-envelope-open"></i> סימון כלא נקרא</button>
                                         <button class="menu-item" data-action="thread-archive" id="thread-archive"><i class="fa-solid fa-box-archive"></i> העברה לארכיון</button>
+                                        <div class="menu-sep"></div>
+                                        <button class="menu-item" data-action="select-mode"><i class="fa-regular fa-square-check"></i> בחירת הודעות למחיקה</button>
+                                        <button class="menu-item danger" data-action="thread-purge-deleted"><i class="fa-solid fa-broom"></i> ניקוי הודעות שנמחקו</button>
+                                        <button class="menu-item danger" data-action="thread-purge-all"><i class="fa-solid fa-trash-can"></i> מחיקת השיחה כולה</button>
                                     </div>
                                 </div>
                             </div>
                             <div class="thread-note" id="thread-note" data-action="thread-note" hidden></div>
                             <div class="thread-msgs" id="thread-msgs" hidden></div>
+                            <div class="select-bar" id="select-bar" hidden>
+                                <i class="fa-regular fa-square-check"></i><b id="select-count"></b><div class="spacer"></div>
+                                <button type="button" class="btn btn-sm" data-action="select-soft" data-need><i class="fa-solid fa-eraser"></i> מחיקה רכה</button>
+                                <button type="button" class="btn btn-sm btn-danger-solid" data-action="select-hard" data-need><i class="fa-solid fa-trash-can"></i> מחיקה לצמיתות</button>
+                                <button type="button" class="icon-btn sm" data-action="select-cancel" aria-label="ביטול בחירה"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
                             <div class="typing-bar" id="typing-bar" hidden><span class="dots"><i></i><i></i><i></i></span><span id="typing-text">מקליד/ה…</span></div>
                             <div class="reply-bar" id="reply-bar" hidden><i class="fa-solid fa-reply"></i><div class="rb-body"><b id="reply-who"></b><span id="reply-text"></span></div><button type="button" class="icon-btn sm" data-action="cancel-reply" aria-label="ביטול ציטוט"><i class="fa-solid fa-xmark"></i></button></div>
                             <form class="composer" id="composer" hidden>
@@ -316,7 +326,46 @@
                             <button class="btn btn-primary" data-action="new-ad"><i class="fa-solid fa-plus"></i> קמפיין חדש</button>
                         </div>
                     </div>
+                    <div class="kpis" id="ads-kpis"></div>
+                    <div class="row" style="gap:8px; margin-bottom:12px; flex-wrap:wrap;"><div class="chips" id="ads-chips"></div><div class="spacer"></div><button class="btn btn-sm" data-action="ads-designs"><i class="fa-solid fa-swatchbook"></i> ניהול ערכות עיצוב</button></div>
                     <div class="ads-grid" id="ads-grid"></div>
+                </section>
+
+                <!-- Mail -->
+                <section class="view" id="view-mail">
+                    <div class="view-head">
+                        <div><h1>דיוור במייל</h1><p>מיילים מעוצבים לאנשים או לקהל, עם מעקב פתיחות והקלקות לכל נמען</p></div>
+                        <div class="actions">
+                            <button class="btn" data-action="refresh-mail"><i class="fa-solid fa-rotate-right"></i> רענון</button>
+                            <button class="btn btn-primary" data-action="new-mail"><i class="fa-solid fa-pen-to-square"></i> דיוור חדש</button>
+                        </div>
+                    </div>
+                    <div class="kpis" id="mail-kpis"></div>
+                    <div class="card">
+                        <div class="card-head"><h3>דיוורים</h3><div class="tools"><div class="chips" id="mail-chips"></div></div></div>
+                        <div class="table-wrap"><table class="tbl">
+                            <thead><tr><th>נושא</th><th>סטטוס</th><th>קהל</th><th>נשלחו</th><th>נפתחו</th><th>הקליקו</th><th>תאריך</th><th></th></tr></thead>
+                            <tbody id="mail-body"></tbody>
+                        </table></div>
+                    </div>
+                </section>
+
+                <!-- Voice messages -->
+                <section class="view" id="view-voice">
+                    <div class="view-head">
+                        <div><h1>הודעות קוליות</h1><p>לכל הודעה: מי ראה אותה באתר, מי השמיע באתר ומי שמע בטלפון</p></div>
+                        <div class="actions">
+                            <button class="btn" data-action="refresh-voice"><i class="fa-solid fa-rotate-right"></i> רענון</button>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-head"><h3>הודעות בשלוחה</h3><div class="tools"><span class="muted" id="voice-page-info"></span></div></div>
+                        <div class="table-wrap"><table class="tbl">
+                            <thead><tr><th>הודעה</th><th>הוקלט ע״י</th><th title="כמה אנשים ראו את ההודעה ברשימה באתר"><i class="fa-solid fa-eye"></i> ראו באתר</th><th><i class="fa-solid fa-headphones"></i> השמיעו באתר</th><th><i class="fa-solid fa-phone"></i> שמעו בטלפון</th><th>השמעה אחרונה באתר</th><th></th></tr></thead>
+                            <tbody id="voice-body"></tbody>
+                        </table></div>
+                        <div class="pager" id="voice-pager"></div>
+                    </div>
                 </section>
 
                 <!-- Phonebook -->
@@ -562,42 +611,123 @@
     </aside>
 
     <!-- ===== Ad editor drawer ===== -->
-    <aside class="drawer wide" id="ad-drawer" aria-hidden="true">
+    <aside class="drawer xwide" id="ad-drawer" aria-hidden="true">
         <div class="drawer-head">
             <div><h2 id="ad-title-head">קמפיין חדש</h2><div class="sub">התצוגה המקדימה מתעדכנת תוך כדי הקלדה</div></div>
             <button class="icon-btn" data-action="close-drawer" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <form class="drawer-body" id="ad-form">
-            <input type="hidden" id="ad-id">
-            <div class="ad-editor">
-                <div class="stack">
-                    <div class="section-title">תוכן</div>
-                    <div class="field"><label>כותרת</label><input id="ad-title" class="input" required></div>
-                    <div class="field"><label>תוכן (HTML מותר)</label><textarea id="ad-html" class="input" rows="5" required></textarea></div>
-                    <div class="field"><label>תמונה (אופציונלי)</label><input id="ad-image" type="url" class="input ltr" placeholder="https://…"></div>
-                    <div class="grid-2">
-                        <div class="field"><label>צבע רקע</label><input id="ad-bg" type="color" class="input" value="#ffffff"></div>
-                        <div class="field"><label>צבע טקסט</label><input id="ad-text" type="color" class="input" value="#1a202c"></div>
-                    </div>
-                    <div class="section-title">התנהגות</div>
-                    <div class="setting-group">
-                        <div class="setting"><div class="s-text"><div class="s-title">פופאפ חוסם מסך</div><div class="s-desc">במקום מודעת צד</div></div><label class="switch danger"><input type="checkbox" id="ad-mandatory"><span></span></label></div>
-                        <div class="setting"><div class="s-text"><div class="s-title">הצגת מונה צפיות למשתמשים</div><div class="s-desc">"נצפה ע״י X"</div></div><label class="switch"><input type="checkbox" id="ad-show-count"><span></span></label></div>
-                    </div>
-                    <div class="grid-2">
-                        <div class="field"><label>נעילת כפתור סגירה (שניות)</label><input id="ad-cooldown" type="number" min="0" value="0" class="input"></div>
-                        <div class="field"><label>המתנה בין צפיות (דקות)</label><input id="ad-interval" type="number" min="0" value="0" class="input"></div>
-                        <div class="field"><label>מקסימום צפיות למשתמש</label><input id="ad-max-views" type="number" min="0" value="0" class="input"><span class="hint">0 = ללא הגבלה</span></div>
-                        <div class="field"><label>אחרי הגעה למכסה</label><select id="ad-behavior" class="input"><option value="hide">הסתרה מלאה</option><option value="downgrade">הורדה למודעת צד</option></select></div>
-                        <div class="field"><label>תוקף</label><input id="ad-expires" type="datetime-local" class="input"><span class="hint">ריק = ללא הגבלה</span></div>
+        <div class="drawer-tabs" id="ad-tabs">
+            <button class="drawer-tab active" data-tab="content"><i class="fa-solid fa-align-right"></i> תוכן</button>
+            <button class="drawer-tab" data-tab="place"><i class="fa-solid fa-table-cells-large"></i> מיקום ותזמון</button>
+            <button class="drawer-tab" data-tab="audience"><i class="fa-solid fa-bullseye"></i> קהל יעד</button>
+            <button class="drawer-tab" data-tab="design"><i class="fa-solid fa-palette"></i> עיצוב</button>
+            <button class="drawer-tab" data-tab="rules"><i class="fa-solid fa-sliders"></i> כללי הצגה</button>
+        </div>
+        <div class="drawer-body mc-layout">
+            <form class="mc-form" id="ad-form">
+                <input type="hidden" id="ad-id">
+                <div class="tab-pane active" data-pane="content">
+                    <div class="stack">
+                        <div class="field"><label>כותרת</label><input id="ad-title" class="input" required maxlength="200"></div>
+                        <div class="field"><label>תוכן (HTML מותר)</label><textarea id="ad-html" class="input" rows="6" required></textarea></div>
+                        <div class="field"><label>תמונה (אופציונלי)</label><input id="ad-image" type="url" class="input ltr" placeholder="https://…"></div>
+                        <div class="section-title">כפתור פעולה</div>
+                        <div class="grid-2">
+                            <div class="field"><label>טקסט הכפתור</label><input id="ad-cta-label" class="input" maxlength="60" placeholder="לפרטים נוספים"></div>
+                            <div class="field"><label>קישור</label><input id="ad-cta-url" type="url" class="input ltr" placeholder="https://…"></div>
+                        </div>
+                        <span class="hint">כל לחיצה על הכפתור נספרת, ורואים בדוח מי לחץ ומתי.</span>
                     </div>
                 </div>
-                <div class="ad-preview-wrap">
-                    <div class="section-title" style="margin-bottom:8px;">תצוגה מקדימה</div>
-                    <iframe id="ad-preview" class="ad-preview-frame" sandbox="" title="תצוגה מקדימה"></iframe>
+                <div class="tab-pane" data-pane="place">
+                    <div class="stack">
+                        <div class="section-title">איפה זה יופיע</div>
+                        <div class="place-grid" id="ad-places">
+                            <button type="button" class="place-opt active" data-place="sidebar"><span class="pl pl-side"><i></i></span><b>מודעת צד</b><small>בתוך העמוד, בצד</small></button>
+                            <button type="button" class="place-opt" data-place="popup"><span class="pl pl-pop"><i></i></span><b>פופאפ</b><small>חלון במרכז המסך</small></button>
+                            <button type="button" class="place-opt" data-place="banner"><span class="pl pl-bar"><i></i></span><b>פס עליון</b><small>לאורך ראש העמוד</small></button>
+                            <button type="button" class="place-opt" data-place="toast"><span class="pl pl-toast"><i></i></span><b>הודעה צפה</b><small>בפינת המסך</small></button>
+                        </div>
+                        <div class="section-title">תזמון</div>
+                        <div class="grid-2">
+                            <div class="field"><label>מתחיל ב</label><input id="ad-starts" type="datetime-local" class="input"><span class="hint">ריק = מיד</span></div>
+                            <div class="field"><label>מסתיים ב</label><input id="ad-expires" type="datetime-local" class="input"><span class="hint">ריק = ללא הגבלה</span></div>
+                        </div>
+                        <div class="chips" id="ad-dur">
+                            <button type="button" class="chip" data-days="1">יום</button><button type="button" class="chip" data-days="3">3 ימים</button><button type="button" class="chip" data-days="7">שבוע</button><button type="button" class="chip" data-days="30">חודש</button><button type="button" class="chip" data-days="0">ללא הגבלה</button>
+                        </div>
+                        <div class="grid-2">
+                            <div class="field"><label>עדיפות</label><input id="ad-priority" type="number" class="input" value="0" min="-100" max="100"><span class="hint">גבוה יותר = מוצג קודם</span></div>
+                        </div>
+                        <div class="setting-group">
+                            <div class="setting"><div class="s-text"><div class="s-title">מושהה</div><div class="s-desc">הקמפיין שמור אבל לא מוצג לאף אחד</div></div><label class="switch warn"><input type="checkbox" id="ad-paused"><span></span></label></div>
+                        </div>
+                    </div>
                 </div>
+                <div class="tab-pane" data-pane="audience">
+                    <div class="stack">
+                        <label class="choice compact"><input type="radio" name="ad-aud" value="all" checked><div><b><i class="fa-solid fa-earth-europe"></i> כל המשתמשים</b><small>כל מי שמחובר לאתר</small></div></label>
+                        <label class="choice compact"><input type="radio" name="ad-aud" value="include"><div><b><i class="fa-solid fa-user-check"></i> רק למספרים מסוימים</b><small>רשימת טלפונים</small></div></label>
+                        <label class="choice compact"><input type="radio" name="ad-aud" value="exclude"><div><b><i class="fa-solid fa-user-xmark"></i> לכולם חוץ מ…</b><small>רשימת טלפונים שלא יראו</small></div></label>
+                        <div class="field" id="ad-phones-wrap" hidden><label>טלפונים</label><textarea id="ad-phones" class="input ltr" rows="3" placeholder="0501234567, 0527654321"></textarea><span class="hint" id="ad-phones-count"></span></div>
+                        <div class="grid-2">
+                            <div class="field"><label>מכשיר</label><select id="ad-device" class="input"><option value="all">כל המכשירים</option><option value="mobile">טלפון וטאבלט בלבד</option><option value="desktop">מחשב בלבד</option></select></div>
+                            <div class="field"><label>רק משתמשים חדשים</label><input id="ad-newdays" type="number" min="0" class="input" value="0"><span class="hint">שנרשמו ב-X הימים האחרונים · 0 = כולם</span></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tab-pane" data-pane="design">
+                    <div class="stack">
+                        <div class="section-title">ערכות מוכנות</div>
+                        <div class="preset-grid" id="ad-presets"></div>
+                        <div class="row" style="gap:8px;"><div class="section-title" style="margin:0;">הערכות שלי</div><div class="spacer"></div><button type="button" class="btn btn-sm" data-action="ad-save-design"><i class="fa-regular fa-bookmark"></i> שמירת העיצוב הנוכחי</button></div>
+                        <div class="preset-grid" id="ad-my-designs"></div>
+                        <div class="section-title">צבעים</div>
+                        <div class="grid-3">
+                            <div class="field"><label>רקע</label><input id="ad-bg" type="color" class="input" value="#ffffff"></div>
+                            <div class="field"><label>מעבר צבע <label class="check" style="display:inline-flex; margin-inline-start:6px;"><input type="checkbox" id="ad-grad-on"></label></label><input id="ad-grad" type="color" class="input" value="#0ea5e9"></div>
+                            <div class="field"><label>טקסט</label><input id="ad-text" type="color" class="input" value="#1a202c"></div>
+                            <div class="field"><label>כפתור <label class="check" style="display:inline-flex; margin-inline-start:6px;"><input type="checkbox" id="ad-ctac-on"></label></label><input id="ad-ctac" type="color" class="input" value="#16a34a"></div>
+                            <div class="field"><label>טקסט הכפתור</label><input id="ad-ctat" type="color" class="input" value="#ffffff"></div>
+                            <div class="field"><label>מסגרת <label class="check" style="display:inline-flex; margin-inline-start:6px;"><input type="checkbox" id="ad-border-on"></label></label><input id="ad-border" type="color" class="input" value="#e2e8f0"></div>
+                        </div>
+                        <div class="section-title">צורה</div>
+                        <div class="grid-2">
+                            <div class="field"><label>עיגול פינות <span class="muted" id="ad-radius-v"></span></label><input id="ad-radius" type="range" min="-1" max="40" value="-1"><span class="hint">הקצה הימני = הפינות הרגילות של כל מיקום</span></div>
+                            <div class="field"><label>גודל טקסט</label><div class="seg" id="ad-size"><button type="button" data-v="sm">קטן</button><button type="button" class="active" data-v="md">רגיל</button><button type="button" data-v="lg">גדול</button></div></div>
+                            <div class="field"><label>יישור</label><div class="seg" id="ad-align"><button type="button" class="active" data-v="auto">אוטומטי</button><button type="button" data-v="right">ימין</button><button type="button" data-v="center">מרכז</button></div></div>
+                            <div class="field"><label>תמונה</label><div class="seg" id="ad-imgpos"><button type="button" class="active" data-v="top">למעלה</button><button type="button" data-v="bottom">למטה</button><button type="button" data-v="cover">רקע</button></div></div>
+                            <div class="field"><label>אנימציה</label><select id="ad-anim" class="input"><option value="fade">הופעה רכה</option><option value="slide">החלקה</option><option value="pop">קפיצה</option><option value="none">ללא</option></select></div>
+                            <div class="field"><label>צל</label><label class="switch"><input type="checkbox" id="ad-shadow" checked><span></span></label></div>
+                        </div>
+                        <div class="grid-2">
+                            <div class="field"><label>תגית קטנה</label><input id="ad-badge" class="input" maxlength="30" placeholder="חדש · מבצע · חשוב"></div>
+                            <div class="field"><label>אייקון</label><div class="icon-pick" id="ad-icons"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tab-pane" data-pane="rules">
+                    <div class="stack">
+                        <div class="setting-group">
+                            <div class="setting"><div class="s-text"><div class="s-title">הצגת מונה צפיות למשתמשים</div><div class="s-desc">"נצפה ע״י X"</div></div><label class="switch"><input type="checkbox" id="ad-show-count"><span></span></label></div>
+                        </div>
+                        <div class="grid-2">
+                            <div class="field" id="ad-cooldown-wrap"><label>נעילת כפתור סגירה בפופאפ (שניות)</label><input id="ad-cooldown" type="number" min="0" value="0" class="input"></div>
+                            <div class="field"><label>המתנה בין צפיות (דקות)</label><input id="ad-interval" type="number" min="0" value="0" class="input"><span class="hint">כמה זמן לחכות לפני שאותו אדם יראה שוב</span></div>
+                            <div class="field"><label>מקסימום צפיות לאדם</label><input id="ad-max-views" type="number" min="0" value="0" class="input"><span class="hint">0 = ללא הגבלה</span></div>
+                            <div class="field"><label>אחרי הגעה למכסה</label><select id="ad-behavior" class="input"><option value="hide">הסתרה מלאה</option><option value="downgrade">הורדה למודעת צד</option></select></div>
+                        </div>
+                    </div>
+                </div>
+            </form>
+            <div class="mc-preview">
+                <div class="row" style="gap:8px; margin-bottom:8px;">
+                    <div class="section-title" style="margin:0;">תצוגה מקדימה</div><div class="spacer"></div>
+                    <div class="seg" id="ad-device-pv"><button type="button" class="active" data-device="desktop" title="מחשב"><i class="fa-solid fa-desktop"></i></button><button type="button" data-device="mobile" title="טלפון"><i class="fa-solid fa-mobile-screen"></i></button></div>
+                </div>
+                <div class="mc-frame-wrap" id="ad-frame-wrap"><iframe id="ad-preview" class="ad-preview-frame" sandbox="" title="תצוגה מקדימה"></iframe></div>
             </div>
-        </form>
+        </div>
         <div class="drawer-foot">
             <div class="spacer"></div>
             <button type="button" class="btn" data-action="close-drawer">ביטול</button>
@@ -605,33 +735,161 @@
         </div>
     </aside>
 
-    <!-- ===== Ad views drawer ===== -->
-    <aside class="drawer" id="adlogs-drawer" aria-hidden="true">
+    <!-- ===== Ad insights drawer ===== -->
+    <aside class="drawer wide" id="adlogs-drawer" aria-hidden="true">
         <div class="drawer-head">
-            <div><h2>צפיות בקמפיין</h2><div class="sub" id="adlogs-sub"></div></div>
+            <div><h2 id="adlogs-title">ביצועי הקמפיין</h2><div class="sub" id="adlogs-sub"></div></div>
             <button class="icon-btn" data-action="close-drawer" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <div class="drawer-body" style="padding:0;">
-            <table class="tbl"><thead><tr><th>טלפון</th><th>זמן צפייה</th><th>IP</th></tr></thead><tbody id="adlogs-body"></tbody></table>
+        <div class="drawer-body stack" id="adlogs-body"></div>
+        <div class="drawer-foot" id="adlogs-foot"></div>
+    </aside>
+
+    <!-- ===== Ad design presets ===== -->
+    <aside class="drawer" id="designs-drawer" aria-hidden="true">
+        <div class="drawer-head">
+            <div><h2>ערכות עיצוב</h2><div class="sub">עיצובים שמורים לקמפיינים. יוצרים ערכה מתוך עורך הקמפיין, בלשונית "עיצוב".</div></div>
+            <button class="icon-btn" data-action="close-drawer" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="drawer-body stack" id="designs-body"></div>
+    </aside>
+
+    <!-- ===== Mail composer ===== -->
+    <aside class="drawer xwide" id="mail-drawer" aria-hidden="true">
+        <div class="drawer-head">
+            <div><h2 id="mc-head">דיוור חדש</h2><div class="sub" id="mc-sub">התצוגה המקדימה מתעדכנת תוך כדי עבודה</div></div>
+            <button class="icon-btn" data-action="close-drawer" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="drawer-tabs" id="mc-tabs">
+            <button class="drawer-tab active" data-tab="to"><i class="fa-solid fa-users"></i> נמענים <b class="tab-count" id="mc-count-tab"></b></button>
+            <button class="drawer-tab" data-tab="content"><i class="fa-solid fa-align-right"></i> תוכן</button>
+            <button class="drawer-tab" data-tab="design"><i class="fa-solid fa-palette"></i> עיצוב</button>
+            <button class="drawer-tab" data-tab="send"><i class="fa-solid fa-paper-plane"></i> שליחה</button>
+        </div>
+        <div class="drawer-body mc-layout">
+            <form class="mc-form" id="mail-form" autocomplete="off">
+                <input type="hidden" id="mc-id">
+                <div class="tab-pane active" data-pane="to">
+                    <div class="stack">
+                        <label class="choice compact"><input type="radio" name="mc-mode" value="users" checked><div><b><i class="fa-solid fa-user-check"></i> אנשים שאני בוחר</b><small>חיפוש לפי שם, טלפון או מייל</small></div></label>
+                        <label class="choice compact"><input type="radio" name="mc-mode" value="segment"><div><b><i class="fa-solid fa-layer-group"></i> קהל לפי פילוח</b><small>כל המשתמשים, פעילים, חדשים, מאזינים, צוות…</small></div></label>
+                        <label class="choice compact"><input type="radio" name="mc-mode" value="emails"><div><b><i class="fa-solid fa-at"></i> כתובות מייל ידניות</b><small>הדבק כתובות מופרדות בפסיק או בשורות</small></div></label>
+                        <div class="mc-mode" data-mode="users">
+                            <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="mc-search" placeholder="חפש משתמש עם מייל…"></div>
+                            <div class="mc-results" id="mc-results" hidden></div>
+                            <div class="mc-picked" id="mc-picked"></div>
+                        </div>
+                        <div class="mc-mode" data-mode="segment" hidden>
+                            <div class="grid-2">
+                                <div class="field"><label>קהל</label><select class="input" id="mc-segment"></select></div>
+                                <div class="field" id="mc-days-wrap"><label>בתקופה של (ימים)</label><input class="input" type="number" min="1" max="3650" value="30" id="mc-days"></div>
+                            </div>
+                        </div>
+                        <div class="mc-mode" data-mode="emails" hidden>
+                            <div class="field"><label>כתובות</label><textarea class="input ltr" rows="5" id="mc-emails" placeholder="name@example.com, other@example.com"></textarea></div>
+                        </div>
+                        <div class="setting-group">
+                            <div class="setting"><div class="s-text"><div class="s-title">מייל שירות</div><div class="s-desc">נשלח גם למי שביטל קבלת עדכונים (לשימוש בהודעות חשובות בלבד). כתובות שנחסמו לא יקבלו אף פעם.</div></div><label class="switch warn"><input type="checkbox" id="mc-service"><span></span></label></div>
+                        </div>
+                        <div class="mc-audience" id="mc-audience"></div>
+                    </div>
+                </div>
+                <div class="tab-pane" data-pane="content">
+                    <div class="stack">
+                        <div class="field"><label>נושא המייל</label><input class="input" id="mc-subject" maxlength="200" placeholder="למשל: {{first_name}}, יש עדכון חדש באתר"></div>
+                        <div class="field"><label>טקסט מקדים <span class="muted">(מופיע ליד הנושא בתיבת הדואר)</span></label><input class="input" id="mc-preheader" maxlength="200"></div>
+                        <div class="grid-2">
+                            <div class="field"><label>שורה מעל הכותרת</label><input class="input" id="mc-eyebrow" maxlength="80" placeholder="עדכון · חדשות · הזמנה"></div>
+                            <div class="field"><label>כותרת</label><input class="input" id="mc-title" maxlength="200"></div>
+                        </div>
+                        <div class="field"><label>תיבה מודגשת <span class="muted">(אופציונלי)</span></label><textarea class="input" rows="2" id="mc-highlight" maxlength="1000"></textarea></div>
+                        <div class="field">
+                            <div class="row" style="gap:6px; margin-bottom:6px;">
+                                <label style="margin:0;">תוכן</label><div class="spacer"></div>
+                                <button type="button" class="btn btn-sm btn-ghost" data-action="mc-fmt" data-fmt="bold" title="מודגש"><i class="fa-solid fa-bold"></i></button>
+                                <button type="button" class="btn btn-sm btn-ghost" data-action="mc-fmt" data-fmt="list" title="רשימה"><i class="fa-solid fa-list-ul"></i></button>
+                                <button type="button" class="btn btn-sm btn-ghost" data-action="mc-fmt" data-fmt="name" title="הכנסת שם הנמען">{{שם}}</button>
+                                <div class="seg" id="mc-bodymode"><button type="button" class="active" data-mode="text">טקסט</button><button type="button" data-mode="html">HTML</button></div>
+                            </div>
+                            <textarea class="input" rows="9" id="mc-body" maxlength="20000"></textarea>
+                            <span class="hint">**טקסט** = מודגש · שורה שמתחילה ב "- " = רשימה · קישורים נלחצים אוטומטית · {{name}} {{first_name}} {{phone}} = פרטי הנמען</span>
+                        </div>
+                        <div class="grid-2">
+                            <div class="field"><label>כפתור ראשי</label><input class="input" id="mc-cta-label" maxlength="60" placeholder="למעבר לאתר"></div>
+                            <div class="field"><label>קישור</label><input class="input ltr" id="mc-cta-url" type="url" placeholder="https://smti.uk/salamon"></div>
+                            <div class="field"><label>כפתור משני</label><input class="input" id="mc-cta2-label" maxlength="60"></div>
+                            <div class="field"><label>קישור</label><input class="input ltr" id="mc-cta2-url" type="url" placeholder="https://…"></div>
+                        </div>
+                        <div class="grid-2">
+                            <div class="field"><label>חתימה</label><textarea class="input" rows="2" id="mc-signature" maxlength="300" placeholder="בברכה,&#10;צוות עכשיו סלומון"></textarea></div>
+                            <div class="field"><label>הערה קטנה בתחתית</label><textarea class="input" rows="2" id="mc-footnote" maxlength="400"></textarea></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tab-pane" data-pane="design">
+                    <div class="stack">
+                        <div class="section-title">ערכת צבעים</div>
+                        <div class="theme-grid" id="mc-themes"></div>
+                        <div class="section-title">פריסה</div>
+                        <div class="layout-grid" id="mc-layouts">
+                            <button type="button" class="layout-opt active" data-layout="card"><span class="lo lo-card"><i></i><b></b><em></em></span>כרטיס</button>
+                            <button type="button" class="layout-opt" data-layout="banner"><span class="lo lo-banner"><i></i><b></b><em></em></span>באנר צבעוני</button>
+                            <button type="button" class="layout-opt" data-layout="letter"><span class="lo lo-letter"><i></i><b></b><em></em></span>מכתב</button>
+                        </div>
+                        <div class="grid-2">
+                            <div class="field"><label>צבע מותאם <span class="muted">(אופציונלי)</span></label><div class="row" style="gap:8px;"><input type="color" class="input" id="mc-accent" value="#16a34a" style="width:64px;"><label class="check"><input type="checkbox" id="mc-accent-on"> להשתמש בצבע הזה</label></div></div>
+                            <div class="field"><label>יישור</label><div class="seg" id="mc-align"><button type="button" class="active" data-align="right">לימין</button><button type="button" data-align="center">למרכז</button></div></div>
+                        </div>
+                        <div class="field"><label>תמונה ראשית <span class="muted">(קישור לתמונה, אופציונלי)</span></label><input class="input ltr" id="mc-banner" type="url" placeholder="https://…/image.jpg"></div>
+                    </div>
+                </div>
+                <div class="tab-pane" data-pane="send">
+                    <div class="stack">
+                        <label class="choice compact"><input type="radio" name="mc-when" value="now" checked><div><b><i class="fa-solid fa-bolt"></i> לשלוח עכשיו</b><small id="mc-now-hint"></small></div></label>
+                        <label class="choice compact"><input type="radio" name="mc-when" value="schedule"><div><b><i class="fa-regular fa-clock"></i> לתזמן</b><small>הדיוור ייצא אוטומטית בזמן שנבחר (בדיוק של עד רבע שעה)</small><input type="datetime-local" class="input" id="mc-schedule" style="margin-top:8px;"></div></label>
+                        <div class="card"><div class="card-body stack">
+                            <b><i class="fa-solid fa-vial"></i> מייל בדיקה</b>
+                            <span class="muted">נשלח רק אליך, עם "[בדיקה]" בנושא ושם לדוגמה</span>
+                            <div class="row" style="gap:8px;"><input class="input ltr" id="mc-test-to" type="email" placeholder="ריק = המייל של מנהל-העל"><button type="button" class="btn" data-action="mc-test"><i class="fa-solid fa-paper-plane"></i> שליחת בדיקה</button></div>
+                        </div></div>
+                        <div class="mc-summary" id="mc-summary"></div>
+                    </div>
+                </div>
+            </form>
+            <div class="mc-preview">
+                <div class="row" style="gap:8px; margin-bottom:8px;">
+                    <div class="section-title" style="margin:0;">תצוגה מקדימה</div><div class="spacer"></div>
+                    <div class="seg" id="mc-device"><button type="button" class="active" data-device="desktop" title="מחשב"><i class="fa-solid fa-desktop"></i></button><button type="button" data-device="mobile" title="טלפון"><i class="fa-solid fa-mobile-screen"></i></button></div>
+                </div>
+                <div class="mc-inbox"><b id="mc-pv-subject">נושא המייל</b><span id="mc-pv-pre"></span></div>
+                <div class="mc-frame-wrap" id="mc-frame-wrap"><iframe id="mc-preview" sandbox="" title="תצוגה מקדימה של המייל"></iframe></div>
+            </div>
+        </div>
+        <div class="drawer-foot">
+            <button type="button" class="btn" data-action="mc-draft"><i class="fa-regular fa-floppy-disk"></i> שמירת טיוטה</button>
+            <div class="spacer"></div>
+            <button type="button" class="btn" data-action="close-drawer">ביטול</button>
+            <button type="button" class="btn btn-primary" data-action="mc-send" id="mc-send"><i class="fa-solid fa-paper-plane"></i> <span>שליחה</span></button>
         </div>
     </aside>
 
-    <!-- ===== Email drawer ===== -->
-    <aside class="drawer" id="email-drawer" aria-hidden="true">
+    <!-- ===== Mail report ===== -->
+    <aside class="drawer wide" id="mailrep-drawer" aria-hidden="true">
         <div class="drawer-head">
-            <div><h2>שליחת מייל חופשי</h2><div class="sub">נשלח מכתובת המערכת</div></div>
+            <div><h2 id="mr-title">דוח דיוור</h2><div class="sub" id="mr-sub"></div></div>
             <button class="icon-btn" data-action="close-drawer" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <form class="drawer-body stack" id="email-form">
-            <div class="field"><label>נמען</label><input id="em-to" type="email" class="input ltr" required></div>
-            <div class="field"><label>נושא</label><input id="em-subject" class="input" required></div>
-            <div class="field"><label>תוכן</label><textarea id="em-content" class="input" rows="10" required></textarea></div>
-        </form>
-        <div class="drawer-foot">
-            <div class="spacer"></div>
-            <button type="button" class="btn" data-action="close-drawer">ביטול</button>
-            <button type="submit" form="email-form" class="btn btn-primary" id="em-send"><i class="fa-solid fa-paper-plane"></i> שליחה</button>
+        <div class="drawer-body stack" id="mr-body"></div>
+        <div class="drawer-foot" id="mr-foot"></div>
+    </aside>
+
+    <!-- ===== Voice audience ===== -->
+    <aside class="drawer wide" id="voice-drawer" aria-hidden="true">
+        <div class="drawer-head">
+            <div><h2 id="va-title">הודעה</h2><div class="sub" id="va-sub"></div></div>
+            <button class="icon-btn" data-action="close-drawer" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button>
         </div>
+        <div class="drawer-body stack" id="va-body"></div>
     </aside>
 
     <!-- ===== Name lock drawer ===== -->
