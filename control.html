@@ -52,8 +52,8 @@
                     <button type="submit" id="login-submit" class="btn btn-primary btn-block" style="height:42px;"><i class="fa-solid fa-lock"></i> כניסה מאובטחת</button>
                 </form>
                 <div class="login-alt">
-                    <p class="muted" style="margin:0 0 10px; font-size:13px;">חבר צוות עם חשבון רגיל באתר?</p>
-                    <button type="button" class="btn btn-block" data-action="staff-login"><i class="fa-solid fa-id-badge"></i> כניסת צוות עם החשבון שלי</button>
+                    <p class="muted" style="margin:0 0 10px; font-size:13px;">מנהל-על או חבר צוות שמחובר כבר באתר?</p>
+                    <button type="button" class="btn btn-block" data-action="staff-login"><i class="fa-solid fa-id-badge"></i> כניסה עם החשבון שלי באתר</button>
                 </div>
             </div>
         </div>
@@ -380,6 +380,80 @@
                     </div>
                 </section>
 
+                <!-- Settings -->
+                <section class="view" id="view-settings">
+                    <div class="view-head">
+                        <div><h1>הגדרות</h1><p>החשבון שלך, אבטחה, פרטיות מול הלקוחות והתראות</p></div>
+                    </div>
+                    <div class="settings-grid">
+                        <div class="card">
+                            <div class="card-head"><h3><i class="fa-solid fa-user-shield"></i> החשבון שלי</h3></div>
+                            <div class="card-body stack" id="set-me"></div>
+                            <form class="card-body stack" id="pw-form" style="border-top:1px solid var(--border);">
+                                <div class="section-title">שינוי סיסמת המנהל</div>
+                                <div class="field"><label>סיסמה נוכחית</label><input type="password" id="pw-current" class="input ltr" autocomplete="current-password" required></div>
+                                <div class="grid-2">
+                                    <div class="field"><label>סיסמה חדשה</label><input type="password" id="pw-new" class="input ltr" autocomplete="new-password" minlength="8" required><span class="hint">לפחות 8 תווים</span></div>
+                                    <div class="field"><label>אימות סיסמה</label><input type="password" id="pw-confirm" class="input ltr" autocomplete="new-password" minlength="8" required></div>
+                                </div>
+                                <div class="row"><span class="hint muted">אחרי השינוי כל שאר המכשירים יתנתקו.</span><div class="spacer"></div><button type="submit" class="btn btn-primary" id="pw-save"><i class="fa-solid fa-key"></i> שינוי סיסמה</button></div>
+                            </form>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-head"><h3><i class="fa-solid fa-crown"></i> מנהל-על</h3></div>
+                            <div class="card-body stack">
+                                <p class="muted" style="margin:0;">משתמש אתר אחד בלבד יכול לקבל גישה מלאה למרכז השליטה. הוא נכנס עם החשבון הרגיל שלו באתר, דרך כפתור "כניסה עם החשבון שלי", בלי סיסמת המנהל.</p>
+                                <div id="sa-current"></div>
+                                <div class="row wrap" style="align-items:flex-end;">
+                                    <div class="field" style="flex:1; min-width:180px;"><label>מספר הטלפון של המשתמש</label><input id="sa-phone" class="input ltr" placeholder="05XXXXXXXX" inputmode="tel"></div>
+                                    <button type="button" class="btn btn-primary" data-action="sa-save"><i class="fa-solid fa-check"></i> הגדרה</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-head"><h3><i class="fa-solid fa-eye-slash"></i> פרטיות מול הלקוחות</h3><span class="sub">נשמר אוטומטית</span></div>
+                            <div class="setting-group" style="border:none; border-radius:0;">
+                                <div class="setting"><div class="s-text"><div class="s-title">להציג ללקוחות שאני מחובר</div><div class="s-desc">כשכבוי, הלקוחות לעולם לא יראו "מחובר/ת עכשיו". כשדלוק, יופיע רק כשאתה באמת מול המסך, וייעלם מיד כשתצא.</div></div><label class="switch"><input type="checkbox" id="pv-presence" data-setting="admin_show_presence"><span></span></label></div>
+                                <div class="setting"><div class="s-text"><div class="s-title">להציג "מקליד/ה…" כשאני כותב</div><div class="s-desc">הלקוח יראה שאתה מקליד תשובה</div></div><label class="switch"><input type="checkbox" id="pv-typing" data-setting="admin_show_typing"><span></span></label></div>
+                                <div class="setting"><div class="s-text"><div class="s-title">אישורי קריאה (וי כחול)</div><div class="s-desc">הלקוח יראה מתי קראת את ההודעה שלו</div></div><label class="switch"><input type="checkbox" id="pv-receipts" data-setting="admin_show_read_receipts"><span></span></label></div>
+                            </div>
+                        </div>
+
+                        <div class="card">
+                            <div class="card-head"><h3><i class="fa-solid fa-laptop"></i> מכשירים מחוברים למרכז השליטה</h3><div class="tools"><button class="btn btn-sm btn-danger" data-action="sess-revoke-others"><i class="fa-solid fa-power-off"></i> ניתוק כל השאר</button></div></div>
+                            <ul class="feed" id="sess-list"></ul>
+                        </div>
+
+                        <div class="card span-2">
+                            <div class="card-head"><h3><i class="fa-solid fa-bell"></i> התראות צ'אט במייל</h3></div>
+                            <form class="card-body stack" id="chat-settings-form">
+                                <div class="setting-group">
+                                    <div class="setting"><div class="s-text"><div class="s-title">מייל אליי כשלקוח כותב ואני לא בצ'אט</div><div class="s-desc">נשלח רק אחרי שלא היית פעיל במרכז השליטה, ופעם אחת לכל שיחה עד שתחזור</div></div><label class="switch"><input type="checkbox" id="cs-enabled"><span></span></label></div>
+                                </div>
+                                <div class="grid-3">
+                                    <div class="field"><label>כתובת המייל שלי</label><input type="email" id="cs-email" class="input ltr" placeholder="you@example.com"></div>
+                                    <div class="field"><label>לשלוח אחרי חוסר פעילות של (דקות)</label><input type="number" min="1" max="240" id="cs-idle" class="input"></div>
+                                    <div class="field"><label>מינימום בין מיילים על אותה שיחה (דקות)</label><input type="number" min="1" max="1440" id="cs-cooldown" class="input"></div>
+                                </div>
+                                <div class="section-title">מייל ללקוח כשאני עונה</div>
+                                <div class="grid-2">
+                                    <div class="field"><label>ברירת מחדל</label>
+                                        <select id="cs-customer-mode" class="input">
+                                            <option value="auto">חכם: רק אם הלקוח לא מחובר, ופעם אחת עד שיפתח את הצ'אט</option>
+                                            <option value="always">תמיד לשלוח מייל</option>
+                                            <option value="never">לא לשלוח מייל</option>
+                                        </select>
+                                    </div>
+                                    <div class="field"><label>הלקוח נחשב "לא מחובר" אחרי (דקות)</label><input type="number" min="1" max="120" id="cs-offline" class="input"></div>
+                                </div>
+                                <div class="row wrap"><button type="button" class="btn" data-action="chat-test-email"><i class="fa-solid fa-paper-plane"></i> שליחת מייל בדיקה</button><div class="spacer"></div><button type="submit" class="btn btn-primary" id="cs-save"><i class="fa-solid fa-check"></i> שמירת הגדרות התראות</button></div>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- Audit -->
                 <section class="view" id="view-audit">
                     <div class="view-head">
@@ -570,41 +644,6 @@
             <div class="spacer"></div>
             <button type="button" class="btn" data-action="close-drawer">ביטול</button>
             <button type="submit" form="email-form" class="btn btn-primary" id="em-send"><i class="fa-solid fa-paper-plane"></i> שליחה</button>
-        </div>
-    </aside>
-
-    <!-- ===== Chat settings drawer ===== -->
-    <aside class="drawer" id="chat-settings-drawer" aria-hidden="true">
-        <div class="drawer-head">
-            <div><h2>הגדרות צ'אט והתראות</h2><div class="sub">התראות חכמות במייל, בלי הצפה</div></div>
-            <button class="icon-btn" data-action="close-drawer" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button>
-        </div>
-        <form class="drawer-body stack" id="chat-settings-form">
-            <div class="section-title">התראות אליך על הודעות חדשות</div>
-            <div class="setting-group">
-                <div class="setting"><div class="s-text"><div class="s-title">מייל כשלקוח כותב ואני לא בצ'אט</div><div class="s-desc">נשלח רק אחרי שלא היית פעיל במרכז השליטה, ופעם אחת לכל שיחה עד שתחזור</div></div><label class="switch"><input type="checkbox" id="cs-enabled"><span></span></label></div>
-            </div>
-            <div class="field"><label>כתובת המייל שלי</label><input type="email" id="cs-email" class="input ltr" placeholder="you@example.com"></div>
-            <div class="grid-2">
-                <div class="field"><label>לשלוח אחרי חוסר פעילות של (דקות)</label><input type="number" min="1" max="240" id="cs-idle" class="input"></div>
-                <div class="field"><label>מינימום בין מיילים על אותה שיחה (דקות)</label><input type="number" min="1" max="1440" id="cs-cooldown" class="input"></div>
-            </div>
-            <button type="button" class="btn" data-action="chat-test-email"><i class="fa-solid fa-paper-plane"></i> שליחת מייל בדיקה</button>
-            <div class="section-title">מייל ללקוח כשאני עונה</div>
-            <div class="field"><label>ברירת מחדל</label>
-                <select id="cs-customer-mode" class="input">
-                    <option value="auto">חכם: רק אם הלקוח לא מחובר, ופעם אחת עד שיפתח את הצ'אט</option>
-                    <option value="always">תמיד לשלוח מייל</option>
-                    <option value="never">לא לשלוח מייל</option>
-                </select>
-            </div>
-            <div class="field"><label>הלקוח נחשב "לא מחובר" אחרי (דקות)</label><input type="number" min="1" max="120" id="cs-offline" class="input"></div>
-            <div class="alert info"><i class="fa-solid fa-circle-info"></i><span>המייל ללקוח מעוצב, כולל את התשובות האחרונות וכפתור שפותח את הצ'אט באתר מיד. אפשר לשנות את ההתנהגות בכל הודעה ליד כפתור השליחה.</span></div>
-        </form>
-        <div class="drawer-foot">
-            <div class="spacer"></div>
-            <button type="button" class="btn" data-action="close-drawer">ביטול</button>
-            <button type="submit" form="chat-settings-form" class="btn btn-primary" id="cs-save"><i class="fa-solid fa-check"></i> שמירה</button>
         </div>
     </aside>
 

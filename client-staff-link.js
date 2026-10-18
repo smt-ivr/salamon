@@ -11,7 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function setupStaffConsoleLink() {
     const user = state.currentUser;
-    if (!user || !user.isAdmin) return;
+    if (!user || !(user.isAdmin || user.isSuperAdmin)) return;
 
     const sidebarActions = document.querySelector('#user-dash-view .sidebar-actions');
     if (!sidebarActions || document.getElementById('btn-open-control')) return;
