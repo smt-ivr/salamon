@@ -41,6 +41,19 @@ const S = {
     udSnapshot: '',
     selected: new Set(),
     chatFilter: 'all',
+    replyTo: null,
+    thread: null,
+    threadMsgs: [],
+    focusMsgId: null,
+    chatSettings: null,
+    lastInteraction: Date.now(),
+    activity: null,
+    onlineSet: new Set(),
+    actEvents: [],
+    actFilter: '',
+    actPhone: '',
+    namesSel: new Set(),
+    lockPhones: [],
     convsReady: false,
     lastSync: 0,
     offline: false,
@@ -49,6 +62,7 @@ const S = {
 const VIEWS = [
     { id: 'overview', label: 'סקירה', icon: 'fa-gauge-high', group: 'ראשי', key: 'o' },
     { id: 'users', label: 'משתמשים', icon: 'fa-users', group: 'ראשי', key: 'u' },
+    { id: 'activity', label: 'פעילות ונוכחות', icon: 'fa-wave-square', group: 'ראשי', key: 'p' },
     { id: 'chat', label: 'תיבת תמיכה', icon: 'fa-comments', group: 'ראשי', key: 'c' },
     { id: 'security', label: 'אבטחה', icon: 'fa-shield-halved', group: 'ראשי', key: 's' },
     { id: 'ads', label: 'קמפיינים', icon: 'fa-bullhorn', group: 'תוכן', key: 'a' },
@@ -184,6 +198,8 @@ function loadingRows(cols, n = 5) {
 async function api(path, body = {}, auth = 'admin', method = 'POST') {
     const payload = { ...body };
     if (auth === 'admin') payload.adminToken = S.adminToken;
+    // מאפשר לשרת לדעת שהמנהל באמת מול המסך, כדי לא לשלוח לו מיילים מיותרים
+    if (auth === 'admin' && path.startsWith('/admin/chat/') && payload.active === undefined) payload.active = adminIsActive();
     if (auth === 'user') payload.userToken = S.userToken;
     let res;
     try {
@@ -202,6 +218,10 @@ async function api(path, body = {}, auth = 'admin', method = 'POST') {
     const ok = res.ok && data.success !== false;
     if (res.status < 500) { S.offline = false; S.lastSync = Date.now(); updateLive(); }
     return { ok, status: res.status, data, error: data.error || data.message || (ok ? '' : `שגיאה (${res.status})`) };
+}
+
+function adminIsActive() {
+    return !document.hidden && Date.now() - S.lastInteraction < 120000;
 }
 
 function sessionExpired() {
@@ -235,7 +255,7 @@ function dialog({ title, text = '', icon = 'warn', buttons, input = null }) {
         ic.innerHTML = icon === 'info' ? '<i class="fa-solid fa-circle-info"></i>' : '<i class="fa-solid fa-triangle-exclamation"></i>';
         const inp = $('#dialog-input');
         inp.hidden = !input;
-        inp.value = '';
+        inp.value = (input && input.value) || '';
         if (input) { inp.placeholder = input.placeholder || ''; inp.className = 'input' + (input.ltr ? ' ltr' : ''); }
         const actions = $('#dialog-actions');
         actions.innerHTML = '';
@@ -372,11 +392,6 @@ async function enterAdmin() {
     S.mode = 'admin';
     S.me = { name: 'מנהל ראשי' };
     loadPermList();
-    // A staff user token on this device unlocks the phonebook, which runs on user tokens.
-    if (S.userToken) {
-        const r = await api('/user', {}, 'user');
-        if (r.ok && r.data.user && r.data.user.isAdmin) S.canNames = true;
-    }
     startApp();
 }
 
@@ -418,7 +433,7 @@ function logout() {
 }
 
 function availableViews() {
-    if (S.mode === 'admin') return VIEWS.filter(v => v.id !== 'names' || S.canNames);
+    if (S.mode === 'admin') return VIEWS;
     return VIEWS.filter(v => v.id === 'names' && S.canNames);
 }
 
@@ -435,10 +450,12 @@ function startApp() {
     const h = new Date().getHours();
     $('#greet').textContent = (h < 12 ? 'בוקר טוב' : h < 18 ? 'צהריים טובים' : 'ערב טוב') + ' 👋';
 
+    document.body.classList.toggle('staff', S.mode !== 'admin');
     renderNav();
-    const fromHash = location.hash.replace('#', '');
     const views = availableViews();
-    go(views.some(v => v.id === fromHash) ? fromHash : views[0].id);
+    const { view, arg } = parseHash();
+    go(views.some(v => v.id === view) ? view : views[0].id);
+    if (view === 'chat' && arg) openConv(arg);
     startPolling();
 }
 
@@ -459,6 +476,14 @@ function renderNav() {
     $('#nav').innerHTML = html;
 }
 
+// "#chat/0501234567" פותח שיחה ישירות (משמש בקישורים שבמייל ההתראה)
+function parseHash() {
+    const [view, ...rest] = location.hash.replace(/^#/, '').split('/');
+    let arg = rest.join('/');
+    try { arg = decodeURIComponent(arg); } catch (e) {}
+    return { view, arg };
+}
+
 function go(id) {
     const v = availableViews().find(x => x.id === id);
     if (!v) return;
@@ -467,7 +492,7 @@ function go(id) {
     $$('#nav .nav-link').forEach(el => el.classList.toggle('active', el.dataset.view === id));
     $('#crumb').textContent = v.label;
     updateTitle();
-    if (location.hash !== `#${id}`) history.replaceState(null, '', `#${id}`);
+    if (parseHash().view !== id) history.replaceState(null, '', `#${id}`);
     $('#app').classList.remove('mobile-nav');
     $('#content').scrollTop = 0;
     if (!S.loaded[id]) { S.loaded[id] = true; loadView(id); }
@@ -478,7 +503,8 @@ function loadView(id) {
         case 'overview': return loadOverview();
         case 'users': return loadUsers();
         case 'security': return loadSecurity();
-        case 'chat': return loadConvs();
+        case 'chat': loadChatDefaults(); return loadConvs();
+        case 'activity': return loadActivity();
         case 'ads': return loadAds();
         case 'names': return loadNames();
         case 'sql': return loadTables();
@@ -492,7 +518,7 @@ async function loadOverview() {
     $('#ov-kpis').innerHTML = Array.from({ length: 4 }, () => '<div class="card kpi"><div class="skeleton" style="width:50%"></div><div class="skeleton" style="height:28px;width:40%"></div><div class="skeleton" style="width:70%"></div></div>').join('');
     $('#ov-security').innerHTML = '<li><div class="skeleton" style="width:80%"></div></li>'.repeat(4);
     $('#ov-chats').innerHTML = '<li><div class="skeleton" style="width:70%"></div></li>'.repeat(3);
-    await Promise.all([loadUsers(true), loadSecurity(true), loadConvs(true)]);
+    await Promise.all([loadUsers(true), loadSecurity(true), loadConvs(true), loadOnline(true)]);
     renderOverview();
 }
 
@@ -508,6 +534,7 @@ function renderOverview() {
 
     $('#ov-kpis').innerHTML = [
         kpi('fa-users', '', 'מנויים במערכת', num(u.length), `${num(staff)} חברי צוות`),
+        kpi('fa-signal', 'good', 'מחוברים עכשיו', num(S.activity ? S.activity.stats.onlineNow : 0), `${num(S.activity ? S.activity.stats.loginsToday : 0)} התחברויות היום`),
         kpi('fa-globe', 'info', 'חשבונות אתר', num(web), `${webPct}% מהמנויים`, webPct),
         kpi('fa-phone-volume', 'good', 'פעילים בימות', num(yemot), `${pct}% מקבלים צינתוקים`, pct),
         kpi('fa-comments', unread ? 'warn' : 'good', 'הודעות שלא נקראו', num(unread), `${num(S.convs.length)} שיחות סה״כ`),
@@ -607,6 +634,7 @@ function renderChart() {
 // ---------- Users ----------
 
 async function loadUsers(silent = false) {
+    if (S.mode === 'admin') loadOnline(true).then(d => { if (d && S.view === 'users') renderUsers(); });
     if (!silent) $('#users-body').innerHTML = loadingRows(8, 8);
     const r = await api('/admin/users');
     if (!r.ok) {
@@ -678,7 +706,7 @@ function renderUsers() {
         const sel = S.selected.has(u.phone);
         return `<tr class="${u.hasWebAccount ? 'clickable' : ''} ${sel ? 'selected' : ''}" ${u.hasWebAccount ? `data-action="open-user" data-phone="${phone}"` : ''}>
             <td class="col-check">${u.hasWebAccount ? `<input type="checkbox" class="user-check" data-phone="${phone}" ${sel ? 'checked' : ''} aria-label="בחירה">` : ''}</td>
-            <td><div class="cell-user">${avatarHtml(u.name, u.profilePictureUrl)}<div><b>${esc(u.name || 'ללא שם')}${u.isAdmin ? ' <span class="badge bad" style="height:20px;"><i class="fa-solid fa-user-shield"></i> צוות</span>' : ''}</b></div></div></td>
+            <td><div class="cell-user">${avatarHtml(u.name, u.profilePictureUrl, S.onlineSet.has(u.phone) ? 'online' : '')}<div><b>${esc(u.name || 'ללא שם')}${u.isAdmin ? ' <span class="badge bad" style="height:20px;"><i class="fa-solid fa-user-shield"></i> צוות</span>' : ''}</b></div></div></td>
             <td class="ltr mono" style="text-align:right;">${phone}</td>
             <td>${u.yemotActive ? '<span class="badge good"><i class="fa-solid fa-circle-check"></i> פעיל</span>' : '<span class="badge bad"><i class="fa-solid fa-circle-xmark"></i> מנותק</span>'}</td>
             <td>${web}</td>
@@ -819,6 +847,7 @@ async function openUser(phone) {
     }
     renderSessions(p.activeSessions || []);
     markUserClean();
+    if (S.mode === 'admin') loadUserActivity(phone);
 }
 
 function renderSessions(list) {
@@ -1157,20 +1186,45 @@ function renderThreadTags() {
     ].join('');
 }
 
+const CHAT_FILTERS = [['all', 'הכל'], ['unread', 'לא נקראו'], ['pinned', 'מוצמדים'], ['archived', 'ארכיון']];
+
+function convMatchesFilter(c) {
+    if (c.user_phone === S.activePhone) return true;
+    switch (S.chatFilter) {
+        case 'unread': return Number(c.unread_count) > 0;
+        case 'pinned': return !!c.pinned;
+        case 'archived': return !!c.archived;
+        default: return !c.archived;
+    }
+}
+
 function renderConvs() {
     const q = S.chatSearch.toLowerCase();
-    const unread = S.convs.filter(c => Number(c.unread_count) > 0).length;
-    $('#chat-chips').innerHTML = `
-        <button class="chip ${S.chatFilter === 'all' ? 'active' : ''}" data-action="chat-filter" data-filter="all">הכל <span class="n">${num(S.convs.length)}</span></button>
-        <button class="chip ${S.chatFilter === 'unread' ? 'active' : ''}" data-action="chat-filter" data-filter="unread">לא נקראו <span class="n">${num(unread)}</span></button>`;
-    const list = S.convs.filter(c => (S.chatFilter !== 'unread' || Number(c.unread_count) > 0 || c.user_phone === S.activePhone) &&
+    const counts = {
+        all: S.convs.filter(c => !c.archived).length,
+        unread: S.convs.filter(c => Number(c.unread_count) > 0).length,
+        pinned: S.convs.filter(c => c.pinned).length,
+        archived: S.convs.filter(c => c.archived).length,
+    };
+    $('#chat-chips').innerHTML = CHAT_FILTERS.map(([k, l]) =>
+        `<button class="chip ${S.chatFilter === k ? 'active' : ''}" data-action="chat-filter" data-filter="${k}">${l} <span class="n">${num(counts[k])}</span></button>`).join('');
+    const list = S.convs.filter(c => convMatchesFilter(c) &&
         (String(c.user_phone || '').includes(q) || String(c.user_name || '').toLowerCase().includes(q)));
-    $('#conv-list').innerHTML = list.length ? list.map(c => `
-        <div class="conv ${c.user_phone === S.activePhone ? 'active' : ''}" data-action="open-conv" data-phone="${esc(c.user_phone)}">
-            ${avatarHtml(c.user_name)}
-            <div class="c-main"><div class="c-name">${esc(c.user_name || c.user_phone)}</div><div class="c-sub"><span class="ltr">${esc(c.user_phone)}</span> · ${esc(relTime(c.last_message_time))}</div></div>
-            ${Number(c.unread_count) > 0 ? `<span class="c-badge">${num(c.unread_count)}</span>` : ''}
-        </div>`).join('') : `<div class="empty"><i class="fa-regular fa-comments"></i>${S.chatFilter === 'unread' ? 'אין שיחות שממתינות לתשובה 🎉' : 'אין שיחות'}</div>`;
+    $('#conv-list').innerHTML = list.length ? list.map(c => {
+        const last = c.last_message || {};
+        const preview = c.typing
+            ? '<span class="typing">מקליד/ה…</span>'
+            : `${last.sender === 'admin' ? '<i class="fa-solid fa-reply" style="font-size:10px;"></i>' : ''}<span>${esc(last.text || '')}</span>`;
+        return `
+        <div class="conv ${c.user_phone === S.activePhone ? 'active' : ''} ${Number(c.unread_count) > 0 ? 'unread' : ''}" data-action="open-conv" data-phone="${esc(c.user_phone)}">
+            ${avatarHtml(c.user_name, '', c.online ? 'online' : '')}
+            <div class="c-main">
+                <div class="c-top">${c.pinned ? '<i class="fa-solid fa-thumbtack c-pin"></i>' : ''}<div class="c-name">${esc(c.user_name || c.user_phone)}</div>${c.note ? '<i class="fa-regular fa-note-sticky muted" title="יש הערה"></i>' : ''}</div>
+                <div class="c-prev">${preview}</div>
+            </div>
+            <div class="c-meta"><span class="c-time">${esc(relTime(c.last_message_time))}</span>${Number(c.unread_count) > 0 ? `<span class="c-badge">${num(c.unread_count)}</span>` : ''}</div>
+        </div>`;
+    }).join('') : `<div class="empty"><i class="fa-regular fa-comments"></i>${S.chatFilter === 'unread' ? 'אין שיחות שממתינות לתשובה 🎉' : S.chatFilter === 'archived' ? 'הארכיון ריק' : 'אין שיחות'}</div>`;
 }
 
 function updateUnreadBadge() {
@@ -1186,18 +1240,46 @@ function updateUnreadBadge() {
     el.textContent = n > 99 ? '99+' : n;
 }
 
-async function openConv(phone) {
+// חיפוש טקסט בכל ההודעות (מוצג מתחת לרשימת השיחות)
+const searchMessages = debounce(async q => {
+    const box = $('#msg-search-results');
+    if (q.length < 2) { box.innerHTML = ''; return; }
+    const r = await api('/admin/chat/search', { q });
+    if (S.chatSearch !== q) return;
+    const hits = r.ok ? r.data.results || [] : [];
+    const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+    box.innerHTML = hits.length ? `<div class="search-head">נמצא בהודעות (${num(hits.length)})</div>` + hits.map(h => `
+        <div class="search-hit" data-action="open-hit" data-phone="${esc(h.phone)}" data-id="${esc(h.id)}">
+            <small>${esc(h.name || h.phone)} · ${h.sender === 'admin' ? 'אתה' : 'הלקוח'} · ${esc(relTime(h.createdAt))}</small>
+            ${esc(h.text).replace(re, m => `<mark>${m}</mark>`)}
+        </div>`).join('') : '';
+}, 300);
+
+function presenceText(p) {
+    if (p && p.online) return 'מחובר/ת עכשיו';
+    if (p && p.lastSeenAt) return `נראה/תה לאחרונה ${relTime(p.lastSeenAt)}`;
+    return '';
+}
+
+async function openConv(phone, focusMsgId) {
     if (S.view !== 'chat') go('chat');
+    const changed = S.activePhone !== phone;
     S.activePhone = phone;
     S.activeHash = '';
+    S.focusMsgId = focusMsgId || null;
+    if (changed) { S.replyTo = null; S.thread = null; renderReplyBar(); $('#composer-input').value = ''; }
+    history.replaceState(null, '', `#chat/${encodeURIComponent(phone)}`);
     const c = S.convs.find(x => x.user_phone === phone) || {};
     $('#inbox').classList.add('has-active');
     $('#thread-empty').hidden = true;
     $('#thread-head').hidden = false; $('#thread-msgs').hidden = false; $('#composer').hidden = false;
     $('#thread-name').textContent = c.user_name || phone;
-    $('#thread-phone').textContent = phone;
-    $('#thread-avatar').outerHTML = avatarHtml(c.user_name).replace('class="avatar', 'id="thread-avatar" class="avatar');
+    $('#thread-status').textContent = phone;
+    $('#thread-status').className = 'ltr';
+    $('#thread-avatar').outerHTML = avatarHtml(c.user_name, '', c.online ? 'online' : '').replace('class="avatar', 'id="thread-avatar" class="avatar');
     $('#thread-msgs').innerHTML = '<div class="empty"><i class="fa-solid fa-circle-notch spin"></i></div>';
+    $('#typing-bar').hidden = true;
+    $('#thread-note').hidden = true;
     closePopovers();
     renderConvs();
     renderThreadTags();
@@ -1207,11 +1289,40 @@ async function openConv(phone) {
 }
 
 function closeThread() {
+    sendTyping(false);
     S.activePhone = null;
+    S.replyTo = null;
+    history.replaceState(null, '', '#chat');
     $('#inbox').classList.remove('has-active');
     $('#thread-empty').hidden = false;
     $('#thread-head').hidden = true; $('#thread-msgs').hidden = true; $('#composer').hidden = true;
+    $('#typing-bar').hidden = true; $('#reply-bar').hidden = true; $('#thread-note').hidden = true;
     renderConvs();
+}
+
+function renderThreadMeta() {
+    const d = S.thread;
+    if (!d) return;
+    const status = $('#thread-status');
+    const pText = presenceText(d.presence);
+    status.textContent = pText || S.activePhone;
+    status.className = d.presence && d.presence.online ? 'online' : (pText ? '' : 'ltr');
+    status.title = S.activePhone + (d.presence && d.presence.device ? ` · ${d.presence.device}` : '');
+    const av = $('#thread-avatar');
+    if (av) av.classList.toggle('online', !!(d.presence && d.presence.online));
+    $('#thread-pin').classList.toggle('on', !!d.thread.pinned);
+    $('#thread-pin').title = d.thread.pinned ? 'ביטול הצמדה' : 'הצמדה לראש הרשימה';
+    $('#thread-archive').innerHTML = d.thread.archived ? '<i class="fa-solid fa-box-open"></i> הוצאה מהארכיון' : '<i class="fa-solid fa-box-archive"></i> העברה לארכיון';
+    const note = $('#thread-note');
+    note.hidden = !d.thread.note;
+    note.innerHTML = d.thread.note ? `<i class="fa-regular fa-note-sticky"></i><span>${esc(d.thread.note)}</span>` : '';
+    const typing = $('#typing-bar');
+    typing.hidden = !d.userTyping;
+    $('#typing-text').textContent = `${$('#thread-name').textContent} מקליד/ה…`;
+    const mode = $('#composer-email-mode');
+    const noEmail = !d.user || !d.user.hasAccount || !d.user.email || !d.user.receiveEmails;
+    mode.disabled = noEmail;
+    mode.title = noEmail ? 'ללקוח אין מייל פעיל' : 'שליחת מייל ללקוח';
 }
 
 async function refreshThread(silent = true) {
@@ -1221,13 +1332,16 @@ async function refreshThread(silent = true) {
     if (phone !== S.activePhone) return;
     if (!r.ok) { if (!silent) toast(r.error || 'שגיאה בטעינת השיחה', 'bad'); return; }
     if (r.data.userName) $('#thread-name').textContent = r.data.userName;
+    S.thread = r.data;
+    renderThreadMeta();
     const msgs = r.data.messages || [];
+    S.threadMsgs = msgs;
     const hash = JSON.stringify(msgs);
     if (hash === S.activeHash) return;
     const first = !S.activeHash;
     S.activeHash = hash;
     renderThread(msgs, first);
-    api('/admin/chat/read', { targetPhone: phone }).then(() => loadConvs(true));
+    if (msgs.some(m => m.sender === 'user' && !m.is_read)) api('/admin/chat/read', { targetPhone: phone }).then(() => loadConvs(true));
 }
 
 function renderThread(msgs, forceBottom) {
@@ -1242,16 +1356,66 @@ function renderThread(msgs, forceBottom) {
         if (day && day !== lastDay) { lastDay = day; html += `<div class="day-sep">${esc(dayLabel(d))}</div>`; }
         const out = m.sender === 'admin';
         const deleted = m.is_deleted === 1;
-        const ticks = out && !deleted ? `<i class="fa-solid fa-check-double" style="${m.is_read ? 'color:#a5f3fc' : ''}"></i>` : '';
-        html += `<div class="msg ${out ? 'out' : 'in'} ${deleted ? 'deleted' : ''}">
+        const ticks = out && !deleted ? `<i class="fa-solid fa-check-double" style="${m.is_read ? 'color:#a5f3fc' : ''}" title="${m.is_read ? 'נקרא' : 'נשלח'}"></i>` : '';
+        const quote = m.reply && !deleted ? `<div class="m-quote" data-action="jump-msg" data-id="${esc(m.reply.id)}"><b>${m.reply.sender === 'admin' ? 'אתה' : 'הלקוח'}</b>${esc(m.reply.text)}</div>` : '';
+        const actions = deleted ? '' : `<div class="m-actions">
+            <button class="icon-btn" data-action="reply-msg" data-id="${esc(m.id)}" title="ציטוט ותשובה"><i class="fa-solid fa-reply"></i></button>
+            ${out ? `<button class="icon-btn" data-action="edit-msg" data-id="${esc(m.id)}" title="עריכה"><i class="fa-solid fa-pen"></i></button>` : ''}
+            <button class="icon-btn danger" data-action="delete-msg" data-id="${esc(m.id)}" title="מחיקה"><i class="fa-solid fa-trash-can"></i></button>
+        </div>`;
+        html += `<div class="msg ${out ? 'out' : 'in'} ${deleted ? 'deleted' : ''}" data-msg="${esc(m.id)}">
+            ${quote}
             <div class="m-text">${deleted ? '🚫 ההודעה נמחקה' : esc(m.message_text)}</div>
-            <div class="m-meta"><span>${chatTime(m.created_at)}</span>${ticks}</div>
-            ${!deleted ? `<button class="icon-btn sm danger m-del" data-action="delete-msg" data-id="${esc(m.id)}" title="מחיקה"><i class="fa-solid fa-trash-can"></i></button>` : ''}
+            <div class="m-meta">${m.edited ? '<span class="m-edited">נערך</span>' : ''}<span>${chatTime(m.created_at)}</span>${ticks}</div>
+            ${actions}
         </div>`;
     });
     box.innerHTML = html;
+    if (S.focusMsgId) { jumpToMessage(S.focusMsgId); S.focusMsgId = null; return; }
     box.scrollTop = (atBottom || forceBottom) ? box.scrollHeight : prevTop;
 }
+
+function jumpToMessage(id) {
+    const el = $(`#thread-msgs [data-msg="${CSS.escape(String(id))}"]`);
+    if (!el) { toast('ההודעה המקורית אינה מוצגת', 'info'); return; }
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash');
+}
+
+function renderReplyBar() {
+    const bar = $('#reply-bar');
+    const r = S.replyTo;
+    bar.hidden = !r;
+    if (!r) return;
+    $('#reply-who').textContent = r.sender === 'admin' ? 'ציטוט של ההודעה שלך' : 'ציטוט של הלקוח';
+    $('#reply-text').textContent = r.text;
+}
+
+function startReply(id) {
+    const m = (S.threadMsgs || []).find(x => String(x.id) === String(id));
+    if (!m) return;
+    S.replyTo = { id: m.id, sender: m.sender, text: m.message_text };
+    renderReplyBar();
+    $('#composer-input').focus();
+}
+
+let typingSentAt = 0;
+function sendTyping(on) {
+    if (!S.activePhone) return;
+    if (on) {
+        if (Date.now() - typingSentAt < 3500) return;
+        typingSentAt = Date.now();
+        api('/admin/chat/typing', { targetPhone: S.activePhone, typing: true });
+    } else if (typingSentAt) {
+        typingSentAt = 0;
+        api('/admin/chat/typing', { targetPhone: S.activePhone, typing: false });
+    }
+}
+
+const EMAIL_RESULT = {
+    queued: 'נשלח גם מייל ללקוח (הוא לא מחובר כרגע)',
+    customer_online: '', already_notified: '', disabled: '', no_email: '', opted_out: '', blocked: '',
+};
 
 async function sendMsg(e) {
     if (e) e.preventDefault();
@@ -1261,16 +1425,36 @@ async function sendMsg(e) {
     const box = $('#thread-msgs');
     const tmp = document.createElement('div');
     tmp.className = 'msg out pending';
-    tmp.innerHTML = `<div class="m-text">${esc(text)}</div><div class="m-meta"><i class="fa-regular fa-clock"></i></div>`;
+    tmp.innerHTML = `${S.replyTo ? `<div class="m-quote"><b>${S.replyTo.sender === 'admin' ? 'אתה' : 'הלקוח'}</b>${esc(S.replyTo.text)}</div>` : ''}<div class="m-text">${esc(text)}</div><div class="m-meta"><i class="fa-regular fa-clock"></i></div>`;
     box.querySelector('.empty')?.remove();
     box.appendChild(tmp);
     box.scrollTop = box.scrollHeight;
+    const replyTo = S.replyTo;
     input.value = ''; input.style.height = '';
+    S.replyTo = null; renderReplyBar();
+    typingSentAt = 0;
     const btn = $('#composer-send');
     btn.disabled = true;
-    const r = await api('/admin/chat/send', { targetPhone: S.activePhone, text, sendEmail: $('#composer-email').checked });
+    const mode = $('#composer-email-mode');
+    const r = await api('/admin/chat/send', { targetPhone: S.activePhone, text, replyTo: replyTo ? replyTo.id : undefined, emailMode: mode.disabled ? 'never' : mode.value });
     btn.disabled = false;
-    if (!r.ok) { tmp.remove(); input.value = text; toast(r.error || 'שגיאה בשליחת ההודעה', 'bad'); return; }
+    if (!r.ok) { tmp.remove(); input.value = text; S.replyTo = replyTo; renderReplyBar(); toast(r.error || 'שגיאה בשליחת ההודעה', 'bad'); return; }
+    if (EMAIL_RESULT[r.data.email]) toast(EMAIL_RESULT[r.data.email], 'info');
+    S.activeHash = '';
+    refreshThread();
+}
+
+async function editMsg(id) {
+    const m = (S.threadMsgs || []).find(x => String(x.id) === String(id));
+    if (!m) return;
+    const r = await dialog({
+        title: 'עריכת הודעה', text: 'הלקוח יראה שההודעה נערכה.', icon: 'info',
+        input: { value: m.message_text },
+        buttons: [{ label: 'ביטול' }, { label: 'שמירה', value: 'ok', cls: 'btn-primary' }],
+    });
+    if (!r || !r.input || r.input === m.message_text) return;
+    const res = await api('/admin/chat/edit', { messageId: Number(id), text: r.input });
+    if (!res.ok) { toast(res.error || 'שגיאה בעריכה', 'bad'); return; }
     S.activeHash = '';
     refreshThread();
 }
@@ -1287,6 +1471,38 @@ async function deleteMsg(id) {
     refreshThread();
 }
 
+async function updateThreadMeta(fields, okText) {
+    if (!S.activePhone) return;
+    const r = await api('/admin/chat/meta', { targetPhone: S.activePhone, ...fields });
+    if (!r.ok) { toast(r.error || 'שגיאה בעדכון', 'bad'); return; }
+    if (S.thread) Object.assign(S.thread.thread, fields);
+    const c = S.convs.find(x => x.user_phone === S.activePhone);
+    if (c) Object.assign(c, fields);
+    renderThreadMeta();
+    renderConvs();
+    if (okText) toast(okText);
+}
+
+async function editThreadNote() {
+    const cur = (S.thread && S.thread.thread.note) || '';
+    const r = await dialog({
+        title: 'הערה פנימית', text: 'ההערה גלויה רק לך ומוצגת בראש השיחה.', icon: 'info',
+        input: { value: cur, placeholder: 'למשל: לקוח VIP, ממתין לבדיקה…' },
+        buttons: [{ label: 'ביטול' }, ...(cur ? [{ label: 'מחיקת הערה', value: 'clear', cls: 'btn-danger' }] : []), { label: 'שמירה', value: 'ok', cls: 'btn-primary' }],
+    });
+    if (!r) return;
+    updateThreadMeta({ note: r.value === 'clear' ? '' : r.input }, r.value === 'clear' ? 'ההערה נמחקה' : 'ההערה נשמרה');
+}
+
+async function markThreadUnread() {
+    const r = await api('/admin/chat/unread', { targetPhone: S.activePhone });
+    if (!r.ok) { toast(r.error || 'שגיאה', 'bad'); return; }
+    toast('השיחה סומנה כלא נקראה');
+    const phone = S.activePhone;
+    closeThread();
+    loadConvs(true);
+}
+
 async function newChat() {
     const r = await dialog({
         title: 'שיחה חדשה', text: 'הזן מספר טלפון של מנוי:', icon: 'info',
@@ -1297,6 +1513,51 @@ async function newChat() {
     if (!phone) return;
     if (phone.length < 9) { toast('מספר טלפון לא תקין', 'bad'); return; }
     openConv(phone);
+}
+
+// ---------- Chat settings ----------
+
+async function openChatSettings() {
+    openDrawer('chat-settings-drawer');
+    const r = await api('/admin/chat/settings');
+    if (!r.ok) { toast(r.error || 'שגיאה בטעינת ההגדרות', 'bad'); return; }
+    const s = S.chatSettings = r.data.settings;
+    $('#cs-enabled').checked = s.notify_admin_enabled === '1';
+    $('#cs-email').value = s.notify_admin_email || '';
+    $('#cs-idle').value = s.notify_idle_minutes;
+    $('#cs-cooldown').value = s.notify_cooldown_minutes;
+    $('#cs-customer-mode').value = s.customer_email_mode;
+    $('#cs-offline').value = s.customer_offline_minutes;
+}
+
+async function saveChatSettings(e) {
+    e.preventDefault();
+    const btn = $('#cs-save');
+    busy(btn, true);
+    const r = await api('/admin/chat/settings', { settings: {
+        notify_admin_enabled: $('#cs-enabled').checked, notify_admin_email: $('#cs-email').value.trim(),
+        notify_idle_minutes: $('#cs-idle').value, notify_cooldown_minutes: $('#cs-cooldown').value,
+        customer_email_mode: $('#cs-customer-mode').value, customer_offline_minutes: $('#cs-offline').value,
+    } });
+    busy(btn, false);
+    if (!r.ok) { toast(r.error || 'שגיאה בשמירה', 'bad'); return; }
+    S.chatSettings = r.data.settings;
+    $('#composer-email-mode').value = S.chatSettings.customer_email_mode;
+    toast('ההגדרות נשמרו');
+    closeDrawers();
+}
+
+async function chatTestEmail() {
+    if ($('#cs-email').value.trim() !== ((S.chatSettings && S.chatSettings.notify_admin_email) || '')) {
+        toast('שמור קודם את כתובת המייל', 'info'); return;
+    }
+    const r = await api('/admin/chat/test-email');
+    toast(r.ok ? r.data.message : (r.error || 'שליחת המייל נכשלה'), r.ok ? 'good' : 'bad');
+}
+
+async function loadChatDefaults() {
+    const r = await api('/admin/chat/settings');
+    if (r.ok) { S.chatSettings = r.data.settings; $('#composer-email-mode').value = S.chatSettings.customer_email_mode || 'auto'; }
 }
 
 async function sendEmail(e) {
@@ -1445,57 +1706,299 @@ async function deleteAd(id) {
     loadAds();
 }
 
-// ---------- Phonebook ----------
+// ---------- Activity ----------
+
+const ACTIVITY_TYPES = {
+    LOGIN: ['התחברות', 'fa-right-to-bracket', 'good'],
+    LOGIN_MASTER: ['כניסת מאסטר', 'fa-user-secret', 'warn'],
+    LOGIN_FAILED: ['ניסיון התחברות כושל', 'fa-triangle-exclamation', 'bad'],
+    LOGOUT: ['התנתקות', 'fa-right-from-bracket', ''],
+    REGISTER: ['הרשמה לאתר', 'fa-user-plus', 'accent'],
+    PROFILE_UPDATE: ['עדכון פרופיל', 'fa-user-pen', 'info'],
+    PASSWORD_CHANGE: ['שינוי סיסמה', 'fa-key', 'warn'],
+    PASSWORD_RESET: ['איפוס סיסמה', 'fa-key', 'warn'],
+    EMAIL_UNBLOCK: ['שחרור חסימת מייל', 'fa-envelope-open', 'info'],
+    UPLOAD: ['העלאת הודעה', 'fa-upload', 'accent'],
+    TZINTUK: ['שליחת צינתוק', 'fa-phone-volume', 'info'],
+    DELETE_MESSAGE: ['מחיקת הודעה', 'fa-trash-can', 'bad'],
+    LISTEN: ['האזנה להודעה', 'fa-headphones', ''],
+    CHAT_SEND: ['הודעה בצ׳אט', 'fa-comment', 'accent'],
+    NAME_RESTORED: ['שם שוחזר אוטומטית', 'fa-rotate', 'warn'],
+};
+const ACTIVITY_FILTERS = [
+    ['', 'הכל'],
+    ['LOGIN,LOGIN_MASTER,LOGIN_FAILED,LOGOUT', 'התחברויות'],
+    ['CHAT_SEND', 'צ׳אט'],
+    ['UPLOAD,TZINTUK,DELETE_MESSAGE,LISTEN', 'הודעות'],
+    ['REGISTER,PROFILE_UPDATE,PASSWORD_CHANGE,PASSWORD_RESET,EMAIL_UNBLOCK', 'חשבון'],
+    ['NAME_RESTORED', 'נעילות'],
+];
+
+function activityDetails(e) {
+    const m = e.meta || {};
+    switch (e.action) {
+        case 'LOGIN': return `${m.method === 'google' ? 'עם Google' : 'עם סיסמה'}${m.remember ? ' · זכור אותי' : ''}`;
+        case 'LOGIN_FAILED': return m.reason || '';
+        case 'NAME_RESTORED': return `"${m.from || 'ריק'}" ← "${m.to || ''}"`;
+        case 'LISTEN': return e.details ? `קובץ #${e.details}` : '';
+        case 'PROFILE_UPDATE': return e.details ? `שדות: ${e.details}` : '';
+        default: return e.details || '';
+    }
+}
+
+function activityIcon(action) {
+    const [, icon, tone] = ACTIVITY_TYPES[action] || ['', 'fa-circle', ''];
+    return `<div class="act-icon ${tone}"><i class="fa-solid ${icon}"></i></div>`;
+}
+
+async function loadOnline(silent = false) {
+    const r = await api('/admin/activity/online');
+    if (!r.ok) { if (!silent) toast(r.error || 'שגיאה בטעינת הנוכחות', 'bad'); return null; }
+    S.activity = r.data;
+    S.onlineSet = new Set((r.data.online || []).map(o => o.phone));
+    return r.data;
+}
+
+async function loadActivity(more = false) {
+    if (!more) {
+        $('#act-body').innerHTML = loadingRows(6, 6);
+        S.actEvents = [];
+        const data = await loadOnline();
+        if (data) renderActivityTop();
+    }
+    const before = more && S.actEvents.length ? S.actEvents[S.actEvents.length - 1].id : undefined;
+    const r = await api('/admin/activity/feed', { action: S.actFilter || undefined, phone: S.actPhone || undefined, beforeId: before, limit: 100 });
+    if (!r.ok) { $('#act-body').innerHTML = emptyRow(6, r.error, 'fa-circle-exclamation'); return; }
+    S.actEvents = S.actEvents.concat(r.data.events || []);
+    S.actHasMore = (r.data.events || []).length === 100;
+    renderActivityFeed();
+}
+
+function renderActivityTop() {
+    const a = S.activity || { stats: {}, online: [], recentLogins: [] };
+    $('#act-kpis').innerHTML = [
+        kpi('fa-signal', 'good', 'מחוברים עכשיו', num(a.stats.onlineNow), 'פעילים ב-2 הדקות האחרונות'),
+        kpi('fa-users', 'info', 'פעילים ב-24 שעות', num(a.stats.active24h), 'משתמשים שנכנסו לאתר'),
+        kpi('fa-right-to-bracket', '', 'התחברויות היום', num(a.stats.loginsToday), 'מאז חצות'),
+    ].join('');
+    $('#act-online-count').textContent = a.online.length ? `${num(a.online.length)} משתמשים` : '';
+    $('#act-online').innerHTML = a.online.length ? a.online.map(o => `
+        <li class="clickable" data-action="open-user-activity" data-phone="${esc(o.phone)}">
+            ${avatarHtml(o.name, '', 'online')}
+            <div class="f-body"><div class="f-title">${esc(o.name || o.phone)}</div><div class="f-sub">${esc(o.device || '')}${o.ip ? ` · <span class="ltr">${esc(o.ip)}</span>` : ''}</div></div>
+            <div class="f-time">${esc(relTime(o.lastSeenAt))}</div>
+        </li>`).join('') : '<li><div class="empty" style="padding:24px;width:100%;"><i class="fa-solid fa-moon"></i>אף אחד לא מחובר כרגע</div></li>';
+    $('#act-logins').innerHTML = a.recentLogins.length ? a.recentLogins.map(e => `
+        <li class="clickable" data-action="open-user-activity" data-phone="${esc(e.phone)}">
+            ${activityIcon(e.action)}
+            <div class="f-body"><div class="f-title">${esc(e.name || e.phone)} · ${esc((ACTIVITY_TYPES[e.action] || [e.action])[0])}</div><div class="f-sub">${esc(activityDetails(e))}${e.device ? ` · ${esc(e.device)}` : ''}</div></div>
+            <div class="f-time">${esc(relTime(e.createdAt))}</div>
+        </li>`).join('') : '<li><div class="empty" style="padding:24px;width:100%;">אין התחברויות עדיין</div></li>';
+}
+
+function renderActivityFeed() {
+    $('#act-chips').innerHTML = ACTIVITY_FILTERS.map(([k, l]) => `<button class="chip ${(S.actFilter || '') === k ? 'active' : ''}" data-action="act-filter" data-filter="${k}">${l}</button>`).join('');
+    const ev = S.actEvents || [];
+    $('#act-body').innerHTML = ev.length ? ev.map(e => `
+        <tr class="clickable" data-action="open-user-activity" data-phone="${esc(e.phone)}">
+            <td class="muted nowrap">${esc(fmtDate(e.createdAt))}</td>
+            <td><div class="cell-user" style="min-width:150px;">${avatarHtml(e.name, '', S.onlineSet && S.onlineSet.has(e.phone) ? 'online' : '')}<div><b>${esc(e.name || 'ללא שם')}</b><small class="ltr">${esc(e.phone)}</small></div></div></td>
+            <td><div class="row" style="gap:8px;">${activityIcon(e.action)}<span class="nowrap">${esc((ACTIVITY_TYPES[e.action] || [e.action])[0])}</span></div></td>
+            <td style="max-width:320px; white-space:normal; font-size:12.5px;">${esc(activityDetails(e))}</td>
+            <td class="muted nowrap" style="font-size:12.5px;">${esc(e.device || '—')}</td>
+            <td class="ltr mono muted" style="text-align:right;">${esc(e.ip || '—')}</td>
+        </tr>`).join('') : emptyRow(6, 'אין פעולות תואמות', 'fa-wave-square');
+    $('#act-more').hidden = !S.actHasMore;
+}
+
+async function loadUserActivity(phone) {
+    $('#ud-presence').innerHTML = '<div class="skeleton" style="width:60%"></div>';
+    $('#ud-timeline').innerHTML = '<li><div class="skeleton" style="width:70%"></div></li>'.repeat(3);
+    $('#ud-totals').innerHTML = '';
+    const r = await api('/admin/activity/user', { phone });
+    if (S.editingUser !== phone) return;
+    if (!r.ok) { $('#ud-presence').innerHTML = `<span class="muted">${esc(r.error)}</span>`; $('#ud-timeline').innerHTML = ''; return; }
+    const p = r.data.presence || {};
+    $('#ud-presence').innerHTML = `
+        <div class="avatar lg ${p.online ? 'online' : ''}"><i class="fa-solid fa-${p.online ? 'signal' : 'moon'}"></i></div>
+        <div style="flex:1; min-width:0;">
+            <div class="p-state ${p.online ? 'online' : ''}">${p.online ? 'מחובר/ת עכשיו' : p.lastSeenAt ? `נראה/תה לאחרונה ${esc(relTime(p.lastSeenAt))}` : 'עדיין לא נרשמה פעילות'}</div>
+            <div class="p-grid">
+                ${p.lastLoginAt ? `<span>התחברות אחרונה</span><span>${esc(fmtDate(p.lastLoginAt))} · ${p.lastLoginMethod === 'google' ? 'Google' : p.lastLoginMethod === 'master' ? 'מאסטר' : 'סיסמה'}</span>` : ''}
+                ${p.device ? `<span>מכשיר</span><span>${esc(p.device)}</span>` : ''}
+                ${p.ip ? `<span>IP</span><span class="ltr mono" style="text-align:right;">${esc(p.ip)}</span>` : ''}
+                <span>חיבורים פעילים</span><span>${num((r.data.sessions || []).length)}</span>
+            </div>
+        </div>`;
+    const totals = r.data.totals || {};
+    $('#ud-totals').innerHTML = Object.keys(totals).sort((a, b) => totals[b] - totals[a]).map(k =>
+        `<span class="chip" style="cursor:default;">${esc((ACTIVITY_TYPES[k] || [k])[0])} <span class="n">${num(totals[k])}</span></span>`).join('');
+    const ev = r.data.events || [];
+    $('#ud-timeline').innerHTML = ev.length ? ev.map(e => `
+        <li>${activityIcon(e.action)}
+            <div class="f-body"><div class="f-title">${esc((ACTIVITY_TYPES[e.action] || [e.action])[0])}</div><div class="f-sub">${esc(activityDetails(e))}${e.device ? ` · ${esc(e.device)}` : ''}${e.ip ? ` · ${esc(e.ip)}` : ''}</div></div>
+            <div class="f-time" title="${esc(e.createdAt)}">${esc(fmtDate(e.createdAt))}</div>
+        </li>`).join('') : '<li><div class="empty" style="padding:24px;width:100%;">אין פעולות מתועדות</div></li>';
+}
+
+// ---------- Phonebook & name locks ----------
+
+function namesAuth() { return S.mode === 'admin' ? 'admin' : 'user'; }
 
 async function loadNames() {
-    $('#names-body').innerHTML = loadingRows(4, 8);
-    const r = await api('/admin/yemot-names', {}, 'user');
-    if (!r.ok) { $('#names-body').innerHTML = emptyRow(4, r.error, 'fa-circle-exclamation'); return; }
+    $('#names-body').innerHTML = loadingRows(6, 8);
+    const r = await api('/admin/yemot-names', {}, namesAuth());
+    if (!r.ok) { $('#names-body').innerHTML = emptyRow(6, r.error, 'fa-circle-exclamation'); return; }
     S.names = r.data.list || [];
     S.namesMain = !!r.data.isMainAdmin;
     renderNames();
 }
 
+function lockIsOn(lock) { return lock && (lock.status === 'active' || lock.status === 'scheduled'); }
+
+function lockBadge(u) {
+    const l = u.lock;
+    if (!l) return u.isProtected ? '<span class="badge"><i class="fa-solid fa-shield"></i> מוגן</span>' : '<span class="muted">—</span>';
+    const until = l.expiresAt ? `עד ${fmtDate(l.expiresAt)}` : 'ללא הגבלת זמן';
+    if (l.status === 'scheduled') return `<span class="lock-badge"><span class="badge info"><i class="fa-regular fa-clock"></i> מתוזמן</span><small>מ-${esc(fmtDate(l.startsAt))} · ${esc(until)}</small></span>`;
+    if (l.status === 'expired') return `<span class="lock-badge"><span class="badge"><i class="fa-solid fa-lock-open"></i> פג תוקף</span><small>${esc(fmtDate(l.expiresAt))}</small></span>`;
+    return `<span class="lock-badge" title="${esc(l.reason || '')}"><span class="badge accent"><i class="fa-solid fa-${l.mode === 'enforce' ? 'rotate' : 'lock'}"></i> ${l.mode === 'enforce' ? 'נעול + שחזור' : 'נעול לצוות'}</span><small>${esc(until)}${l.reason ? ` · ${esc(l.reason)}` : ''}</small></span>`;
+}
+
+function filteredNames() {
+    const q = S.namesSearch.toLowerCase();
+    return S.names.filter(u => {
+        if (S.namesFilter === 'missing' && String(u.name || '').trim()) return false;
+        if (S.namesFilter === 'locked' && !lockIsOn(u.lock)) return false;
+        return !q || String(u.phone).includes(q) || String(u.name || '').toLowerCase().includes(q);
+    });
+}
+
 function renderNames() {
     const missing = S.names.filter(u => !String(u.name || '').trim()).length;
-    $('#names-chips').innerHTML = `
-        <button class="chip ${S.namesFilter === 'all' ? 'active' : ''}" data-action="names-filter" data-filter="all">הכל <span class="n">${num(S.names.length)}</span></button>
-        <button class="chip ${S.namesFilter === 'missing' ? 'active' : ''}" data-action="names-filter" data-filter="missing"><i class="fa-solid fa-triangle-exclamation"></i> ללא שם <span class="n">${num(missing)}</span></button>`;
-    const q = S.namesSearch.toLowerCase();
-    const list = S.names.filter(u => (S.namesFilter !== 'missing' || !String(u.name || '').trim()) &&
-        (!q || String(u.phone).includes(q) || String(u.name || '').toLowerCase().includes(q)));
+    const locked = S.names.filter(u => lockIsOn(u.lock)).length;
+    const chip = (k, label, n, icon = '') => `<button class="chip ${S.namesFilter === k ? 'active' : ''}" data-action="names-filter" data-filter="${k}">${icon}${label} <span class="n">${num(n)}</span></button>`;
+    $('#names-chips').innerHTML = chip('all', 'הכל', S.names.length) + chip('missing', 'ללא שם', missing, '<i class="fa-solid fa-triangle-exclamation"></i> ') + chip('locked', 'נעולים', locked, '<i class="fa-solid fa-lock"></i> ');
+
+    const list = filteredNames();
+    S.namesFiltered = list.map(u => String(u.phone));
     const LIMIT = 400;
+    const isAdmin = S.mode === 'admin';
     const rows = list.slice(0, LIMIT).map(u => {
-        const locked = u.isProtected && !S.namesMain;
+        const lockedForMe = !S.namesMain && ((u.isProtected) || (u.lock && u.lock.status === 'active'));
         const phone = esc(u.phone);
-        return `<tr>
-            <td class="ltr mono" style="text-align:right; ${locked ? 'color:var(--text-3)' : ''}">${phone}</td>
+        const sel = S.namesSel.has(String(u.phone));
+        return `<tr class="${sel ? 'selected' : ''}">
+            <td class="col-check admin-only"><input type="checkbox" class="name-check" data-phone="${phone}" ${sel ? 'checked' : ''} aria-label="בחירה"></td>
+            <td class="ltr mono" style="text-align:right; ${lockedForMe ? 'color:var(--text-3)' : ''}">${phone}</td>
             <td>${u.active ? '<span class="badge good">פעיל</span>' : '<span class="badge bad">חסום</span>'}</td>
-            <td>${locked ? `<span class="muted"><i class="fa-solid fa-lock"></i> ${esc(u.name || 'ללא שם')}</span>`
-                : `<input class="input name-input" data-phone="${phone}" value="${esc(u.name || '')}" placeholder="ללא שם…" style="height:34px; ${!u.name ? 'border-color:color-mix(in oklab, var(--bad) 40%, var(--border));' : ''}">`}</td>
-            <td>${locked ? '' : `<button class="icon-btn sm" data-action="save-name" data-phone="${phone}" title="שמירה"><i class="fa-solid fa-check"></i></button>`}</td>
+            <td><input class="input name-input" data-phone="${phone}" value="${esc(u.name || '')}" placeholder="ללא שם…" ${lockedForMe ? 'disabled title="השם נעול"' : ''} style="height:34px; ${!u.name ? 'border-color:color-mix(in oklab, var(--bad) 40%, var(--border));' : ''}"></td>
+            <td>${lockBadge(u)}</td>
+            <td><div class="row" style="gap:2px;">
+                ${lockedForMe ? '' : `<button class="icon-btn sm" data-action="save-name" data-phone="${phone}" title="שמירה"><i class="fa-solid fa-check"></i></button>`}
+                ${isAdmin ? `<button class="icon-btn sm" data-action="lock-one" data-phone="${phone}" title="${u.lock ? 'עריכת נעילה' : 'נעילת השם'}"><i class="fa-solid fa-${u.lock ? 'lock' : 'lock-open'}"></i></button>` : ''}
+            </div></td>
         </tr>`;
     }).join('');
     $('#names-body').innerHTML = list.length
-        ? rows + (list.length > LIMIT ? `<tr><td colspan="4" class="muted" style="text-align:center;">מוצגות ${LIMIT} מתוך ${num(list.length)} — צמצם בחיפוש</td></tr>` : '')
-        : emptyRow(4, 'לא נמצאו מנויים', 'fa-address-book');
+        ? rows + (list.length > LIMIT ? `<tr><td colspan="6" class="muted" style="text-align:center;">מוצגות ${LIMIT} מתוך ${num(list.length)} — צמצם בחיפוש</td></tr>` : '')
+        : emptyRow(6, 'לא נמצאו מנויים', 'fa-address-book');
+    const all = $('#names-check-all');
+    all.checked = list.length > 0 && list.every(u => S.namesSel.has(String(u.phone)));
+    all.indeterminate = !all.checked && list.some(u => S.namesSel.has(String(u.phone)));
+    $('#names-bulk').hidden = !S.namesSel.size;
+    $('#names-bulk-count').textContent = `${num(S.namesSel.size)} נבחרו`;
 }
 
 async function saveName(phone) {
     const input = $(`.name-input[data-phone="${CSS.escape(phone)}"]`);
-    if (!input) return;
+    if (!input || input.disabled) return;
     const newName = input.value.trim();
     const u = S.names.find(x => String(x.phone) === phone);
     if (u && (u.name || '') === newName) { toast('לא בוצע שינוי', 'info'); return; }
     input.disabled = true;
-    const r = await api('/admin/update-yemot-name', { phone, newName }, 'user');
+    const r = await api('/admin/update-yemot-name', { phone, newName }, namesAuth());
     input.disabled = false;
     if (!r.ok) { toast(r.error || 'שגיאה בעדכון השם', 'bad'); return; }
-    if (u) u.name = newName;
+    if (u) { u.name = newName; if (u.lock) u.lock.lockedName = newName; }
     input.style.borderColor = 'var(--good)';
     input.style.background = 'var(--good-soft)';
     setTimeout(() => { input.style.borderColor = ''; input.style.background = ''; }, 1200);
     toast(`השם נשמר: ${newName || 'ללא שם'}`);
+}
+
+function toLocalInput(dbTime) { return dbTime ? String(dbTime).replace(' ', 'T').slice(0, 16) : ''; }
+function inputPlusDays(days) {
+    const d = new Date(Date.now() + days * 86400000);
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function setLockPreset(days) {
+    $$('#lock-presets .chip').forEach(c => c.classList.toggle('active', Number(c.dataset.preset) === days));
+    $('#lock-end').value = days ? inputPlusDays(days) : '';
+}
+
+function openLockDrawer(phones) {
+    S.lockPhones = phones;
+    const single = phones.length === 1 ? S.names.find(u => String(u.phone) === phones[0]) : null;
+    const lock = single && single.lock;
+    $('#lock-form').reset();
+    $('#lock-title').textContent = phones.length === 1 ? (lock ? 'עריכת נעילת שם' : 'נעילת שם') : `נעילת ${num(phones.length)} מספרים`;
+    $('#lock-sub').textContent = single ? `${single.phone} · ${single.name || 'ללא שם'}` : 'הנעילה תחול על כל המספרים שנבחרו';
+    $('#lock-current-name').textContent = single ? (single.name ? `"${single.name}"` : 'כרגע אין שם') : 'השם הנוכחי של כל מספר יישמר כפי שהוא';
+    $('#lock-remove').hidden = !lock;
+    $('#lock-save').innerHTML = lock ? '<i class="fa-solid fa-check"></i> עדכון נעילה' : '<i class="fa-solid fa-lock"></i> נעילה';
+    if (lock) {
+        $(`#lock-form input[name="lock-mode"][value="${lock.mode}"]`).checked = true;
+        $('#lock-start').value = toLocalInput(lock.startsAt);
+        $('#lock-end').value = toLocalInput(lock.expiresAt);
+        $('#lock-reason').value = lock.reason || '';
+        $$('#lock-presets .chip').forEach(c => c.classList.toggle('active', !lock.expiresAt && c.dataset.preset === '0'));
+    } else {
+        setLockPreset(0);
+    }
+    openDrawer('lock-drawer');
+}
+
+async function saveLock(e) {
+    e.preventDefault();
+    const nameMode = $('#lock-form input[name="lock-name"]:checked').value;
+    const name = $('#lock-custom-name').value.trim();
+    if (nameMode === 'custom' && !name) { toast('יש להזין את השם לנעילה', 'bad'); $('#lock-custom-name').focus(); return; }
+    const btn = $('#lock-save');
+    busy(btn, true);
+    const r = await api('/admin/name-locks/save', {
+        phones: S.lockPhones, mode: $('#lock-form input[name="lock-mode"]:checked').value,
+        nameMode, name, startsAt: $('#lock-start').value || null, expiresAt: $('#lock-end').value || null,
+        reason: $('#lock-reason').value.trim(),
+    });
+    busy(btn, false);
+    if (!r.ok) { toast(r.error || 'שגיאה בנעילה', 'bad'); return; }
+    if (r.data.applied === false) toast('הנעילה נשמרה, אבל עדכון השם בימות נכשל. האכיפה תנסה שוב.', 'bad');
+    else toast(r.data.message || 'הנעילה נשמרה');
+    S.namesSel.clear();
+    closeDrawers();
+    loadNames();
+}
+
+async function removeLocks(phones) {
+    if (!await confirmDanger('הסרת נעילה', phones.length === 1 ? 'להסיר את הנעילה מהמספר?' : `להסיר את הנעילה מ-${num(phones.length)} מספרים?`, 'הסרה')) return;
+    const r = await api('/admin/name-locks/delete', { phones });
+    if (!r.ok) { toast(r.error || 'שגיאה', 'bad'); return; }
+    toast(r.data.message || 'הנעילה הוסרה');
+    S.namesSel.clear();
+    closeDrawers();
+    loadNames();
+}
+
+async function enforceLocksNow(btn) {
+    busy(btn, true);
+    const r = await api('/admin/name-locks/enforce');
+    busy(btn, false);
+    if (!r.ok || r.data.error) { toast(r.error || r.data.error || 'שגיאה באכיפה', 'bad'); return; }
+    toast(r.data.restored.length ? `שוחזרו ${num(r.data.restored.length)} שמות שהשתנו (מתוך ${num(r.data.checked)} נעולים)` : `כל ${num(r.data.checked)} השמות הנעולים תקינים`);
+    if (r.data.restored.length) loadNames();
 }
 
 // ---------- SQL ----------
@@ -1756,7 +2259,14 @@ function startPolling() {
     pollTimers.push(setInterval(() => {
         if (document.hidden) return;
         if (S.view === 'chat' && S.activePhone) refreshThread();
-    }, 4000));
+    }, 2500));
+    pollTimers.push(setInterval(() => {
+        if (document.hidden || S.view !== 'activity' || (S.actEvents || []).length > 100) return;
+        loadOnline(true).then(d => { if (d) renderActivityTop(); });
+        api('/admin/activity/feed', { action: S.actFilter || undefined, phone: S.actPhone || undefined, limit: 100 }).then(r => {
+            if (r.ok && S.view === 'activity' && (S.actEvents || []).length <= 100) { S.actEvents = r.data.events || []; S.actHasMore = S.actEvents.length === 100; renderActivityFeed(); }
+        });
+    }, 20000));
     let tick = 0;
     pollTimers.push(setInterval(() => {
         if (document.hidden) return;
@@ -1825,12 +2335,31 @@ const ACTIONS = {
     },
     'close-thread': closeThread,
     'thread-profile': () => {
+        closePopovers();
         const u = S.users.find(x => x.phone === S.activePhone);
         if (u && u.hasWebAccount) openUser(u.phone);
         else if (u) openCreate(u.phone);
         else { loadUsers(true).then(() => { const x = S.users.find(y => y.phone === S.activePhone); x && x.hasWebAccount ? openUser(x.phone) : toast('למנוי זה אין חשבון אתר', 'info'); }); }
     },
     'delete-msg': el => deleteMsg(el.dataset.id),
+    'reply-msg': el => startReply(el.dataset.id),
+    'edit-msg': el => editMsg(el.dataset.id),
+    'jump-msg': el => jumpToMessage(el.dataset.id),
+    'cancel-reply': () => { S.replyTo = null; renderReplyBar(); },
+    'open-hit': el => openConv(el.dataset.phone, el.dataset.id),
+    'thread-pin': () => updateThreadMeta({ pinned: !(S.thread && S.thread.thread.pinned) }, S.thread && S.thread.thread.pinned ? 'ההצמדה בוטלה' : 'השיחה הוצמדה'),
+    'thread-archive': () => { closePopovers(); const on = !(S.thread && S.thread.thread.archived); updateThreadMeta({ archived: on }, on ? 'השיחה הועברה לארכיון' : 'השיחה הוחזרה מהארכיון'); },
+    'thread-note': () => { closePopovers(); editThreadNote(); },
+    'thread-unread': () => { closePopovers(); markThreadUnread(); },
+    'thread-activity': () => { closePopovers(); const p = S.activePhone; openUser(p).then(() => switchUserTab('activity')); switchUserTab('activity'); },
+    'toggle-thread-menu': () => togglePopover('thread-menu'),
+    'chat-settings': openChatSettings,
+    'chat-test-email': chatTestEmail,
+
+    'refresh-activity': () => loadActivity(),
+    'act-filter': el => { S.actFilter = el.dataset.filter; loadActivity(); },
+    'act-more': () => loadActivity(true),
+    'open-user-activity': el => { const p = el.dataset.phone; openUser(p); switchUserTab('activity'); },
     'new-chat': newChat,
     'custom-email': () => { $('#email-form').reset(); openDrawer('email-drawer'); },
 
@@ -1843,6 +2372,12 @@ const ACTIONS = {
     'refresh-names': loadNames,
     'names-filter': el => { S.namesFilter = el.dataset.filter; renderNames(); },
     'save-name': el => saveName(el.dataset.phone),
+    'lock-one': el => openLockDrawer([el.dataset.phone]),
+    'lock-selected': () => openLockDrawer([...S.namesSel]),
+    'unlock-selected': () => removeLocks([...S.namesSel]),
+    'lock-remove': () => removeLocks(S.lockPhones),
+    'names-clear': () => { S.namesSel.clear(); renderNames(); },
+    'enforce-locks': el => enforceLocksNow(el),
 
     'refresh-tables': loadTables,
     'pick-table': el => pickTable(el.dataset.table),
@@ -1909,7 +2444,23 @@ function bindEvents() {
 
     $('#users-search').addEventListener('input', debounce(e => { S.usersSearch = e.target.value.trim(); S.usersPage = 0; renderUsers(); }, 150));
     $('#logs-search').addEventListener('input', debounce(e => { S.logsSearch = e.target.value.trim(); renderSecurity(); }, 150));
-    $('#chat-search').addEventListener('input', debounce(e => { S.chatSearch = e.target.value.trim(); renderConvs(); }, 120));
+    $('#chat-search').addEventListener('input', debounce(e => { S.chatSearch = e.target.value.trim(); renderConvs(); searchMessages(S.chatSearch); }, 120));
+    $('#act-phone').addEventListener('input', debounce(e => { S.actPhone = e.target.value.replace(/[^\d+]/g, ''); loadActivity(); }, 400));
+    $('#chat-settings-form').addEventListener('submit', saveChatSettings);
+    $('#lock-form').addEventListener('submit', saveLock);
+    $('#lock-presets').addEventListener('click', e => { const c = e.target.closest('.chip'); if (c) setLockPreset(Number(c.dataset.preset)); });
+    $('#lock-end').addEventListener('input', () => $$('#lock-presets .chip').forEach(c => c.classList.remove('active')));
+    $('#lock-custom-name').addEventListener('focus', () => { $('#lock-form input[name="lock-name"][value="custom"]').checked = true; });
+    $('#names-body').addEventListener('change', e => {
+        if (!e.target.classList.contains('name-check')) return;
+        const p = e.target.dataset.phone;
+        e.target.checked ? S.namesSel.add(p) : S.namesSel.delete(p);
+        renderNames();
+    });
+    $('#names-check-all').addEventListener('change', e => {
+        (S.namesFiltered || []).forEach(p => e.target.checked ? S.namesSel.add(p) : S.namesSel.delete(p));
+        renderNames();
+    });
     $('#names-search').addEventListener('input', debounce(e => { S.namesSearch = e.target.value.trim(); renderNames(); }, 150));
     $('#audit-search').addEventListener('input', debounce(e => { S.auditSearch = e.target.value.trim(); renderAudit(); }, 150));
 
@@ -1919,7 +2470,11 @@ function bindEvents() {
 
     const composer = $('#composer-input');
     composer.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); } });
-    composer.addEventListener('input', () => { composer.style.height = 'auto'; composer.style.height = Math.min(160, composer.scrollHeight) + 'px'; });
+    composer.addEventListener('input', () => {
+        composer.style.height = 'auto'; composer.style.height = Math.min(160, composer.scrollHeight) + 'px';
+        sendTyping(!!composer.value.trim());
+    });
+    composer.addEventListener('blur', () => sendTyping(false));
 
     ['ad-title', 'ad-html', 'ad-image', 'ad-bg', 'ad-text', 'ad-mandatory'].forEach(id => $(`#${id}`).addEventListener('input', debounce(updateAdPreview, 120)));
     $('#ad-mandatory').addEventListener('change', updateAdPreview);
@@ -1980,9 +2535,13 @@ function bindEvents() {
     });
 
     window.addEventListener('hashchange', () => {
-        const id = location.hash.replace('#', '');
-        if (!$('#app').hidden && id && id !== S.view) go(id);
+        if ($('#app').hidden) return;
+        const { view, arg } = parseHash();
+        if (view && view !== S.view) go(view);
+        if (view === 'chat' && arg && arg !== S.activePhone) openConv(arg);
     });
+    ['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach(t => document.addEventListener(t, () => { S.lastInteraction = Date.now(); }, { passive: true, capture: true }));
+    document.addEventListener('mousemove', () => { S.lastInteraction = Date.now(); }, { passive: true });
     window.addEventListener('resize', debounce(() => { if (S.view === 'overview') renderChart(); }, 200));
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => { if (S.view === 'overview') renderChart(); });
 }
