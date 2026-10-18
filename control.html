@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Salamon Control</title>
+    <link rel="icon" href="https://smt-tel-manager.netlify.app/salamon-logo.png" type="image/png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/salamon/control.css">
+    <script src="/salamon/client-control.js" defer></script>
+</head>
+<body>
+    <!-- ===== Boot ===== -->
+    <div id="boot" style="height:100vh; display:grid; place-items:center;">
+        <i class="fa-solid fa-circle-notch spin" style="font-size:22px; color:var(--text-3);"></i>
+    </div>
+
+    <!-- ===== Login ===== -->
+    <div id="login" class="login" hidden>
+        <aside class="login-brand">
+            <div class="brand-mark"><div class="brand-logo"><i class="fa-solid fa-satellite-dish"></i></div> Salamon Control</div>
+            <div class="login-hero">
+                <h1>מרכז השליטה<br><span>של סלומון</span></h1>
+                <p>ניהול משתמשים, אבטחה, תמיכה, קמפיינים ונתונים — ממקום אחד, בזמן אמת.</p>
+            </div>
+            <div class="login-features">
+                <div><i class="fa-solid fa-users-gear"></i> ניהול משתמשים והרשאות</div>
+                <div><i class="fa-solid fa-shield-halved"></i> ניטור וחסימות</div>
+                <div><i class="fa-solid fa-comments"></i> תיבת תמיכה חיה</div>
+                <div><i class="fa-solid fa-database"></i> מסוף נתונים</div>
+            </div>
+        </aside>
+        <div class="login-form-wrap">
+            <div class="login-card">
+                <h2>כניסה למרכז השליטה</h2>
+                <p class="sub">גישה לצוות ההנהלה בלבד</p>
+                <form id="login-form" class="stack" autocomplete="on">
+                    <div id="login-alert" class="alert bad" hidden></div>
+                    <div class="field">
+                        <label for="login-user">שם משתמש</label>
+                        <input id="login-user" class="input ltr" required autocomplete="username" autofocus>
+                    </div>
+                    <div class="field">
+                        <label for="login-pass">סיסמה</label>
+                        <input id="login-pass" type="password" class="input ltr" required autocomplete="current-password">
+                    </div>
+                    <label class="check"><input type="checkbox" id="login-remember"> השאר אותי מחובר במכשיר זה</label>
+                    <button type="submit" id="login-submit" class="btn btn-primary btn-block" style="height:42px;"><i class="fa-solid fa-lock"></i> כניסה מאובטחת</button>
+                </form>
+                <div class="login-alt">
+                    <p class="muted" style="margin:0 0 10px; font-size:13px;">חבר צוות עם חשבון רגיל באתר?</p>
+                    <button type="button" class="btn btn-block" data-action="staff-login"><i class="fa-solid fa-id-badge"></i> כניסת צוות עם החשבון שלי</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== App shell ===== -->
+    <div id="app" class="shell" hidden>
+        <aside class="sidebar" id="sidebar">
+            <div class="brand-mark">
+                <div class="brand-logo"><i class="fa-solid fa-satellite-dish"></i></div>
+                <div class="brand-name">Salamon Control<small>מרכז שליטה</small></div>
+            </div>
+            <nav id="nav"></nav>
+            <div class="sidebar-foot">
+                <div class="avatar" id="me-avatar"><i class="fa-solid fa-user-shield"></i></div>
+                <div class="who"><b id="me-name">מנהל</b><small id="me-role">מנהל ראשי</small></div>
+            </div>
+        </aside>
+
+        <div class="main">
+            <header class="topbar">
+                <button class="icon-btn mobile-only" data-action="toggle-mobile-nav" aria-label="תפריט"><i class="fa-solid fa-bars"></i></button>
+                <button class="icon-btn desktop-only" data-action="toggle-sidebar" aria-label="כווץ תפריט"><i class="fa-solid fa-table-columns"></i></button>
+                <div class="crumbs"><span>Control</span><i class="fa-solid fa-chevron-left" style="font-size:10px;"></i><b id="crumb">סקירה</b></div>
+                <button class="cmd-trigger" data-action="open-cmdk"><i class="fa-solid fa-magnifying-glass"></i><span>חיפוש מהיר ופקודות…</span><span class="kbd">Ctrl K</span></button>
+                <button class="icon-btn" data-action="toggle-theme" aria-label="ערכת צבעים" title="ערכת צבעים"><i class="fa-solid fa-circle-half-stroke"></i></button>
+                <button class="icon-btn danger" data-action="logout" aria-label="התנתקות" title="התנתקות"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
+            </header>
+
+            <main class="content" id="content">
+
+                <!-- Overview -->
+                <section class="view" id="view-overview">
+                    <div class="view-head">
+                        <div><h1 id="greet">שלום 👋</h1><p>תמונת מצב של המערכת ברגע זה</p></div>
+                        <div class="actions"><button class="btn" data-action="refresh-overview"><i class="fa-solid fa-rotate-right"></i> רענון</button></div>
+                    </div>
+                    <div class="kpis" id="ov-kpis"></div>
+                    <div class="dash-grid">
+                        <div class="card">
+                            <div class="card-head"><h3>הצטרפויות לפי חודש</h3><span class="sub">חשבונות אתר, 12 חודשים אחרונים</span></div>
+                            <div class="card-body"><div class="chart" id="ov-chart"></div></div>
+                        </div>
+                        <div class="card">
+                            <div class="card-head"><h3>פעולות מהירות</h3></div>
+                            <div class="quick">
+                                <button data-action="go" data-view="users"><i class="fa-solid fa-users"></i><span>ניהול משתמשים</span></button>
+                                <button data-action="go" data-view="chat"><i class="fa-solid fa-comments"></i><span>תיבת תמיכה</span></button>
+                                <button data-action="go" data-view="security"><i class="fa-solid fa-ban"></i><span>חסימה חדשה</span></button>
+                                <button data-action="new-ad"><i class="fa-solid fa-bullhorn"></i><span>קמפיין חדש</span></button>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-head"><h3>אירועי אבטחה אחרונים</h3><div class="tools"><button class="btn btn-ghost btn-sm" data-action="go" data-view="security">הכל <i class="fa-solid fa-arrow-left"></i></button></div></div>
+                            <ul class="feed" id="ov-security"></ul>
+                        </div>
+                        <div class="card">
+                            <div class="card-head"><h3>שיחות שממתינות</h3><div class="tools"><button class="btn btn-ghost btn-sm" data-action="go" data-view="chat">לתיבה <i class="fa-solid fa-arrow-left"></i></button></div></div>
+                            <ul class="feed" id="ov-chats"></ul>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Users -->
+                <section class="view" id="view-users">
+                    <div class="view-head">
+                        <div><h1>משתמשים</h1><p>כל המנויים במערכת, חשבונות האתר וההרשאות שלהם</p></div>
+                        <div class="actions">
+                            <button class="btn" data-action="export-users"><i class="fa-solid fa-file-arrow-down"></i> ייצוא CSV</button>
+                            <button class="btn" data-action="refresh-users"><i class="fa-solid fa-rotate-right"></i> רענון</button>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="toolbar">
+                            <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="users-search" placeholder="חיפוש לפי שם, טלפון או אימייל…"></div>
+                            <div class="chips" id="users-chips"></div>
+                        </div>
+                        <div class="table-wrap">
+                            <table class="tbl">
+                                <thead><tr>
+                                    <th class="sortable" data-sort="name">משתמש</th>
+                                    <th class="sortable" data-sort="phone">טלפון</th>
+                                    <th class="sortable" data-sort="yemotActive">ימות המשיח</th>
+                                    <th class="sortable" data-sort="email">חשבון אתר</th>
+                                    <th class="sortable" data-sort="createdAt">הצטרפות</th>
+                                    <th>הרשאות מהירות</th>
+                                    <th></th>
+                                </tr></thead>
+                                <tbody id="users-body"></tbody>
+                            </table>
+                        </div>
+                        <div class="pager" id="users-pager"></div>
+                    </div>
+                </section>
+
+                <!-- Security -->
+                <section class="view" id="view-security">
+                    <div class="view-head">
+                        <div><h1>אבטחה</h1><p>חסימות פעילות, ניטור אימותים וצינתוקים</p></div>
+                        <div class="actions">
+                            <button class="btn btn-danger" data-action="clean-logs"><i class="fa-solid fa-broom"></i> ניקוי לוגים ישנים</button>
+                            <button class="btn" data-action="refresh-security"><i class="fa-solid fa-rotate-right"></i> רענון</button>
+                        </div>
+                    </div>
+                    <div class="kpis" id="sec-kpis"></div>
+                    <div class="card" style="margin-bottom:14px;">
+                        <div class="card-head"><h3><i class="fa-solid fa-ban" style="color:var(--bad);"></i> חסימה ידנית</h3></div>
+                        <form class="card-body" id="block-form">
+                            <div class="row wrap" style="align-items:flex-end; gap:12px;">
+                                <div class="field" style="width:150px;"><label>סוג</label><select id="block-type" class="input"><option value="phone">מספר טלפון</option><option value="ip">כתובת IP</option></select></div>
+                                <div class="field" style="flex:2; min-width:180px;"><label>ערך לחסימה</label><input id="block-value" class="input ltr" required placeholder="0501234567"></div>
+                                <div class="field" style="flex:2; min-width:180px;"><label>סיבה</label><input id="block-reason" class="input" placeholder="ספאם, ניסיון פריצה…"></div>
+                                <div class="field" style="width:90px;"><label>משך</label><input id="block-duration" type="number" min="1" value="24" class="input"></div>
+                                <div class="field" style="width:120px;"><label>יחידה</label><select id="block-unit" class="input"><option value="hours">שעות</option><option value="minutes">דקות</option><option value="days">ימים</option><option value="permanent">לצמיתות</option></select></div>
+                                <button type="submit" class="btn btn-danger-solid" id="block-submit"><i class="fa-solid fa-lock"></i> החל חסימה</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="card" style="margin-bottom:14px;">
+                        <div class="card-head"><h3>חסימות פעילות</h3><span class="sub" id="blocks-count"></span></div>
+                        <div class="table-wrap">
+                            <table class="tbl"><thead><tr><th>סוג</th><th>ערך</th><th>סיבה</th><th>נוצרה</th><th>תפוגה</th><th></th></tr></thead><tbody id="blocks-body"></tbody></table>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="toolbar">
+                            <h3 style="margin:0; font-size:14.5px; font-weight:600;">יומן אירועים</h3>
+                            <div class="spacer"></div>
+                            <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="logs-search" placeholder="טלפון, IP, פירוט…"></div>
+                            <div class="chips" id="logs-chips"></div>
+                        </div>
+                        <div class="table-wrap" style="max-height:560px;">
+                            <table class="tbl"><thead><tr><th>#</th><th>זמן</th><th>רמה</th><th>פעולה</th><th>טלפון</th><th>IP</th><th>פירוט</th></tr></thead><tbody id="logs-body"></tbody></table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Chat -->
+                <section class="view" id="view-chat">
+                    <div class="view-head">
+                        <div><h1>תיבת תמיכה</h1><p>שיחות עם לקוחות בזמן אמת</p></div>
+                        <div class="actions">
+                            <button class="btn" data-action="custom-email"><i class="fa-solid fa-envelope"></i> מייל חופשי</button>
+                            <button class="btn btn-primary" data-action="new-chat"><i class="fa-solid fa-plus"></i> שיחה חדשה</button>
+                        </div>
+                    </div>
+                    <div class="card inbox" id="inbox">
+                        <div class="inbox-list">
+                            <div class="toolbar"><div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="chat-search" placeholder="חיפוש שיחה…"></div></div>
+                            <div class="conv-scroll" id="conv-list"></div>
+                        </div>
+                        <div class="thread" id="thread">
+                            <div class="thread-empty" id="thread-empty"><div><i class="fa-regular fa-comments"></i><div>בחר שיחה מהרשימה</div></div></div>
+                            <div class="thread-head" id="thread-head" hidden>
+                                <button class="icon-btn mobile-only" data-action="close-thread" aria-label="חזרה"><i class="fa-solid fa-arrow-right"></i></button>
+                                <div class="avatar" id="thread-avatar"></div>
+                                <div class="who"><b id="thread-name"></b><small class="ltr" id="thread-phone"></small></div>
+                                <div class="spacer"></div>
+                                <button class="btn btn-sm" data-action="thread-profile"><i class="fa-solid fa-user-gear"></i> פרופיל</button>
+                            </div>
+                            <div class="thread-msgs" id="thread-msgs" hidden></div>
+                            <form class="composer" id="composer" hidden>
+                                <textarea class="input" id="composer-input" placeholder="כתוב תשובה… (Enter לשליחה, Shift+Enter לשורה חדשה)" required></textarea>
+                                <div class="opts">
+                                    <label class="check" title="שלח עותק למייל של הלקוח"><input type="checkbox" id="composer-email"> <i class="fa-solid fa-envelope"></i></label>
+                                </div>
+                                <button type="submit" class="btn btn-primary" id="composer-send" style="height:42px;"><i class="fa-solid fa-paper-plane"></i></button>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Ads -->
+                <section class="view" id="view-ads">
+                    <div class="view-head">
+                        <div><h1>קמפיינים</h1><p>הודעות מערכת, מודעות צד ופופאפים</p></div>
+                        <div class="actions">
+                            <button class="btn" data-action="refresh-ads"><i class="fa-solid fa-rotate-right"></i> רענון</button>
+                            <button class="btn btn-primary" data-action="new-ad"><i class="fa-solid fa-plus"></i> קמפיין חדש</button>
+                        </div>
+                    </div>
+                    <div class="ads-grid" id="ads-grid"></div>
+                </section>
+
+                <!-- Phonebook -->
+                <section class="view" id="view-names">
+                    <div class="view-head">
+                        <div><h1>ספר טלפונים</h1><p>עריכת שמות המנויים במערכת הטלפונית</p></div>
+                        <div class="actions"><button class="btn" data-action="refresh-names"><i class="fa-solid fa-rotate-right"></i> סנכרון מול ימות</button></div>
+                    </div>
+                    <div class="card">
+                        <div class="toolbar">
+                            <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="names-search" placeholder="חיפוש לפי טלפון או שם…"></div>
+                            <div class="chips" id="names-chips"></div>
+                        </div>
+                        <div class="table-wrap" style="max-height:calc(100vh - 290px);">
+                            <table class="tbl"><thead><tr><th style="width:160px;">טלפון</th><th style="width:110px;">צינתוקים</th><th>שם (Enter לשמירה)</th><th style="width:60px;"></th></tr></thead><tbody id="names-body"></tbody></table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SQL -->
+                <section class="view" id="view-sql">
+                    <div class="view-head">
+                        <div><h1>מסוף נתונים</h1><p>גישה ישירה למסד D1 — כל פעולה כאן היא בלתי הפיכה</p></div>
+                    </div>
+                    <div class="sql-layout">
+                        <div class="card">
+                            <div class="card-head"><h3>טבלאות</h3><div class="tools"><button class="icon-btn sm" data-action="refresh-tables" title="רענון"><i class="fa-solid fa-rotate-right"></i></button></div></div>
+                            <div class="sql-tables" id="sql-tables"></div>
+                        </div>
+                        <div class="stack" style="min-width:0;">
+                            <div class="card" style="overflow:hidden;">
+                                <textarea id="sql-editor" class="sql-editor" spellcheck="false" placeholder="SELECT * FROM users LIMIT 50"></textarea>
+                                <div class="sql-bar">
+                                    <span><span class="kbd">Ctrl</span> + <span class="kbd">Enter</span> להרצה</span>
+                                    <div class="spacer"></div>
+                                    <span id="sql-meta"></span>
+                                    <button class="btn btn-primary btn-sm" data-action="run-sql" id="sql-run"><i class="fa-solid fa-play"></i> הרצה</button>
+                                </div>
+                            </div>
+                            <div class="sql-history" id="sql-history"></div>
+                            <div id="sql-error" class="alert bad ltr" hidden style="text-align:left;"></div>
+                            <div class="card" style="min-width:0;">
+                                <div class="card-head"><h3>תוצאות</h3><span class="sub" id="sql-result-info"></span><div class="tools"><button class="btn btn-sm" data-action="export-sql" id="sql-export" hidden><i class="fa-solid fa-file-arrow-down"></i> CSV</button></div></div>
+                                <div class="table-wrap" style="max-height:60vh;" id="sql-results"><div class="empty"><i class="fa-solid fa-terminal"></i>בחר טבלה או הרץ שאילתה. לחיצה על תא מאפשרת עריכה ישירה.</div></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Audit -->
+                <section class="view" id="view-audit">
+                    <div class="view-head">
+                        <div><h1>יומן צוות</h1><p>כל השינויים שבוצעו על ידי חברי צוות ההנהלה</p></div>
+                        <div class="actions"><button class="btn" data-action="refresh-audit"><i class="fa-solid fa-rotate-right"></i> רענון</button></div>
+                    </div>
+                    <div class="card">
+                        <div class="toolbar">
+                            <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="audit-search" placeholder="מנהל, טלפון יעד…"></div>
+                        </div>
+                        <div class="table-wrap">
+                            <table class="tbl"><thead><tr><th>זמן</th><th>בוצע ע״י</th><th>פעולה</th><th>יעד</th><th>שינויים</th></tr></thead><tbody id="audit-body"></tbody></table>
+                        </div>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- ===== User drawer ===== -->
+    <div class="scrim" id="scrim"></div>
+    <aside class="drawer" id="user-drawer" aria-hidden="true">
+        <div class="drawer-head">
+            <div><h2 id="ud-title">משתמש</h2><div class="sub ltr" id="ud-sub"></div></div>
+            <button class="icon-btn" data-action="close-drawer" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="drawer-tabs" id="ud-tabs">
+            <button class="drawer-tab active" data-tab="profile"><i class="fa-solid fa-id-card"></i> פרופיל</button>
+            <button class="drawer-tab" data-tab="perms"><i class="fa-solid fa-key"></i> הרשאות</button>
+            <button class="drawer-tab" data-tab="listen"><i class="fa-solid fa-headphones"></i> האזנה</button>
+            <button class="drawer-tab" data-tab="staff"><i class="fa-solid fa-user-shield"></i> צוות</button>
+            <button class="drawer-tab" data-tab="sessions"><i class="fa-solid fa-laptop"></i> מכשירים</button>
+        </div>
+        <form class="drawer-body" id="ud-form">
+            <div class="tab-pane active" data-pane="profile">
+                <div class="profile-hero">
+                    <div class="avatar lg" id="ud-avatar"></div>
+                    <div class="p-main"><h3 id="ud-name">…</h3><div id="ud-yemot"></div></div>
+                    <button type="button" class="btn btn-sm" data-action="ud-chat"><i class="fa-solid fa-comment"></i> שיחה</button>
+                </div>
+                <div class="field"><label>אימייל</label><input type="email" id="ud-email" class="input ltr"></div>
+                <div class="field"><label>סיסמה חדשה</label><input type="password" id="ud-password" class="input ltr" placeholder="השאר ריק ללא שינוי" autocomplete="new-password"><span class="hint">4–10 ספרות</span></div>
+                <div class="field"><label>קישור לתמונת פרופיל</label><input type="url" id="ud-picture" class="input ltr" placeholder="https://…"></div>
+                <div class="setting-group">
+                    <div class="setting"><div class="s-text"><div class="s-title">נעילת תמונת פרופיל</div><div class="s-desc">מונע עדכון אוטומטי בהתחברות עם Google</div></div><label class="switch"><input type="checkbox" id="ud-lock-picture"><span></span></label></div>
+                    <div class="setting"><div class="s-text"><div class="s-title">כניסה עם Google בלבד</div><div class="s-desc">חוסם התחברות עם סיסמה</div></div><label class="switch"><input type="checkbox" id="ud-google-only"><span></span></label></div>
+                    <div class="setting"><div class="s-text"><div class="s-title">קבלת עדכונים במייל</div><div class="s-desc">התראות וקודי איפוס</div></div><label class="switch"><input type="checkbox" id="ud-receive-emails"><span></span></label></div>
+                </div>
+            </div>
+            <div class="tab-pane" data-pane="perms">
+                <div class="setting-group">
+                    <div class="setting"><div class="s-text"><div class="s-title"><i class="fa-solid fa-microphone"></i> הקלטה</div><div class="s-desc">הקלטת הודעות קוליות</div></div><label class="switch"><input type="checkbox" id="ud-can-record"><span></span></label></div>
+                    <div class="setting"><div class="s-text"><div class="s-title"><i class="fa-solid fa-upload"></i> העלאת קבצים</div><div class="s-desc">העלאת קובצי שמע מהמכשיר</div></div><label class="switch"><input type="checkbox" id="ud-can-upload"><span></span></label></div>
+                    <div class="setting"><div class="s-text"><div class="s-title"><i class="fa-solid fa-phone-volume"></i> צינתוקים</div><div class="s-desc">שליחת פקודות צינתוק</div></div><label class="switch"><input type="checkbox" id="ud-can-tzintuk"><span></span></label></div>
+                </div>
+            </div>
+            <div class="tab-pane" data-pane="listen">
+                <div class="setting-group">
+                    <div class="setting"><div class="s-text"><div class="s-title">הרשאת האזנה כללית</div><div class="s-desc">כבוי = המשתמש לא יראה ולא ישמע הודעות כלל</div></div><label class="switch"><input type="checkbox" id="ud-can-listen"><span></span></label></div>
+                </div>
+                <div class="field"><label>רשימה לבנה</label><input id="ud-whitelist" class="input ltr" placeholder="0501234567, 0527654321"><span class="hint">מספרים מותרים, מופרדים בפסיק</span></div>
+                <div class="field"><label>רשימה שחורה</label><input id="ud-blacklist" class="input ltr" placeholder="0501234567"><span class="hint">מספרים חסומים, מופרדים בפסיק</span></div>
+            </div>
+            <div class="tab-pane" data-pane="staff">
+                <div class="setting-group">
+                    <div class="setting"><div class="s-text"><div class="s-title">חבר צוות</div><div class="s-desc">גישה למרכז השליטה לפי ההרשאות שיסומנו</div></div><label class="switch danger"><input type="checkbox" id="ud-is-admin"><span></span></label></div>
+                    <div class="perm-list" id="ud-perms" hidden></div>
+                </div>
+            </div>
+            <div class="tab-pane" data-pane="sessions">
+                <div class="row"><b>מכשירים מחוברים</b><div class="spacer"></div><button type="button" class="btn btn-danger btn-sm" data-action="disconnect-all"><i class="fa-solid fa-power-off"></i> ניתוק מכולם</button></div>
+                <div class="card"><div class="table-wrap"><table class="tbl"><thead><tr><th>סוג</th><th>אימייל</th><th>פעילות אחרונה</th><th></th></tr></thead><tbody id="ud-sessions"></tbody></table></div></div>
+            </div>
+        </form>
+        <div class="drawer-foot">
+            <button type="button" class="btn btn-danger" data-action="delete-user"><i class="fa-solid fa-trash-can"></i> מחיקת חשבון</button>
+            <div class="spacer"></div>
+            <button type="button" class="btn" data-action="close-drawer">ביטול</button>
+            <button type="submit" form="ud-form" class="btn btn-primary" id="ud-save"><i class="fa-solid fa-check"></i> שמירה</button>
+        </div>
+    </aside>
+
+    <!-- ===== Create account drawer ===== -->
+    <aside class="drawer" id="create-drawer" aria-hidden="true">
+        <div class="drawer-head">
+            <div><h2>פתיחת חשבון אתר</h2><div class="sub">למנוי קיים במערכת הטלפונית</div></div>
+            <button class="icon-btn" data-action="close-drawer" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form class="drawer-body stack" id="create-form">
+            <div class="field"><label>מספר טלפון</label><input id="cr-phone" class="input ltr" required></div>
+            <div class="field"><label>אימייל (אופציונלי)</label><input id="cr-email" type="email" class="input ltr" placeholder="email@example.com"></div>
+            <div class="field"><label>סיסמה זמנית</label><input id="cr-password" type="password" class="input ltr" required pattern="\d{4,10}" placeholder="4–10 ספרות" autocomplete="new-password"></div>
+            <div class="section-title">הרשאות</div>
+            <div class="setting-group">
+                <div class="setting"><div class="s-text"><div class="s-title">הקלטה</div></div><label class="switch"><input type="checkbox" id="cr-can-record" checked><span></span></label></div>
+                <div class="setting"><div class="s-text"><div class="s-title">העלאת קבצים</div></div><label class="switch"><input type="checkbox" id="cr-can-upload"><span></span></label></div>
+                <div class="setting"><div class="s-text"><div class="s-title">צינתוקים</div></div><label class="switch"><input type="checkbox" id="cr-can-tzintuk" checked><span></span></label></div>
+                <div class="setting"><div class="s-text"><div class="s-title">קבלת עדכונים במייל</div></div><label class="switch"><input type="checkbox" id="cr-receive-emails" checked><span></span></label></div>
+            </div>
+            <div class="section-title danger">צוות</div>
+            <div class="setting-group">
+                <div class="setting"><div class="s-text"><div class="s-title">חבר צוות</div><div class="s-desc">גישה למרכז השליטה</div></div><label class="switch danger"><input type="checkbox" id="cr-is-admin"><span></span></label></div>
+                <div class="perm-list" id="cr-perms" hidden></div>
+            </div>
+        </form>
+        <div class="drawer-foot">
+            <div class="spacer"></div>
+            <button type="button" class="btn" data-action="close-drawer">ביטול</button>
+            <button type="submit" form="create-form" class="btn btn-primary" id="cr-save"><i class="fa-solid fa-user-plus"></i> יצירת חשבון</button>
+        </div>
+    </aside>
+
+    <!-- ===== Ad editor drawer ===== -->
+    <aside class="drawer wide" id="ad-drawer" aria-hidden="true">
+        <div class="drawer-head">
+            <div><h2 id="ad-title-head">קמפיין חדש</h2><div class="sub">התצוגה המקדימה מתעדכנת תוך כדי הקלדה</div></div>
+            <button class="icon-btn" data-action="close-drawer" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form class="drawer-body" id="ad-form">
+            <input type="hidden" id="ad-id">
+            <div class="ad-editor">
+                <div class="stack">
+                    <div class="section-title">תוכן</div>
+                    <div class="field"><label>כותרת</label><input id="ad-title" class="input" required></div>
+                    <div class="field"><label>תוכן (HTML מותר)</label><textarea id="ad-html" class="input" rows="5" required></textarea></div>
+                    <div class="field"><label>תמונה (אופציונלי)</label><input id="ad-image" type="url" class="input ltr" placeholder="https://…"></div>
+                    <div class="grid-2">
+                        <div class="field"><label>צבע רקע</label><input id="ad-bg" type="color" class="input" value="#ffffff"></div>
+                        <div class="field"><label>צבע טקסט</label><input id="ad-text" type="color" class="input" value="#1a202c"></div>
+                    </div>
+                    <div class="section-title">התנהגות</div>
+                    <div class="setting-group">
+                        <div class="setting"><div class="s-text"><div class="s-title">פופאפ חוסם מסך</div><div class="s-desc">במקום מודעת צד</div></div><label class="switch danger"><input type="checkbox" id="ad-mandatory"><span></span></label></div>
+                        <div class="setting"><div class="s-text"><div class="s-title">הצגת מונה צפיות למשתמשים</div><div class="s-desc">"נצפה ע״י X"</div></div><label class="switch"><input type="checkbox" id="ad-show-count"><span></span></label></div>
+                    </div>
+                    <div class="grid-2">
+                        <div class="field"><label>נעילת כפתור סגירה (שניות)</label><input id="ad-cooldown" type="number" min="0" value="0" class="input"></div>
+                        <div class="field"><label>המתנה בין צפיות (דקות)</label><input id="ad-interval" type="number" min="0" value="0" class="input"></div>
+                        <div class="field"><label>מקסימום צפיות למשתמש</label><input id="ad-max-views" type="number" min="0" value="0" class="input"><span class="hint">0 = ללא הגבלה</span></div>
+                        <div class="field"><label>אחרי הגעה למכסה</label><select id="ad-behavior" class="input"><option value="hide">הסתרה מלאה</option><option value="downgrade">הורדה למודעת צד</option></select></div>
+                        <div class="field"><label>תוקף</label><input id="ad-expires" type="datetime-local" class="input"><span class="hint">ריק = ללא הגבלה</span></div>
+                    </div>
+                </div>
+                <div class="ad-preview-wrap">
+                    <div class="section-title" style="margin-bottom:8px;">תצוגה מקדימה</div>
+                    <iframe id="ad-preview" class="ad-preview-frame" sandbox="" title="תצוגה מקדימה"></iframe>
+                </div>
+            </div>
+        </form>
+        <div class="drawer-foot">
+            <div class="spacer"></div>
+            <button type="button" class="btn" data-action="close-drawer">ביטול</button>
+            <button type="submit" form="ad-form" class="btn btn-primary" id="ad-save"><i class="fa-solid fa-floppy-disk"></i> שמירה ופרסום</button>
+        </div>
+    </aside>
+
+    <!-- ===== Ad views drawer ===== -->
+    <aside class="drawer" id="adlogs-drawer" aria-hidden="true">
+        <div class="drawer-head">
+            <div><h2>צפיות בקמפיין</h2><div class="sub" id="adlogs-sub"></div></div>
+            <button class="icon-btn" data-action="close-drawer" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="drawer-body" style="padding:0;">
+            <table class="tbl"><thead><tr><th>טלפון</th><th>זמן צפייה</th><th>IP</th></tr></thead><tbody id="adlogs-body"></tbody></table>
+        </div>
+    </aside>
+
+    <!-- ===== Email drawer ===== -->
+    <aside class="drawer" id="email-drawer" aria-hidden="true">
+        <div class="drawer-head">
+            <div><h2>שליחת מייל חופשי</h2><div class="sub">נשלח מכתובת המערכת</div></div>
+            <button class="icon-btn" data-action="close-drawer" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form class="drawer-body stack" id="email-form">
+            <div class="field"><label>נמען</label><input id="em-to" type="email" class="input ltr" required></div>
+            <div class="field"><label>נושא</label><input id="em-subject" class="input" required></div>
+            <div class="field"><label>תוכן</label><textarea id="em-content" class="input" rows="10" required></textarea></div>
+        </form>
+        <div class="drawer-foot">
+            <div class="spacer"></div>
+            <button type="button" class="btn" data-action="close-drawer">ביטול</button>
+            <button type="submit" form="email-form" class="btn btn-primary" id="em-send"><i class="fa-solid fa-paper-plane"></i> שליחה</button>
+        </div>
+    </aside>
+
+    <!-- ===== Dialog ===== -->
+    <div class="scrim top" id="dialog-scrim"></div>
+    <div class="dialog" id="dialog" role="dialog" aria-modal="true">
+        <div class="d-icon" id="dialog-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <h3 id="dialog-title"></h3>
+        <p id="dialog-text"></p>
+        <input class="input" id="dialog-input" hidden>
+        <div class="d-actions" id="dialog-actions"></div>
+    </div>
+
+    <!-- ===== Command palette ===== -->
+    <div class="cmdk" id="cmdk" role="dialog" aria-modal="true">
+        <div class="cmdk-input"><i class="fa-solid fa-magnifying-glass"></i><input id="cmdk-input" placeholder="חפש משתמש, מסך או פעולה…" autocomplete="off"><span class="kbd">Esc</span></div>
+        <div class="cmdk-list" id="cmdk-list"></div>
+        <div class="cmdk-foot"><span><span class="kbd">↑↓</span> ניווט</span><span><span class="kbd">Enter</span> בחירה</span><span><span class="kbd">G</span> ואז אות — קפיצה למסך</span></div>
+    </div>
+
+    <div class="toasts" id="toasts"></div>
+</body>
+</html>
