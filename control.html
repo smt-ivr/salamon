@@ -218,11 +218,43 @@
                     </div>
                 </section>
 
+                <!-- Activity -->
+                <section class="view" id="view-activity">
+                    <div class="view-head">
+                        <div><h1>פעילות ונוכחות</h1><p>מי מחובר עכשיו, התחברויות ופעולות של כל לקוח</p></div>
+                        <div class="actions"><button class="btn" data-action="refresh-activity"><i class="fa-solid fa-rotate-right"></i> רענון</button></div>
+                    </div>
+                    <div class="kpis" id="act-kpis"></div>
+                    <div class="dash-grid" style="grid-template-columns: 1fr 1fr; margin-bottom:14px;">
+                        <div class="card">
+                            <div class="card-head"><h3><span class="dot" style="color:var(--good)"></span> מחוברים עכשיו</h3><span class="sub" id="act-online-count"></span></div>
+                            <ul class="feed" id="act-online" style="max-height:340px; overflow:auto;"></ul>
+                        </div>
+                        <div class="card">
+                            <div class="card-head"><h3>התחברויות אחרונות</h3></div>
+                            <ul class="feed" id="act-logins" style="max-height:340px; overflow:auto;"></ul>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="toolbar">
+                            <h3 style="margin:0; font-size:14.5px; font-weight:600;">יומן פעולות</h3>
+                            <div class="spacer"></div>
+                            <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input ltr" id="act-phone" placeholder="סינון לפי טלפון…"></div>
+                            <div class="chips" id="act-chips"></div>
+                        </div>
+                        <div class="table-wrap" style="max-height:620px;">
+                            <table class="tbl"><thead><tr><th>זמן</th><th>משתמש</th><th>פעולה</th><th>פירוט</th><th>מכשיר</th><th>IP</th></tr></thead><tbody id="act-body"></tbody></table>
+                        </div>
+                        <div class="pager"><div class="spacer"></div><button class="btn btn-sm" data-action="act-more" id="act-more"><i class="fa-solid fa-angles-down"></i> טעינת עוד</button></div>
+                    </div>
+                </section>
+
                 <!-- Chat -->
                 <section class="view" id="view-chat">
                     <div class="view-head">
                         <div><h1>תיבת תמיכה</h1><p>שיחות עם לקוחות בזמן אמת</p></div>
                         <div class="actions">
+                            <button class="btn" data-action="chat-settings"><i class="fa-solid fa-gear"></i> הגדרות והתראות</button>
                             <button class="btn" data-action="custom-email"><i class="fa-solid fa-envelope"></i> מייל חופשי</button>
                             <button class="btn btn-primary" data-action="new-chat"><i class="fa-solid fa-plus"></i> שיחה חדשה</button>
                         </div>
@@ -230,22 +262,35 @@
                     <div class="card inbox" id="inbox">
                         <div class="inbox-list">
                             <div class="toolbar">
-                                <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="chat-search" placeholder="חיפוש שיחה…"></div>
+                                <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="chat-search" placeholder="חיפוש שיחה או טקסט בהודעות…"></div>
                                 <div class="chips" id="chat-chips"></div>
                             </div>
-                            <div class="conv-scroll" id="conv-list"></div>
+                            <div class="conv-scroll"><div id="conv-list"></div><div id="msg-search-results"></div></div>
                         </div>
                         <div class="thread" id="thread">
                             <div class="thread-empty" id="thread-empty"><div><i class="fa-regular fa-comments"></i><div>בחר שיחה מהרשימה</div></div></div>
                             <div class="thread-head" id="thread-head" hidden>
                                 <button class="icon-btn mobile-only" data-action="close-thread" aria-label="חזרה"><i class="fa-solid fa-arrow-right"></i></button>
                                 <div class="avatar" id="thread-avatar"></div>
-                                <div class="who"><b id="thread-name"></b><small class="ltr" id="thread-phone"></small></div>
+                                <div class="who"><b id="thread-name"></b><small id="thread-status"></small></div>
                                 <div class="row desktop-only" id="thread-tags" style="gap:6px;"></div>
                                 <div class="spacer"></div>
-                                <button class="btn btn-sm" data-action="thread-profile"><i class="fa-solid fa-user-gear"></i> פרופיל</button>
+                                <button class="icon-btn" data-action="thread-pin" id="thread-pin" title="הצמדה לראש הרשימה"><i class="fa-solid fa-thumbtack"></i></button>
+                                <button class="icon-btn" data-action="thread-note" title="הערה פנימית"><i class="fa-regular fa-note-sticky"></i></button>
+                                <div class="pop-wrap">
+                                    <button class="icon-btn" data-action="toggle-thread-menu" title="עוד פעולות"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                                    <div class="popover menu-panel" id="thread-menu" hidden>
+                                        <button class="menu-item" data-action="thread-profile"><i class="fa-solid fa-user-gear"></i> פרופיל המשתמש</button>
+                                        <button class="menu-item" data-action="thread-activity"><i class="fa-solid fa-wave-square"></i> יומן פעילות</button>
+                                        <button class="menu-item" data-action="thread-unread"><i class="fa-solid fa-envelope-open"></i> סימון כלא נקרא</button>
+                                        <button class="menu-item" data-action="thread-archive" id="thread-archive"><i class="fa-solid fa-box-archive"></i> העברה לארכיון</button>
+                                    </div>
+                                </div>
                             </div>
+                            <div class="thread-note" id="thread-note" data-action="thread-note" hidden></div>
                             <div class="thread-msgs" id="thread-msgs" hidden></div>
+                            <div class="typing-bar" id="typing-bar" hidden><span class="dots"><i></i><i></i><i></i></span><span id="typing-text">מקליד/ה…</span></div>
+                            <div class="reply-bar" id="reply-bar" hidden><i class="fa-solid fa-reply"></i><div class="rb-body"><b id="reply-who"></b><span id="reply-text"></span></div><button type="button" class="icon-btn sm" data-action="cancel-reply" aria-label="ביטול ציטוט"><i class="fa-solid fa-xmark"></i></button></div>
                             <form class="composer" id="composer" hidden>
                                 <textarea class="input" id="composer-input" placeholder="כתוב תשובה… (Enter לשליחה, Shift+Enter לשורה חדשה)" required></textarea>
                                 <div class="pop-wrap">
@@ -255,9 +300,11 @@
                                         <div id="qr-list"></div>
                                     </div>
                                 </div>
-                                <div class="opts">
-                                    <label class="check" title="שלח עותק למייל של הלקוח"><input type="checkbox" id="composer-email"> <i class="fa-solid fa-envelope"></i></label>
-                                </div>
+                                <select class="input email-mode" id="composer-email-mode" title="שליחת מייל ללקוח">
+                                    <option value="auto">✉️ חכם</option>
+                                    <option value="always">✉️ תמיד</option>
+                                    <option value="never">🚫 בלי מייל</option>
+                                </select>
                                 <button type="submit" class="btn btn-primary" id="composer-send" style="height:42px;"><i class="fa-solid fa-paper-plane"></i></button>
                             </form>
                         </div>
@@ -279,16 +326,26 @@
                 <!-- Phonebook -->
                 <section class="view" id="view-names">
                     <div class="view-head">
-                        <div><h1>ספר טלפונים</h1><p>עריכת שמות המנויים במערכת הטלפונית</p></div>
-                        <div class="actions"><button class="btn" data-action="refresh-names"><i class="fa-solid fa-rotate-right"></i> סנכרון מול ימות</button></div>
+                        <div><h1>ספר טלפונים</h1><p>עריכת שמות המנויים במערכת הטלפונית ונעילות שמות</p></div>
+                        <div class="actions">
+                            <button class="btn admin-only" data-action="enforce-locks" title="בדיקה מיידית ושחזור שמות נעולים שהשתנו"><i class="fa-solid fa-shield-halved"></i> אכיפת נעילות עכשיו</button>
+                            <button class="btn" data-action="refresh-names"><i class="fa-solid fa-rotate-right"></i> סנכרון מול ימות</button>
+                        </div>
                     </div>
                     <div class="card">
                         <div class="toolbar">
                             <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="names-search" placeholder="חיפוש לפי טלפון או שם…"></div>
                             <div class="chips" id="names-chips"></div>
                         </div>
+                        <div class="bulk-bar" id="names-bulk" hidden>
+                            <b id="names-bulk-count">0 נבחרו</b>
+                            <div class="spacer"></div>
+                            <button class="btn btn-sm" data-action="lock-selected"><i class="fa-solid fa-lock"></i> נעילה</button>
+                            <button class="btn btn-sm btn-danger" data-action="unlock-selected"><i class="fa-solid fa-lock-open"></i> הסרת נעילה</button>
+                            <button class="icon-btn sm" data-action="names-clear" title="ניקוי בחירה"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
                         <div class="table-wrap" style="max-height:calc(100vh - 290px);">
-                            <table class="tbl"><thead><tr><th style="width:160px;">טלפון</th><th style="width:110px;">צינתוקים</th><th>שם (Enter לשמירה)</th><th style="width:60px;"></th></tr></thead><tbody id="names-body"></tbody></table>
+                            <table class="tbl"><thead><tr><th class="col-check admin-only"><input type="checkbox" id="names-check-all" aria-label="בחירת כל התוצאות"></th><th style="width:150px;">טלפון</th><th style="width:100px;">צינתוקים</th><th>שם (Enter לשמירה)</th><th style="width:220px;">נעילה</th><th style="width:90px;"></th></tr></thead><tbody id="names-body"></tbody></table>
                         </div>
                     </div>
                 </section>
@@ -356,6 +413,7 @@
             <button class="drawer-tab" data-tab="listen"><i class="fa-solid fa-headphones"></i> האזנה</button>
             <button class="drawer-tab" data-tab="staff"><i class="fa-solid fa-user-shield"></i> צוות</button>
             <button class="drawer-tab" data-tab="sessions"><i class="fa-solid fa-laptop"></i> מכשירים</button>
+            <button class="drawer-tab" data-tab="activity"><i class="fa-solid fa-wave-square"></i> פעילות</button>
         </div>
         <form class="drawer-body" id="ud-form">
             <div class="tab-pane active" data-pane="profile">
@@ -396,6 +454,11 @@
             <div class="tab-pane" data-pane="sessions">
                 <div class="row"><b>מכשירים מחוברים</b><div class="spacer"></div><button type="button" class="btn btn-danger btn-sm" data-action="disconnect-all"><i class="fa-solid fa-power-off"></i> ניתוק מכולם</button></div>
                 <div class="card"><div class="table-wrap"><table class="tbl"><thead><tr><th>סוג</th><th>אימייל</th><th>פעילות אחרונה</th><th></th></tr></thead><tbody id="ud-sessions"></tbody></table></div></div>
+            </div>
+            <div class="tab-pane" data-pane="activity">
+                <div class="presence-card" id="ud-presence"></div>
+                <div class="chips" id="ud-totals"></div>
+                <div class="card"><ul class="feed timeline" id="ud-timeline"></ul></div>
             </div>
         </form>
         <div class="drawer-foot">
@@ -507,6 +570,77 @@
             <div class="spacer"></div>
             <button type="button" class="btn" data-action="close-drawer">ביטול</button>
             <button type="submit" form="email-form" class="btn btn-primary" id="em-send"><i class="fa-solid fa-paper-plane"></i> שליחה</button>
+        </div>
+    </aside>
+
+    <!-- ===== Chat settings drawer ===== -->
+    <aside class="drawer" id="chat-settings-drawer" aria-hidden="true">
+        <div class="drawer-head">
+            <div><h2>הגדרות צ'אט והתראות</h2><div class="sub">התראות חכמות במייל, בלי הצפה</div></div>
+            <button class="icon-btn" data-action="close-drawer" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form class="drawer-body stack" id="chat-settings-form">
+            <div class="section-title">התראות אליך על הודעות חדשות</div>
+            <div class="setting-group">
+                <div class="setting"><div class="s-text"><div class="s-title">מייל כשלקוח כותב ואני לא בצ'אט</div><div class="s-desc">נשלח רק אחרי שלא היית פעיל במרכז השליטה, ופעם אחת לכל שיחה עד שתחזור</div></div><label class="switch"><input type="checkbox" id="cs-enabled"><span></span></label></div>
+            </div>
+            <div class="field"><label>כתובת המייל שלי</label><input type="email" id="cs-email" class="input ltr" placeholder="you@example.com"></div>
+            <div class="grid-2">
+                <div class="field"><label>לשלוח אחרי חוסר פעילות של (דקות)</label><input type="number" min="1" max="240" id="cs-idle" class="input"></div>
+                <div class="field"><label>מינימום בין מיילים על אותה שיחה (דקות)</label><input type="number" min="1" max="1440" id="cs-cooldown" class="input"></div>
+            </div>
+            <button type="button" class="btn" data-action="chat-test-email"><i class="fa-solid fa-paper-plane"></i> שליחת מייל בדיקה</button>
+            <div class="section-title">מייל ללקוח כשאני עונה</div>
+            <div class="field"><label>ברירת מחדל</label>
+                <select id="cs-customer-mode" class="input">
+                    <option value="auto">חכם: רק אם הלקוח לא מחובר, ופעם אחת עד שיפתח את הצ'אט</option>
+                    <option value="always">תמיד לשלוח מייל</option>
+                    <option value="never">לא לשלוח מייל</option>
+                </select>
+            </div>
+            <div class="field"><label>הלקוח נחשב "לא מחובר" אחרי (דקות)</label><input type="number" min="1" max="120" id="cs-offline" class="input"></div>
+            <div class="alert info"><i class="fa-solid fa-circle-info"></i><span>המייל ללקוח מעוצב, כולל את התשובות האחרונות וכפתור שפותח את הצ'אט באתר מיד. אפשר לשנות את ההתנהגות בכל הודעה ליד כפתור השליחה.</span></div>
+        </form>
+        <div class="drawer-foot">
+            <div class="spacer"></div>
+            <button type="button" class="btn" data-action="close-drawer">ביטול</button>
+            <button type="submit" form="chat-settings-form" class="btn btn-primary" id="cs-save"><i class="fa-solid fa-check"></i> שמירה</button>
+        </div>
+    </aside>
+
+    <!-- ===== Name lock drawer ===== -->
+    <aside class="drawer" id="lock-drawer" aria-hidden="true">
+        <div class="drawer-head">
+            <div><h2 id="lock-title">נעילת שם</h2><div class="sub" id="lock-sub"></div></div>
+            <button class="icon-btn" data-action="close-drawer" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form class="drawer-body stack" id="lock-form">
+            <div class="section-title">סוג הנעילה</div>
+            <label class="choice"><input type="radio" name="lock-mode" value="staff" checked><div><b><i class="fa-solid fa-user-lock"></i> חסימת עריכה לצוות</b><small>חברי צוות לא יוכלו לשנות את השם במערכת. אתה עדיין יכול.</small></div></label>
+            <label class="choice"><input type="radio" name="lock-mode" value="enforce"><div><b><i class="fa-solid fa-rotate"></i> נעילה מלאה + שחזור אוטומטי</b><small>אם השם ישתנה בכל דרך, גם דרך הטלפון, הוא יוחזר אוטומטית תוך 15 דקות.</small></div></label>
+            <div class="section-title">השם</div>
+            <label class="choice compact"><input type="radio" name="lock-name" value="current" checked><div><b>לנעול את השם הנוכחי</b><small id="lock-current-name"></small></div></label>
+            <label class="choice compact"><input type="radio" name="lock-name" value="custom"><div><b>לקבוע שם חדש ולנעול אותו</b><input class="input" id="lock-custom-name" placeholder="השם שיוקרא בטלפון" style="margin-top:8px;"></div></label>
+            <div class="section-title">תוקף</div>
+            <div class="chips" id="lock-presets">
+                <button type="button" class="chip active" data-preset="0">ללא הגבלה</button>
+                <button type="button" class="chip" data-preset="1">24 שעות</button>
+                <button type="button" class="chip" data-preset="7">שבוע</button>
+                <button type="button" class="chip" data-preset="30">חודש</button>
+                <button type="button" class="chip" data-preset="90">3 חודשים</button>
+                <button type="button" class="chip" data-preset="365">שנה</button>
+            </div>
+            <div class="grid-2">
+                <div class="field"><label>מתחיל ב (ריק = מיד)</label><input type="datetime-local" id="lock-start" class="input"></div>
+                <div class="field"><label>מסתיים ב (ריק = ללא הגבלה)</label><input type="datetime-local" id="lock-end" class="input"></div>
+            </div>
+            <div class="field"><label>סיבה (תוצג לצוות)</label><input id="lock-reason" class="input" placeholder="לבקשת הלקוח, שם רשמי…" maxlength="200"></div>
+        </form>
+        <div class="drawer-foot">
+            <button type="button" class="btn btn-danger" data-action="lock-remove" id="lock-remove" hidden><i class="fa-solid fa-lock-open"></i> הסרת נעילה</button>
+            <div class="spacer"></div>
+            <button type="button" class="btn" data-action="close-drawer">ביטול</button>
+            <button type="submit" form="lock-form" class="btn btn-primary" id="lock-save"><i class="fa-solid fa-lock"></i> נעילה</button>
         </div>
     </aside>
 
