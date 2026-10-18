@@ -69,6 +69,7 @@ const VIEWS = [
     { id: 'names', label: 'ספר טלפונים', icon: 'fa-address-book', group: 'תוכן', key: 'n' },
     { id: 'sql', label: 'מסוף נתונים', icon: 'fa-database', group: 'מערכת', key: 'd' },
     { id: 'audit', label: 'יומן צוות', icon: 'fa-clipboard-list', group: 'מערכת', key: 'l' },
+    { id: 'settings', label: 'הגדרות', icon: 'fa-gear', group: 'מערכת', key: 't' },
 ];
 
 const ACTION_LABELS = {
@@ -374,25 +375,44 @@ async function login(e) {
     e.preventDefault();
     const btn = $('#login-submit');
     busy(btn, true);
-    const r = await api('/admin/login', { username: $('#login-user').value.trim(), password: $('#login-pass').value }, 'none');
+    const r = await api('/admin/login', { username: $('#login-user').value.trim(), password: $('#login-pass').value, remember: $('#login-remember').checked }, 'none');
     busy(btn, false);
     if (!r.ok || !r.data.adminToken) {
         showLogin(`<i class="fa-solid fa-circle-exclamation"></i> ${esc(r.error || 'פרטי התחברות שגויים')}`);
         return;
     }
-    S.adminToken = r.data.adminToken;
-    if ($('#login-remember').checked) setItem('adminToken', S.adminToken);
-    else { setItem('adminToken', S.adminToken, 'session'); delItem('adminToken'); }
+    storeAdminToken(r.data.adminToken, $('#login-remember').checked);
     $('#login-pass').value = '';
     await enterAdmin();
     toast('ברוך הבא למרכז השליטה');
 }
 
+function storeAdminToken(token, remember) {
+    S.adminToken = token;
+    if (remember) { setItem('adminToken', token); delItem('adminToken', 'session'); }
+    else { setItem('adminToken', token, 'session'); delItem('adminToken'); }
+}
+
+function clearAdminToken() {
+    delItem('adminToken'); delItem('adminToken', 'session');
+    S.adminToken = null;
+}
+
+// בודק מול השרת שהחיבור בתוקף לפני שנכנסים (טוקנים ישנים או שפג תוקפם מחזירים למסך הכניסה)
 async function enterAdmin() {
+    const r = await api('/admin/me', {}, 'admin');
+    if (!r.ok) {
+        clearAdminToken();
+        if (S.userToken && await tryStaff(true)) return;
+        showLogin(r.status === 401 ? '<i class="fa-solid fa-circle-info"></i> החיבור הקודם הסתיים, יש להתחבר מחדש.' : undefined);
+        return;
+    }
     S.mode = 'admin';
-    S.me = { name: 'מנהל ראשי' };
+    S.me = r.data.admin;
+    S.session = r.data.session;
     loadPermList();
     startApp();
+    reportPresence(true);
 }
 
 async function tryStaff(silent = false) {
@@ -400,6 +420,14 @@ async function tryStaff(silent = false) {
     if (!S.userToken) {
         if (!silent) showLogin('<i class="fa-solid fa-circle-info"></i> לא נמצא חיבור פעיל באתר. <a href="/salamon">התחבר קודם עם החשבון שלך</a> וחזור לכאן.');
         return false;
+    }
+    // מנהל-העל נכנס עם חשבון האתר שלו ומקבל חיבור מנהל מלא
+    const su = await api('/admin/login/user', {}, 'user');
+    if (su.ok && su.data.adminToken) {
+        storeAdminToken(su.data.adminToken, false);
+        await enterAdmin();
+        if (!silent) toast(`ברוך הבא, ${su.data.admin.name}`);
+        return true;
     }
     const r = await api('/user', {}, 'user');
     const user = r.ok && r.data.user;
@@ -421,8 +449,9 @@ async function tryStaff(silent = false) {
 
 function logout() {
     stopPolling();
-    if (S.mode === 'admin') {
-        delItem('adminToken'); delItem('adminToken', 'session');
+    if (S.mode === 'admin' && S.adminToken) {
+        api('/admin/logout', {}, 'admin');
+        clearAdminToken();
     }
     S.adminToken = null;
     S.mode = null;
@@ -443,7 +472,7 @@ function startApp() {
     $('#app').hidden = false;
 
     $('#me-name').textContent = S.me.name || 'חבר צוות';
-    $('#me-role').textContent = S.mode === 'admin' ? 'מנהל ראשי' : 'חבר צוות';
+    $('#me-role').textContent = S.mode !== 'admin' ? 'חבר צוות' : S.me.kind === 'user' ? 'מנהל-על' : 'מנהל ראשי';
     $('#me-avatar').outerHTML = S.mode === 'admin'
         ? '<div class="avatar" id="me-avatar"><i class="fa-solid fa-user-shield"></i></div>'
         : avatarHtml(S.me.name, S.me.profilePictureUrl).replace('class="avatar', 'id="me-avatar" class="avatar');
@@ -509,6 +538,7 @@ function loadView(id) {
         case 'names': return loadNames();
         case 'sql': return loadTables();
         case 'audit': return loadAudit();
+        case 'settings': return loadSettings();
     }
 }
 
@@ -1515,36 +1545,88 @@ async function newChat() {
     openConv(phone);
 }
 
-// ---------- Chat settings ----------
+// ---------- Settings ----------
 
-async function openChatSettings() {
-    openDrawer('chat-settings-drawer');
-    const r = await api('/admin/chat/settings');
-    if (!r.ok) { toast(r.error || 'שגיאה בטעינת ההגדרות', 'bad'); return; }
-    const s = S.chatSettings = r.data.settings;
+async function loadSettings() {
+    $('#set-me').innerHTML = '<div class="skeleton" style="width:60%"></div>';
+    $('#sess-list').innerHTML = '<li><div class="skeleton" style="width:70%"></div></li>'.repeat(2);
+    const [acc, sess, st] = await Promise.all([api('/admin/account'), api('/admin/sessions'), api('/admin/settings')]);
+    if (acc.ok) renderAccount(acc.data.account);
+    if (sess.ok) renderSessionsList(sess.data.sessions || []);
+    if (st.ok) fillSettings(st.data.settings);
+}
+
+function renderAccount(a) {
+    S.account = a;
+    const me = a.me || {};
+    const exp = S.session && S.session.expiresAt;
+    $('#set-me').innerHTML = `
+        <div class="me-card">
+            <div class="avatar lg"><i class="fa-solid fa-${me.kind === 'user' ? 'crown' : 'user-shield'}"></i></div>
+            <div style="flex:1; min-width:0;">
+                <b style="font-size:16px;">${esc(me.name || 'מנהל ראשי')}</b>
+                <div class="p-grid">
+                    <span>סוג כניסה</span><span>${me.kind === 'user' ? `מנהל-על דרך חשבון האתר (<span class="ltr">${esc(me.phone)}</span>)` : `שם משתמש <span class="ltr mono">${esc(me.username || '')}</span>`}</span>
+                    <span>תוקף החיבור</span><span>${S.session && S.session.remember ? `${num(a.rememberDays)} יום מהשימוש האחרון ("זכור אותי")` : `מתנתק אחרי ${num(a.idleMinutes / 60)} שעות ללא פעילות`}${exp ? ` · כרגע עד ${esc(fmtDate(exp))}` : ''}</span>
+                </div>
+            </div>
+            <button class="btn btn-danger btn-sm" data-action="logout"><i class="fa-solid fa-arrow-right-from-bracket"></i> התנתקות</button>
+        </div>`;
+    $('#pw-form').hidden = me.kind !== 'admin';
+    $('#sa-current').innerHTML = a.superAdmin
+        ? `<div class="alert info" style="align-items:center;"><i class="fa-solid fa-crown"></i><span style="flex:1;">מנהל-העל כרגע: <b>${esc(a.superAdmin.name || 'ללא שם')}</b> · <span class="ltr">${esc(a.superAdmin.phone)}</span></span>
+            ${me.kind === 'admin' ? '<button type="button" class="btn btn-sm btn-danger" data-action="sa-remove">ביטול</button>' : ''}</div>`
+        : '<div class="muted">לא הוגדר מנהל-על.</div>';
+    $('#sa-phone').value = '';
+    $('#sa-phone').disabled = me.kind !== 'admin';
+}
+
+function renderSessionsList(list) {
+    $('#sess-list').innerHTML = list.length ? list.map(s => `
+        <li>
+            <div class="act-icon ${s.current ? 'good' : ''}"><i class="fa-solid fa-${/iPhone|Android/.test(s.device) ? 'mobile-screen' : 'desktop'}"></i></div>
+            <div class="f-body">
+                <div class="f-title">${esc(s.device || 'מכשיר לא מזוהה')} ${s.current ? '<span class="badge good" style="height:20px;">המכשיר הזה</span>' : ''} ${s.kind === 'user' ? `<span class="badge accent" style="height:20px;"><i class="fa-solid fa-crown"></i> ${esc(s.name)}</span>` : ''}</div>
+                <div class="f-sub"><span class="ltr">${esc(s.ip || '')}</span> · התחבר ${esc(fmtDate(s.createdAt))} · פעיל ${esc(relTime(s.lastUsedAt))}${s.remember ? ' · זכור אותי' : ''}</div>
+            </div>
+            ${s.current ? '' : `<button class="icon-btn sm danger" data-action="sess-revoke" data-id="${esc(s.id)}" title="ניתוק"><i class="fa-solid fa-plug-circle-xmark"></i></button>`}
+        </li>`).join('') : '<li><div class="empty" style="padding:20px;width:100%;">אין חיבורים</div></li>';
+}
+
+function fillSettings(s) {
+    S.chatSettings = s;
     $('#cs-enabled').checked = s.notify_admin_enabled === '1';
     $('#cs-email').value = s.notify_admin_email || '';
     $('#cs-idle').value = s.notify_idle_minutes;
     $('#cs-cooldown').value = s.notify_cooldown_minutes;
     $('#cs-customer-mode').value = s.customer_email_mode;
     $('#cs-offline').value = s.customer_offline_minutes;
+    $('#pv-presence').checked = s.admin_show_presence !== '0';
+    $('#pv-typing').checked = s.admin_show_typing !== '0';
+    $('#pv-receipts').checked = s.admin_show_read_receipts !== '0';
 }
 
 async function saveChatSettings(e) {
     e.preventDefault();
     const btn = $('#cs-save');
     busy(btn, true);
-    const r = await api('/admin/chat/settings', { settings: {
+    const r = await api('/admin/settings', { settings: {
         notify_admin_enabled: $('#cs-enabled').checked, notify_admin_email: $('#cs-email').value.trim(),
         notify_idle_minutes: $('#cs-idle').value, notify_cooldown_minutes: $('#cs-cooldown').value,
         customer_email_mode: $('#cs-customer-mode').value, customer_offline_minutes: $('#cs-offline').value,
     } });
     busy(btn, false);
     if (!r.ok) { toast(r.error || 'שגיאה בשמירה', 'bad'); return; }
-    S.chatSettings = r.data.settings;
+    fillSettings(r.data.settings);
     $('#composer-email-mode').value = S.chatSettings.customer_email_mode;
-    toast('ההגדרות נשמרו');
-    closeDrawers();
+    toast('הגדרות ההתראות נשמרו');
+}
+
+async function savePrivacy(input) {
+    const r = await api('/admin/settings', { settings: { [input.dataset.setting]: input.checked } });
+    if (!r.ok) { input.checked = !input.checked; toast(r.error || 'שגיאה בשמירה', 'bad'); return; }
+    fillSettings(r.data.settings);
+    toast('הגדרת הפרטיות עודכנה');
 }
 
 async function chatTestEmail() {
@@ -1553,6 +1635,59 @@ async function chatTestEmail() {
     }
     const r = await api('/admin/chat/test-email');
     toast(r.ok ? r.data.message : (r.error || 'שליחת המייל נכשלה'), r.ok ? 'good' : 'bad');
+}
+
+async function changeAdminPassword(e) {
+    e.preventDefault();
+    if ($('#pw-new').value !== $('#pw-confirm').value) { toast('הסיסמאות החדשות אינן תואמות', 'bad'); return; }
+    const btn = $('#pw-save');
+    busy(btn, true);
+    const r = await api('/admin/account', { changePassword: { currentPassword: $('#pw-current').value, newPassword: $('#pw-new').value } });
+    busy(btn, false);
+    if (!r.ok) { toast(r.error || 'שגיאה בשינוי הסיסמה', 'bad'); return; }
+    $('#pw-form').reset();
+    toast(r.data.message || 'הסיסמה שונתה');
+    loadSettings();
+}
+
+async function setSuperAdmin(phone) {
+    if (!phone) {
+        if (!await confirmDanger('ביטול מנהל-על', 'המשתמש ינותק ממרכז השליטה ולא יוכל להיכנס יותר עם החשבון שלו.', 'ביטול')) return;
+    } else if (!await confirmDanger('הגדרת מנהל-על', `המשתמש ${phone} יקבל גישה מלאה למרכז השליטה, כולל הצ'אט וההגדרות. מנהל-על קודם, אם הוגדר, ינותק.`, 'הגדרה')) return;
+    const r = await api('/admin/account', { superAdminPhone: phone });
+    if (!r.ok) { toast(r.error || 'שגיאה', 'bad'); return; }
+    renderAccount(r.data.account);
+    toast(phone ? 'מנהל-העל הוגדר' : 'מנהל-העל בוטל');
+    const sess = await api('/admin/sessions');
+    if (sess.ok) renderSessionsList(sess.data.sessions || []);
+}
+
+async function revokeSessions(id) {
+    if (!id && !await confirmDanger('ניתוק כל המכשירים האחרים', 'כל החיבורים למרכז השליטה, חוץ מהמכשיר הזה, יתנתקו מיד.', 'ניתוק')) return;
+    const r = await api('/admin/sessions', id ? { revoke: id } : { revokeOthers: true });
+    if (!r.ok) { toast(r.error || 'שגיאה', 'bad'); return; }
+    renderSessionsList(r.data.sessions || []);
+    toast(id ? 'המכשיר נותק' : 'כל שאר המכשירים נותקו');
+}
+
+// ---------- Admin presence ----------
+// מדווח לשרת אם המנהל מול המסך, כדי שהלקוחות יראו "מחובר/ת" רק כשזה נכון
+
+let lastPresence = '';
+function reportPresence(force) {
+    if (S.mode !== 'admin' || !S.adminToken) return;
+    const state = document.hidden ? 'away' : (Date.now() - S.lastInteraction < 120000 ? 'online' : 'away');
+    if (!force && state === lastPresence && state !== 'online') return;
+    lastPresence = state;
+    api('/admin/presence', { state });
+}
+
+function presenceOffline() {
+    if (S.mode !== 'admin' || !S.adminToken) return;
+    lastPresence = 'offline';
+    try {
+        navigator.sendBeacon(`${API_BASE_URL}/admin/presence`, new Blob([JSON.stringify({ adminToken: S.adminToken, state: 'offline' })], { type: 'text/plain' }));
+    } catch (e) {}
 }
 
 async function loadChatDefaults() {
@@ -2256,6 +2391,7 @@ function startPolling() {
     stopPolling();
     pollTimers.push(setInterval(updateLive, 15000));
     if (S.mode !== 'admin') return;
+    pollTimers.push(setInterval(() => reportPresence(true), 30000));
     pollTimers.push(setInterval(() => {
         if (document.hidden) return;
         if (S.view === 'chat' && S.activePhone) refreshThread();
@@ -2353,7 +2489,11 @@ const ACTIONS = {
     'thread-unread': () => { closePopovers(); markThreadUnread(); },
     'thread-activity': () => { closePopovers(); const p = S.activePhone; openUser(p).then(() => switchUserTab('activity')); switchUserTab('activity'); },
     'toggle-thread-menu': () => togglePopover('thread-menu'),
-    'chat-settings': openChatSettings,
+    'chat-settings': () => go('settings'),
+    'sa-save': () => { const p = $('#sa-phone').value.replace(/[^\d]/g, ''); if (p.length < 9) { toast('מספר טלפון לא תקין', 'bad'); return; } setSuperAdmin(p); },
+    'sa-remove': () => setSuperAdmin(''),
+    'sess-revoke': el => revokeSessions(el.dataset.id),
+    'sess-revoke-others': () => revokeSessions(''),
     'chat-test-email': chatTestEmail,
 
     'refresh-activity': () => loadActivity(),
@@ -2447,6 +2587,10 @@ function bindEvents() {
     $('#chat-search').addEventListener('input', debounce(e => { S.chatSearch = e.target.value.trim(); renderConvs(); searchMessages(S.chatSearch); }, 120));
     $('#act-phone').addEventListener('input', debounce(e => { S.actPhone = e.target.value.replace(/[^\d+]/g, ''); loadActivity(); }, 400));
     $('#chat-settings-form').addEventListener('submit', saveChatSettings);
+    $('#pw-form').addEventListener('submit', changeAdminPassword);
+    $$('[data-setting]').forEach(i => i.addEventListener('change', () => savePrivacy(i)));
+    document.addEventListener('visibilitychange', () => reportPresence(true));
+    window.addEventListener('pagehide', presenceOffline);
     $('#lock-form').addEventListener('submit', saveLock);
     $('#lock-presets').addEventListener('click', e => { const c = e.target.closest('.chip'); if (c) setLockPreset(Number(c.dataset.preset)); });
     $('#lock-end').addEventListener('input', () => $$('#lock-presets .chip').forEach(c => c.classList.remove('active')));
