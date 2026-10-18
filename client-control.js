@@ -40,6 +40,8 @@ const S = {
     editingUser: null,
     udSnapshot: '',
     selected: new Set(),
+    msgSel: new Set(),
+    selectMode: false,
     chatFilter: 'all',
     replyTo: null,
     thread: null,
@@ -66,6 +68,8 @@ const VIEWS = [
     { id: 'chat', label: 'תיבת תמיכה', icon: 'fa-comments', group: 'ראשי', key: 'c' },
     { id: 'security', label: 'אבטחה', icon: 'fa-shield-halved', group: 'ראשי', key: 's' },
     { id: 'ads', label: 'קמפיינים', icon: 'fa-bullhorn', group: 'תוכן', key: 'a' },
+    { id: 'mail', label: 'דיוור במייל', icon: 'fa-envelope-open-text', group: 'תוכן', key: 'e' },
+    { id: 'voice', label: 'הודעות קוליות', icon: 'fa-microphone-lines', group: 'תוכן', key: 'v' },
     { id: 'names', label: 'ספר טלפונים', icon: 'fa-address-book', group: 'תוכן', key: 'n' },
     { id: 'sql', label: 'מסוף נתונים', icon: 'fa-database', group: 'מערכת', key: 'd' },
     { id: 'audit', label: 'יומן צוות', icon: 'fa-clipboard-list', group: 'מערכת', key: 'l' },
@@ -535,6 +539,8 @@ function loadView(id) {
         case 'chat': loadChatDefaults(); return loadConvs();
         case 'activity': return loadActivity();
         case 'ads': return loadAds();
+        case 'mail': return loadMail();
+        case 'voice': return loadVoice(1);
         case 'names': return loadNames();
         case 'sql': return loadTables();
         case 'audit': return loadAudit();
@@ -1304,7 +1310,7 @@ async function openConv(phone, focusMsgId) {
     S.activePhone = phone;
     S.activeHash = '';
     S.focusMsgId = focusMsgId || null;
-    if (changed) { S.replyTo = null; S.thread = null; renderReplyBar(); $('#composer-input').value = ''; }
+    if (changed) { S.replyTo = null; S.thread = null; renderReplyBar(); $('#composer-input').value = ''; setSelectMode(false); }
     history.replaceState(null, '', `#chat/${encodeURIComponent(phone)}`);
     const c = S.convs.find(x => x.user_phone === phone) || {};
     $('#inbox').classList.add('has-active');
@@ -1401,14 +1407,21 @@ function renderThread(msgs, forceBottom) {
         const deleted = m.is_deleted === 1;
         const ticks = out && !deleted ? `<i class="fa-solid fa-check-double" style="${m.is_read ? 'color:#a5f3fc' : ''}" title="${m.is_read ? 'נקרא' : 'נשלח'}"></i>` : '';
         const quote = m.reply && !deleted ? `<div class="m-quote" data-action="jump-msg" data-id="${esc(m.reply.id)}"><b>${m.reply.sender === 'admin' ? 'אתה' : 'הלקוח'}</b>${esc(m.reply.text)}</div>` : '';
-        const actions = deleted ? '' : `<div class="m-actions">
+        const sel = S.selectMode;
+        const actions = sel ? '' : deleted ? `<div class="m-actions">
+            ${m.deleted_text ? `<button class="icon-btn" data-action="restore-msg" data-id="${esc(m.id)}" title="שחזור ההודעה"><i class="fa-solid fa-rotate-left"></i></button>` : ''}
+            <button class="icon-btn danger" data-action="purge-msg" data-id="${esc(m.id)}" title="מחיקה לצמיתות"><i class="fa-solid fa-trash-can"></i></button>
+        </div>` : `<div class="m-actions">
             <button class="icon-btn" data-action="reply-msg" data-id="${esc(m.id)}" title="ציטוט ותשובה"><i class="fa-solid fa-reply"></i></button>
             ${out ? `<button class="icon-btn" data-action="edit-msg" data-id="${esc(m.id)}" title="עריכה"><i class="fa-solid fa-pen"></i></button>` : ''}
             <button class="icon-btn danger" data-action="delete-msg" data-id="${esc(m.id)}" title="מחיקה"><i class="fa-solid fa-trash-can"></i></button>
         </div>`;
-        html += `<div class="msg ${out ? 'out' : 'in'} ${deleted ? 'deleted' : ''}" data-msg="${esc(m.id)}">
+        const picked = sel && S.msgSel.has(String(m.id));
+        html += `<div class="msg ${out ? 'out' : 'in'} ${deleted ? 'deleted' : ''} ${sel ? 'selectable' : ''} ${picked ? 'picked' : ''}" data-msg="${esc(m.id)}"${sel ? ` data-action="pick-msg" data-id="${esc(m.id)}"` : ''}>
+            ${sel ? `<span class="m-check"><i class="fa-solid fa-check"></i></span>` : ''}
             ${quote}
-            <div class="m-text">${deleted ? '🚫 ההודעה נמחקה' : esc(m.message_text)}</div>
+            <div class="m-text">${deleted ? `🚫 ההודעה נמחקה${m.deleted_at ? ` · ${esc(chatTime(m.deleted_at))}` : ''}` : esc(m.message_text)}</div>
+            ${deleted && m.deleted_text ? `<details class="m-deleted"><summary>הצגת התוכן שנמחק (רק אתה רואה)</summary><div>${esc(m.deleted_text)}</div></details>` : ''}
             ${m.email ? `<div class="m-email" title="${m.email.openedAt ? `נפתח ב-${esc(fmtDate(m.email.openedAt))}${m.email.openedIp ? ` מ-${esc(m.email.openedIp)}` : ''}` : 'הלקוח עוד לא פתח את הקישור'}"><i class="fa-solid fa-envelope${m.email.openedAt ? '-open' : ''}"></i> ${m.email.ok ? 'נשלח במייל' : 'שליחת המייל נכשלה'}${m.email.openedAt ? ` · נפתח ${esc(chatTime(m.email.openedAt))}` : ''}</div>` : ''}
             <div class="m-meta">${m.edited ? '<span class="m-edited">נערך</span>' : ''}<span>${chatTime(m.created_at)}</span>${ticks}</div>
             ${actions}
@@ -1509,14 +1522,80 @@ async function editMsg(id) {
 
 async function deleteMsg(id) {
     const r = await dialog({
-        title: 'מחיקת הודעה', text: 'מחיקה רכה מסמנת את ההודעה כנמחקת אצל הלקוח. מחיקה מלאה מסירה אותה מהמסד.',
-        buttons: [{ label: 'ביטול' }, { label: 'מחיקה מלאה', value: 'hard', cls: 'btn-danger' }, { label: 'מחיקה רכה', value: 'soft', cls: 'btn-danger-solid' }],
+        title: 'מחיקת הודעה', text: 'מחיקה רכה: אצל הלקוח יופיע "ההודעה נמחקה", ואתה עדיין יכול לשחזר אותה. מחיקה לצמיתות: ההודעה נעלמת לגמרי משני הצדדים.',
+        buttons: [{ label: 'ביטול' }, { label: 'מחיקה לצמיתות', value: 'hard', cls: 'btn-danger' }, { label: 'מחיקה רכה', value: 'soft', cls: 'btn-danger-solid' }],
     });
     if (!r) return;
-    const res = await api('/admin/chat/delete', { messageId: Number(id), hardDelete: r.value === 'hard' });
-    if (!res.ok) { toast(res.error || 'שגיאה במחיקה', 'bad'); return; }
+    await deleteMessages([id], r.value === 'hard');
+}
+
+async function purgeMsg(id) {
+    if (!await confirmDanger('מחיקה לצמיתות', 'ההודעה תימחק לגמרי, גם השורה "ההודעה נמחקה" תיעלם אצל הלקוח. אי אפשר לשחזר.', 'מחיקה לצמיתות')) return;
+    await deleteMessages([id], true);
+}
+
+async function deleteMessages(ids, hard) {
+    const res = await api('/admin/chat/delete', { messageIds: ids.map(Number), hardDelete: !!hard });
+    if (!res.ok) { toast(res.error || 'שגיאה במחיקה', 'bad'); return false; }
+    toast(ids.length > 1 ? `${ids.length} הודעות נמחקו${hard ? ' לצמיתות' : ''}` : hard ? 'ההודעה נמחקה לצמיתות' : 'ההודעה נמחקה');
     S.activeHash = '';
     refreshThread();
+    loadConvs(true);
+    return true;
+}
+
+async function restoreMsg(id) {
+    const res = await api('/admin/chat/restore', { messageId: Number(id) });
+    if (!res.ok) { toast(res.error || 'שגיאה בשחזור', 'bad'); return; }
+    toast('ההודעה שוחזרה');
+    S.activeHash = '';
+    refreshThread();
+}
+
+// מצב בחירה: סימון כמה הודעות ומחיקה בבת אחת
+function setSelectMode(on) {
+    S.selectMode = !!on;
+    S.msgSel = new Set();
+    $('#select-bar').hidden = !S.selectMode;
+    $('#composer').classList.toggle('dim', S.selectMode);
+    renderSelectBar();
+    if (S.threadMsgs) { S.activeHash = ''; renderThread(S.threadMsgs); S.activeHash = JSON.stringify(S.threadMsgs); }
+}
+
+function renderSelectBar() {
+    const n = S.msgSel ? S.msgSel.size : 0;
+    $('#select-count').textContent = n ? `${n} נבחרו` : 'לחץ על הודעות כדי לבחור';
+    $$('#select-bar [data-need]').forEach(b => { b.disabled = !n; });
+}
+
+function pickMsg(id) {
+    const k = String(id);
+    S.msgSel.has(k) ? S.msgSel.delete(k) : S.msgSel.add(k);
+    const el = $(`#thread-msgs [data-msg="${CSS.escape(k)}"]`);
+    if (el) el.classList.toggle('picked', S.msgSel.has(k));
+    renderSelectBar();
+}
+
+async function deleteSelected(hard) {
+    const ids = [...S.msgSel];
+    if (!ids.length) return;
+    if (hard && !await confirmDanger('מחיקה לצמיתות', `למחוק לצמיתות ${ids.length} הודעות? הן ייעלמו לגמרי גם אצל הלקוח.`, 'מחיקה לצמיתות')) return;
+    if (await deleteMessages(ids, hard)) setSelectMode(false);
+}
+
+async function purgeThread(scope) {
+    closePopovers();
+    if (!S.activePhone) return;
+    const name = $('#thread-name').textContent;
+    const ok = scope === 'all'
+        ? await confirmDanger('מחיקת השיחה כולה', `כל ההודעות עם ${name} יימחקו לצמיתות, כולל הערות ותיוגים של השיחה. אי אפשר לשחזר.`, 'מחיקת השיחה')
+        : await confirmDanger('ניקוי הודעות שנמחקו', 'כל ההודעות שסומנו "נמחקה" בשיחה הזו יימחקו לצמיתות ויעלמו גם אצל הלקוח.', 'ניקוי');
+    if (!ok) return;
+    const r = await api('/admin/chat/purge', { targetPhone: S.activePhone, scope });
+    if (!r.ok) { toast(r.error || 'שגיאה במחיקה', 'bad'); return; }
+    toast(r.data.deleted ? `${r.data.deleted} הודעות נמחקו לצמיתות` : 'לא היו הודעות למחיקה');
+    S.activeHash = '';
+    if (scope === 'all') { await loadConvs(true); refreshThread(); } else { refreshThread(); loadConvs(true); }
 }
 
 async function updateThreadMeta(fields, okText) {
@@ -1718,22 +1797,35 @@ async function loadChatDefaults() {
     if (r.ok) S.chatSettings = r.data.settings;
 }
 
-async function sendEmail(e) {
-    e.preventDefault();
-    const btn = $('#em-send');
-    busy(btn, true);
-    const r = await api('/admin/chat/custom-email', { email: $('#em-to').value.trim(), subject: $('#em-subject').value, content: $('#em-content').value });
-    busy(btn, false);
-    if (!r.ok) { toast(r.error || 'שגיאה בשליחה', 'bad'); return; }
-    toast('המייל נשלח');
-    closeDrawers();
-}
 
 // ---------- Ads ----------
 
+const AD_PLACES = { sidebar: ['מודעת צד', 'fa-table-columns', 'info'], popup: ['פופאפ', 'fa-window-maximize', 'bad'], banner: ['פס עליון', 'fa-grip-lines', 'accent'], toast: ['הודעה צפה', 'fa-message', 'warn'] };
+const AD_FILTERS = [['all', 'הכל'], ['live', 'פעילים'], ['scheduled', 'מתוזמנים'], ['paused', 'מושהים'], ['ended', 'הסתיימו']];
+const AD_PRESETS = [
+    { name: 'נקי', bgColor: '#ffffff', textColor: '#1a202c', design: { border: '#e2e8f0' } },
+    { name: 'ירוק סלומון', bgColor: '#16a34a', textColor: '#ffffff', design: { gradient: '#0ea5e9', ctaColor: '#ffffff', ctaText: '#15803d' } },
+    { name: 'כחול', bgColor: '#1d4ed8', textColor: '#ffffff', design: { gradient: '#06b6d4', ctaColor: '#ffffff', ctaText: '#1d4ed8' } },
+    { name: 'שקיעה', bgColor: '#f97316', textColor: '#ffffff', design: { gradient: '#e11d48', ctaColor: '#ffffff', ctaText: '#c2410c' } },
+    { name: 'סגול', bgColor: '#7c3aed', textColor: '#ffffff', design: { gradient: '#db2777', ctaColor: '#ffffff', ctaText: '#6d28d9' } },
+    { name: 'לילה', bgColor: '#0f172a', textColor: '#f8fafc', design: { gradient: '#334155', ctaColor: '#22c55e', ctaText: '#052e16' } },
+    { name: 'זהב', bgColor: '#fef3c7', textColor: '#78350f', design: { gradient: '#fde68a', border: '#fcd34d', ctaColor: '#b45309', ctaText: '#ffffff' } },
+    { name: 'התראה', bgColor: '#fef2f2', textColor: '#991b1b', design: { border: '#fca5a5', ctaColor: '#dc2626', ctaText: '#ffffff', icon: 'fa-triangle-exclamation' } },
+];
+const AD_ICONS = ['', 'fa-bullhorn', 'fa-gift', 'fa-star', 'fa-bell', 'fa-circle-info', 'fa-triangle-exclamation', 'fa-fire', 'fa-heart', 'fa-calendar-days', 'fa-phone', 'fa-headphones', 'fa-rocket', 'fa-tag'];
+
+function adState(ad) {
+    if (ad.is_paused) return 'paused';
+    if (adExpired(ad)) return 'ended';
+    if (ad.starts_at && parseDate(ad.starts_at) > new Date()) return 'scheduled';
+    return 'live';
+}
+const AD_STATE = { live: ['פעיל', 'good', 'fa-circle'], paused: ['מושהה', 'warn', 'fa-pause'], scheduled: ['מתוזמן', 'info', 'fa-clock'], ended: ['הסתיים', '', 'fa-flag-checkered'] };
+
 async function loadAds() {
     $('#ads-grid').innerHTML = '<div class="card"><div class="card-body"><div class="skeleton" style="width:60%"></div></div></div>'.repeat(3);
-    const r = await api('/admin/system-messages/list');
+    const [r, d] = await Promise.all([api('/admin/system-messages/list'), api('/admin/system-messages/designs')]);
+    if (d.ok) S.adDesigns = d.data.designs || [];
     if (!r.ok) { $('#ads-grid').innerHTML = `<div class="card"><div class="empty">${esc(r.error)}</div></div>`; return; }
     S.ads = r.data.messages || [];
     renderAds();
@@ -1746,113 +1838,302 @@ function adExpired(ad) {
 
 function safeColor(c, fallback) { return /^#[0-9a-f]{3,8}$/i.test(c || '') ? c : fallback; }
 
+function adBackground(bg, d) {
+    return d && d.gradient ? `linear-gradient(135deg, ${safeColor(bg, '#ffffff')}, ${safeColor(d.gradient, bg)})` : safeColor(bg, '#ffffff');
+}
+
 function renderAds() {
-    if (!S.ads.length) {
-        $('#ads-grid').innerHTML = '<div class="card" style="grid-column:1/-1;"><div class="empty"><i class="fa-solid fa-bullhorn"></i>עוד אין קמפיינים<br><br><button class="btn btn-primary" data-action="new-ad"><i class="fa-solid fa-plus"></i> יצירת קמפיין ראשון</button></div></div>';
+    const all = S.ads || [];
+    const live = all.filter(a => adState(a) === 'live');
+    const views = all.reduce((s, a) => s + (a.total_impressions || 0), 0), clicks = all.reduce((s, a) => s + (a.clicks || 0), 0);
+    $('#ads-kpis').innerHTML = [
+        kpi('fa-bullhorn', 'good', 'פעילים עכשיו', num(live.length), `${num(all.length)} קמפיינים בסך הכל`),
+        kpi('fa-eye', '', 'צפיות היום', num(all.reduce((s, a) => s + (a.views_today || 0), 0)), `${num(views)} צפיות בסך הכל`),
+        kpi('fa-arrow-pointer', 'info', 'הקלקות', num(clicks), views ? `${(clicks / views * 100).toFixed(1)}% מהצפיות` : 'עוד אין צפיות'),
+    ].join('');
+    const f = S.adsFilter || 'all';
+    $('#ads-chips').innerHTML = AD_FILTERS.map(([k, l]) => `<button class="chip ${f === k ? 'active' : ''}" data-action="ads-filter" data-filter="${k}">${l} <span class="n">${num(k === 'all' ? all.length : all.filter(a => adState(a) === k).length)}</span></button>`).join('');
+    const list = all.filter(a => f === 'all' || adState(a) === f);
+    if (!list.length) {
+        $('#ads-grid').innerHTML = `<div class="card" style="grid-column:1/-1;"><div class="empty"><i class="fa-solid fa-bullhorn"></i>${all.length ? 'אין קמפיינים בסינון הזה' : 'עוד אין קמפיינים'}<br><br><button class="btn btn-primary" data-action="new-ad"><i class="fa-solid fa-plus"></i> יצירת קמפיין</button></div></div>`;
         return;
     }
-    $('#ads-grid').innerHTML = S.ads.map(ad => {
-        const expired = adExpired(ad);
-        const bg = safeColor(ad.bg_color, '#ffffff'), fg = safeColor(ad.text_color, '#1a202c');
-        return `<div class="card ad-card">
-            <div class="ad-swatch" style="background:${bg}; color:${fg};">
+    $('#ads-grid').innerHTML = list.map(ad => {
+        const st = adState(ad);
+        const [sl, stone, sicon] = AD_STATE[st];
+        const [pl, picon, ptone] = AD_PLACES[ad.placement] || AD_PLACES.sidebar;
+        const d = ad.design || {};
+        const fg = safeColor(ad.text_color, '#1a202c');
+        const ctr = ad.total_impressions ? (ad.clicks / ad.total_impressions * 100).toFixed(1) : '0';
+        const aud = ad.audience || {};
+        const audTxt = aud.mode === 'include' ? `${num(aud.phones.length)} מספרים` : aud.mode === 'exclude' ? `חוץ מ-${num(aud.phones.length)}` : '';
+        return `<div class="card ad-card st-${st}">
+            <div class="ad-swatch" style="background:${adBackground(ad.bg_color, d)}; color:${fg};">
                 ${ad.image_url && /^https?:\/\//i.test(ad.image_url) ? `<img src="${esc(ad.image_url)}" alt="" referrerpolicy="no-referrer" loading="lazy">` : ''}
-                <b>${esc(ad.title)}</b>
+                ${d.badge ? `<span class="ad-sw-badge">${esc(d.badge)}</span>` : ''}
+                <b>${d.icon ? `<i class="fa-solid ${esc(d.icon)}"></i> ` : ''}${esc(ad.title)}</b>
             </div>
             <div class="row" style="padding:10px 14px; gap:6px; flex-wrap:wrap;">
-                ${expired ? '<span class="badge"><i class="fa-solid fa-clock"></i> פג תוקף</span>' : '<span class="badge good"><span class="dot"></span> פעיל</span>'}
-                ${ad.is_mandatory ? '<span class="badge bad"><i class="fa-solid fa-window-maximize"></i> פופאפ</span>' : '<span class="badge info"><i class="fa-solid fa-table-columns"></i> מודעת צד</span>'}
-                ${ad.expires_at ? `<span class="badge">עד ${esc(fmtDate(ad.expires_at))}</span>` : ''}
+                <span class="badge ${stone}"><i class="fa-solid ${sicon}"></i> ${sl}</span>
+                <span class="badge ${ptone}"><i class="fa-solid ${picon}"></i> ${pl}</span>
+                ${aud.device && aud.device !== 'all' ? `<span class="badge"><i class="fa-solid ${aud.device === 'mobile' ? 'fa-mobile-screen' : 'fa-desktop'}"></i></span>` : ''}
+                ${audTxt ? `<span class="badge"><i class="fa-solid fa-bullseye"></i> ${audTxt}</span>` : ''}
+                ${st === 'scheduled' ? `<span class="badge info">מ-${esc(fmtDate(ad.starts_at))}</span>` : ad.expires_at && st !== 'ended' ? `<span class="badge">עד ${esc(fmtDate(ad.expires_at))}</span>` : ''}
             </div>
-            <div class="ad-stats">
-                <div><b>${num(ad.total_impressions)}</b><small>חשיפות</small></div>
-                <div><b>${num(ad.unique_viewers)}</b><small>צופים ייחודיים</small></div>
+            <div class="ad-stats three">
+                <div><b>${num(ad.total_impressions)}</b><small>צפיות</small></div>
+                <div><b>${num(ad.unique_viewers)}</b><small>אנשים</small></div>
+                <div><b>${ad.cta_url ? num(ad.clicks) : '—'}</b><small>${ad.cta_url ? `הקלקות · ${ctr}%` : 'אין כפתור'}</small></div>
             </div>
             <div class="ad-foot">
                 <button class="btn btn-sm" data-action="edit-ad" data-id="${esc(ad.id)}"><i class="fa-solid fa-pen"></i> עריכה</button>
-                <button class="btn btn-sm" data-action="ad-logs" data-id="${esc(ad.id)}"><i class="fa-solid fa-eye"></i> צפיות</button>
+                <button class="btn btn-sm" data-action="ad-logs" data-id="${esc(ad.id)}"><i class="fa-solid fa-chart-simple"></i> ביצועים</button>
                 <div class="spacer"></div>
+                <button class="icon-btn sm" data-action="ad-toggle" data-id="${esc(ad.id)}" title="${ad.is_paused ? 'חידוש' : 'השהיה'}"><i class="fa-solid ${ad.is_paused ? 'fa-play' : 'fa-pause'}"></i></button>
+                <button class="icon-btn sm" data-action="ad-dup" data-id="${esc(ad.id)}" title="שכפול"><i class="fa-regular fa-copy"></i></button>
                 <button class="icon-btn sm danger" data-action="delete-ad" data-id="${esc(ad.id)}" title="מחיקה"><i class="fa-solid fa-trash-can"></i></button>
             </div>
         </div>`;
     }).join('');
 }
 
+function switchAdTab(tab) {
+    $$('#ad-tabs .drawer-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    $$('#ad-form .tab-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === tab));
+}
+
+function setSeg(id, v) { $$(`#${id} button`).forEach(b => b.classList.toggle('active', b.dataset.v === v)); }
+function segVal(id) { const b = $(`#${id} button.active`); return b ? b.dataset.v : ''; }
+function toLocalInput(v) { return v ? String(v).replace(' ', 'T').slice(0, 16) : ''; }
+
+function applyAdDesign(bgColor, textColor, d = {}) {
+    $('#ad-bg').value = safeColor(bgColor, '#ffffff');
+    $('#ad-text').value = safeColor(textColor, '#1a202c');
+    $('#ad-grad-on').checked = !!d.gradient; if (d.gradient) $('#ad-grad').value = d.gradient;
+    $('#ad-ctac-on').checked = !!d.ctaColor; if (d.ctaColor) $('#ad-ctac').value = d.ctaColor;
+    $('#ad-ctat').value = safeColor(d.ctaText, '#ffffff');
+    $('#ad-border-on').checked = !!d.border; if (d.border) $('#ad-border').value = d.border;
+    $('#ad-radius').value = d.radius === null || d.radius === undefined ? -1 : d.radius;
+    setSeg('ad-size', d.size || 'md'); setSeg('ad-align', d.align || 'auto'); setSeg('ad-imgpos', d.imagePos || 'top');
+    $('#ad-anim').value = d.animation || 'fade';
+    $('#ad-shadow').checked = d.shadow !== false;
+    if ('badge' in d) $('#ad-badge').value = d.badge || '';
+    if ('icon' in d) S.adIcon = d.icon || '';
+    renderAdIcons();
+}
+
+function adDesignFromForm() {
+    const r = parseInt($('#ad-radius').value, 10);
+    return {
+        gradient: $('#ad-grad-on').checked ? $('#ad-grad').value : '',
+        radius: r < 0 ? null : r, size: segVal('ad-size'), align: segVal('ad-align'), imagePos: segVal('ad-imgpos'),
+        animation: $('#ad-anim').value, shadow: $('#ad-shadow').checked,
+        border: $('#ad-border-on').checked ? $('#ad-border').value : '',
+        ctaColor: $('#ad-ctac-on').checked ? $('#ad-ctac').value : '', ctaText: $('#ad-ctac-on').checked ? $('#ad-ctat').value : '',
+        icon: S.adIcon || '', badge: $('#ad-badge').value.trim(),
+    };
+}
+
+function renderAdIcons() {
+    $('#ad-icons').innerHTML = AD_ICONS.map(ic => `<button type="button" class="${(S.adIcon || '') === ic ? 'active' : ''}" data-action="ad-icon" data-icon="${ic}" title="${ic ? '' : 'ללא'}">${ic ? `<i class="fa-solid ${ic}"></i>` : '<i class="fa-solid fa-ban" style="opacity:.4"></i>'}</button>`).join('');
+}
+
+function renderAdPresets() {
+    const tile = (p, attrs, extra = '') => `<button type="button" class="preset" ${attrs} style="background:${adBackground(p.bgColor, p.design)}; color:${safeColor(p.textColor, '#1a202c')}; ${p.design && p.design.border ? `border-color:${p.design.border};` : ''}"><span>Aa</span><small>${esc(p.name)}</small>${extra}</button>`;
+    $('#ad-presets').innerHTML = AD_PRESETS.map((p, i) => tile(p, `data-action="ad-preset" data-i="${i}"`)).join('');
+    const mine = S.adDesigns || [];
+    $('#ad-my-designs').innerHTML = mine.length ? mine.map(p => tile(p, `data-action="ad-my-design" data-id="${esc(p.id)}"`)).join('') : '<div class="muted" style="grid-column:1/-1;">עוד אין ערכות שמורות. עצב קמפיין ולחץ "שמירת העיצוב הנוכחי".</div>';
+}
+
 function openAd(id) {
     $('#ad-form').reset();
     $('#ad-id').value = '';
-    $('#ad-bg').value = '#ffffff'; $('#ad-text').value = '#1a202c';
+    S.adIcon = '';
     $('#ad-title-head').textContent = 'קמפיין חדש';
     const ad = id ? S.ads.find(a => String(a.id) === String(id)) : null;
+    S.adPlace = ad ? ad.placement : 'sidebar';
+    $('#ad-badge').value = '';
+    applyAdDesign('#ffffff', '#1a202c', {});
     if (ad) {
         $('#ad-title-head').textContent = ad.title;
         $('#ad-id').value = ad.id;
         $('#ad-title').value = ad.title || '';
         $('#ad-html').value = ad.html_content || '';
         $('#ad-image').value = ad.image_url || '';
-        $('#ad-bg').value = safeColor(ad.bg_color, '#ffffff');
-        $('#ad-text').value = safeColor(ad.text_color, '#1a202c');
-        $('#ad-mandatory').checked = !!ad.is_mandatory;
+        $('#ad-cta-label').value = ad.cta_label || '';
+        $('#ad-cta-url').value = ad.cta_url || '';
+        applyAdDesign(ad.bg_color, ad.text_color, ad.design || {});
         $('#ad-cooldown').value = ad.close_cooldown_seconds || 0;
         $('#ad-max-views').value = ad.max_views_per_user || 0;
         $('#ad-behavior').value = ad.behavior_after_limit || 'hide';
-        $('#ad-expires').value = ad.expires_at ? String(ad.expires_at).replace(' ', 'T').slice(0, 16) : '';
+        $('#ad-expires').value = toLocalInput(ad.expires_at);
+        $('#ad-starts').value = toLocalInput(ad.starts_at);
         $('#ad-interval').value = ad.view_interval_minutes || 0;
         $('#ad-show-count').checked = !!ad.show_view_count;
+        $('#ad-priority').value = ad.priority || 0;
+        $('#ad-paused').checked = !!ad.is_paused;
+        const a = ad.audience || {};
+        $(`input[name="ad-aud"][value="${a.mode || 'all'}"]`).checked = true;
+        $('#ad-phones').value = (a.phones || []).join(', ');
+        $('#ad-device').value = a.device || 'all';
+        $('#ad-newdays').value = a.newDays || 0;
     }
+    renderAdPlaces();
+    renderAdAudience();
+    renderAdPresets();
+    switchAdTab('content');
     updateAdPreview();
     openDrawer('ad-drawer');
 }
 
+function renderAdPlaces() {
+    $$('#ad-places .place-opt').forEach(b => b.classList.toggle('active', b.dataset.place === S.adPlace));
+    $('#ad-cooldown-wrap').hidden = S.adPlace !== 'popup';
+}
+
+function renderAdAudience() {
+    const mode = $('input[name="ad-aud"]:checked').value;
+    $('#ad-phones-wrap').hidden = mode === 'all';
+    const n = $('#ad-phones').value.split(/[\s,;]+/).filter(p => p.replace(/\D/g, '').length >= 9).length;
+    $('#ad-phones-count').textContent = mode === 'all' ? '' : `${num(n)} מספרים`;
+}
+
+// התצוגה המקדימה משחזרת את העיצוב של האתר (client-ads.js) בכל אחד מהמיקומים
+function adPreviewCard(m, place) {
+    const d = m.design;
+    const img = /^https?:\/\//i.test(m.imageUrl) ? m.imageUrl : '';
+    const parts = [`color:${m.textColor}`];
+    if (d.imagePos === 'cover' && img) parts.push(`background:linear-gradient(${m.bgColor}cc, ${(d.gradient || m.bgColor)}ee), url("${esc(img)}") center/cover`);
+    else parts.push(`background:${d.gradient ? `linear-gradient(135deg, ${m.bgColor}, ${d.gradient})` : m.bgColor}`);
+    const defRadius = { sidebar: 12, popup: 20, toast: 12, banner: 0 }[place];
+    parts.push(`border-radius:${place === 'banner' ? 0 : d.radius === null ? defRadius : d.radius}px`);
+    const align = d.align === 'auto' ? (place === 'popup' ? 'center' : 'right') : d.align;
+    parts.push(`text-align:${align}`);
+    if (d.size === 'sm') parts.push('font-size:.92em'); else if (d.size === 'lg') parts.push('font-size:1.1em');
+    if (d.border) parts.push(`border:1px solid ${d.border}`);
+    parts.push(d.shadow === false ? 'box-shadow:none' : 'box-shadow:0 10px 30px rgba(0,0,0,.18)');
+    const imgTag = img && d.imagePos !== 'cover' ? `<img src="${esc(img)}" alt="">` : '';
+    const cta = m.ctaLabel ? `<span class="cta" style="background:${d.ctaColor || m.textColor};color:${d.ctaText || m.bgColor};">${esc(m.ctaLabel)} ←</span>` : '';
+    const head = `${d.badge ? `<span class="badge">${esc(d.badge)}</span>` : ''}${d.icon ? `<div class="ic">●</div>` : ''}`;
+    if (place === 'banner') return `<div class="banner anim-${d.animation}" style="${parts.join(';')}">${d.badge ? `<span class="badge" style="margin:0">${esc(d.badge)}</span>` : ''}<div class="bt"><b>${esc(m.title)}</b> <span>${m.html}</span></div>${cta}<span class="x">✕</span></div>`;
+    return `<div class="card ${place} anim-${d.animation}" style="${parts.join(';')}">${place === 'popup' ? '<span class="x">✕</span>' : place === 'toast' ? '<span class="x">✕</span>' : ''}${d.imagePos === 'bottom' ? '' : imgTag}<div class="in">${head}<h3>${esc(m.title)}</h3><div>${m.html}</div>${d.imagePos === 'bottom' ? imgTag : ''}${cta}${m.showCount ? '<div class="cnt">👁 נצפה 128 פעמים</div>' : ''}</div></div>`;
+}
+
 function updateAdPreview() {
-    const bg = safeColor($('#ad-bg').value, '#ffffff'), fg = safeColor($('#ad-text').value, '#1a202c');
-    const img = $('#ad-image').value.trim();
-    const mandatory = $('#ad-mandatory').checked;
-    const card = `<div class="ad" style="background:${bg};color:${fg};">
-        ${/^https?:\/\//i.test(img) ? `<img src="${esc(img)}" alt="">` : ''}
-        <h3>${esc($('#ad-title').value || 'כותרת הקמפיין')}</h3>
-        <div>${$('#ad-html').value || '<span style="opacity:.5">תוכן הקמפיין יופיע כאן</span>'}</div>
-    </div>`;
+    const m = {
+        title: $('#ad-title').value || 'כותרת הקמפיין', html: $('#ad-html').value || '<span style="opacity:.5">תוכן הקמפיין יופיע כאן</span>',
+        imageUrl: $('#ad-image').value.trim(), bgColor: safeColor($('#ad-bg').value, '#ffffff'), textColor: safeColor($('#ad-text').value, '#1a202c'),
+        ctaLabel: $('#ad-cta-label').value.trim(), design: adDesignFromForm(), showCount: $('#ad-show-count').checked,
+    };
+    $('#ad-radius-v').textContent = m.design.radius === null ? '(ברירת מחדל)' : `${m.design.radius}px`;
+    const place = S.adPlace || 'sidebar';
+    const mobile = S.adPvDevice === 'mobile';
+    const page = `<div class="page ${mobile ? 'm' : ''}"><div class="top"></div><div class="main"><div class="lines"><i></i><i></i><i style="width:70%"></i><i></i><i style="width:55%"></i></div>${place === 'sidebar' ? `<div class="side">${adPreviewCard(m, place)}</div>` : '<div class="side ghost"></div>'}</div></div>`;
+    const overlay = place === 'popup' ? `<div class="ov"><div class="popw">${adPreviewCard(m, place)}</div></div>` : place === 'banner' ? adPreviewCard(m, place) : place === 'toast' ? `<div class="toastw">${adPreviewCard(m, place)}</div>` : '';
     // Rendered inside a sandboxed iframe (no scripts, isolated origin), so admin-authored HTML is safe to preview.
     $('#ad-preview').srcdoc = `<!doctype html><html dir="rtl"><head><meta charset="utf-8"><style>
-        body{margin:0;font-family:Rubik,system-ui,sans-serif;background:${mandatory ? 'rgba(15,20,36,.55)' : '#eef0f6'};min-height:100vh;display:flex;align-items:${mandatory ? 'center' : 'flex-start'};justify-content:center;padding:16px;box-sizing:border-box}
-        .ad{width:100%;max-width:${mandatory ? '280px' : '100%'};border-radius:14px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.15);box-sizing:border-box;overflow:hidden;word-wrap:break-word}
-        .ad img{width:calc(100% + 32px);margin:-16px -16px 12px;display:block;max-height:160px;object-fit:cover}
-        h3{margin:0 0 8px;font-size:16px}
-    </style></head><body>${card}</body></html>`;
+        *{box-sizing:border-box} body{margin:0;font-family:Rubik,system-ui,sans-serif;background:#eef0f6;min-height:100vh;position:relative;overflow:hidden}
+        .page{padding:${place === 'banner' ? '70px' : '14px'} 14px 14px}.top{height:34px;border-radius:10px;background:#fff;margin-bottom:12px}
+        .main{display:flex;gap:12px}.lines{flex:1;background:#fff;border-radius:12px;padding:14px}.lines i{display:block;height:9px;border-radius:5px;background:#e5e7eb;margin:0 0 10px}
+        .side{width:46%;min-width:0}.side.ghost{background:#fff;border-radius:12px;opacity:.6;min-height:120px}.page.m .main{flex-direction:column-reverse}.page.m .side{width:100%}
+        .card{overflow:hidden;word-wrap:break-word;position:relative}.card img{width:100%;max-height:130px;object-fit:cover;display:block}.card .in{padding:14px}
+        .card.popup .in{padding:26px 18px 20px}.card h3{margin:0 0 8px;font-size:${place === 'popup' ? '20px' : '15px'};font-weight:800}
+        .badge{display:inline-block;padding:2px 9px;border-radius:50px;font-size:11px;font-weight:800;background:rgba(255,255,255,.25);border:1px solid rgba(0,0,0,.08);margin-bottom:6px}
+        .ic{font-size:18px;opacity:.85;margin-bottom:4px}.cta{display:inline-block;margin-top:12px;padding:8px 16px;border-radius:10px;font-weight:800;font-size:13px}
+        .cnt{font-size:11px;opacity:.7;margin-top:8px}.x{position:absolute;top:10px;left:10px;width:24px;height:24px;border-radius:50%;background:rgba(0,0,0,.12);display:grid;place-items:center;font-size:11px}
+        .ov{position:absolute;inset:0;background:rgba(15,23,42,.45);backdrop-filter:blur(4px);display:grid;place-items:center;padding:16px}.popw{width:100%;max-width:${mobile ? '100%' : '300px'}}
+        .banner{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:13px;flex-wrap:${mobile ? 'wrap' : 'nowrap'}}
+        .banner .bt{flex:1;min-width:0}.banner .bt span p{display:inline;margin:0}.banner .cta{margin:0}.banner .x{position:static;flex-shrink:0}
+        .toastw{position:absolute;bottom:14px;left:14px;width:${mobile ? 'calc(100% - 28px)' : '240px'}}.toastw .card{font-size:13px}
+        .anim-fade{animation:f .5s both}.anim-slide{animation:s .5s both}.anim-pop{animation:p .45s cubic-bezier(.2,1.4,.4,1) both}
+        @keyframes f{from{opacity:0}}@keyframes s{from{opacity:0;transform:translateY(12px)}}@keyframes p{from{opacity:0;transform:scale(.9)}}
+    </style></head><body>${page}${overlay}</body></html>`;
+    $('#ad-frame-wrap').classList.toggle('mobile', mobile);
 }
 
 async function saveAd(e) {
     e.preventDefault();
-    const exp = $('#ad-expires').value;
+    const exp = $('#ad-expires').value, start = $('#ad-starts').value;
     const payload = {
         id: $('#ad-id').value, title: $('#ad-title').value, htmlContent: $('#ad-html').value,
         imageUrl: $('#ad-image').value.trim(), bgColor: $('#ad-bg').value, textColor: $('#ad-text').value,
         maxViewsPerUser: parseInt($('#ad-max-views').value, 10) || 0, behaviorAfterLimit: $('#ad-behavior').value,
         viewIntervalMinutes: parseInt($('#ad-interval').value, 10) || 0,
-        isMandatory: $('#ad-mandatory').checked, closeCooldownSeconds: parseInt($('#ad-cooldown').value, 10) || 0,
-        showViewCount: $('#ad-show-count').checked,
-        expiresAt: exp ? exp.replace('T', ' ') + ':00' : null,
+        placement: S.adPlace, isMandatory: S.adPlace === 'popup', closeCooldownSeconds: parseInt($('#ad-cooldown').value, 10) || 0,
+        showViewCount: $('#ad-show-count').checked, priority: parseInt($('#ad-priority').value, 10) || 0, isPaused: $('#ad-paused').checked,
+        expiresAt: exp ? exp.replace('T', ' ') + ':00' : null, startsAt: start ? start.replace('T', ' ') + ':00' : null,
+        ctaLabel: $('#ad-cta-label').value.trim(), ctaUrl: $('#ad-cta-url').value.trim(),
+        design: adDesignFromForm(),
+        audience: { mode: $('input[name="ad-aud"]:checked').value, phones: $('#ad-phones').value, device: $('#ad-device').value, newDays: parseInt($('#ad-newdays').value, 10) || 0 },
     };
+    if (!payload.title.trim() || !payload.htmlContent.trim()) { switchAdTab('content'); toast('חובה למלא כותרת ותוכן', 'bad'); return; }
     const btn = $('#ad-save');
     busy(btn, true);
     const r = await api('/admin/system-messages/save', payload);
     busy(btn, false);
     if (!r.ok) { toast(r.error || 'שגיאה בשמירה', 'bad'); return; }
-    toast('הקמפיין נשמר ופורסם');
+    toast(payload.isPaused ? 'הקמפיין נשמר (מושהה)' : 'הקמפיין נשמר ופורסם');
     closeDrawers();
     loadAds();
 }
 
+async function adAction(id, action, okText) {
+    const r = await api('/admin/system-messages/action', { id: Number(id), action });
+    if (!r.ok) { toast(r.error || 'שגיאה', 'bad'); return null; }
+    toast(okText);
+    await loadAds();
+    return r.data;
+}
+
 async function adLogs(id) {
     const ad = S.ads.find(a => String(a.id) === String(id));
-    $('#adlogs-sub').textContent = ad ? ad.title : '';
-    $('#adlogs-body').innerHTML = loadingRows(3, 5);
+    S.adInsightsId = id;
+    $('#adlogs-title').textContent = ad ? ad.title : 'ביצועי הקמפיין';
+    $('#adlogs-sub').innerHTML = ad ? `${AD_PLACES[ad.placement][0]} · נוצר ${esc(fmtDate(ad.created_at))}` : '';
+    $('#adlogs-body').innerHTML = '<div class="skeleton" style="height:140px;"></div>';
+    $('#adlogs-foot').innerHTML = `<button class="btn btn-danger" data-action="ad-reset" data-id="${esc(id)}"><i class="fa-solid fa-eraser"></i> איפוס נתונים</button><div class="spacer"></div><button class="btn" data-action="ad-csv"><i class="fa-solid fa-file-csv"></i> ייצוא</button><button class="btn btn-primary" data-action="edit-ad" data-id="${esc(id)}"><i class="fa-solid fa-pen"></i> עריכה</button>`;
     openDrawer('adlogs-drawer');
     const r = await api('/admin/system-messages/logs', { messageId: Number(id) });
-    if (!r.ok) { $('#adlogs-body').innerHTML = emptyRow(3, r.error, 'fa-circle-exclamation'); return; }
-    const logs = r.data.logs || [];
-    $('#adlogs-body').innerHTML = logs.length ? logs.map(l => `<tr><td class="ltr mono" style="text-align:right;">${esc(l.phone)}</td><td class="muted nowrap">${esc(fmtDate(l.viewed_at))}</td><td class="ltr mono muted" style="text-align:right;">${esc(l.ip_address)}</td></tr>`).join('') : emptyRow(3, 'אין צפיות עדיין', 'fa-eye-slash');
+    if (!r.ok) { $('#adlogs-body').innerHTML = `<div class="empty">${esc(r.error)}</div>`; return; }
+    S.adInsights = r.data;
+    S.adViewerFilter = 'all';
+    renderAdInsights();
+}
+
+function renderAdInsights() {
+    const ad = S.ads.find(a => String(a.id) === String(S.adInsightsId)) || {};
+    const { viewers, daily } = S.adInsights;
+    const f = S.adViewerFilter;
+    const views = viewers.reduce((s, v) => s + v.views, 0), clickers = viewers.filter(v => v.clicks).length, closers = viewers.filter(v => v.closes).length;
+    // 14 הימים האחרונים, כולל ימים בלי צפיות
+    const days = [];
+    for (let i = 13; i >= 0; i--) { const d = new Date(Date.now() - i * 86400000); days.push(new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Jerusalem' }).format(d)); }
+    const byDay = Object.fromEntries(daily.map(d => [d.day, d]));
+    const max = Math.max(1, ...days.map(d => (byDay[d] || {}).views || 0));
+    const rows = viewers.filter(v => f === 'all' || (f === 'clicked' && v.clicks) || (f === 'closed' && v.closes) || (f === 'repeat' && v.views > 1));
+    $('#adlogs-body').innerHTML = `
+        <div class="kpis" style="margin:0;">
+            ${kpi('fa-eye', '', 'צפיות', num(views), `${num(viewers.length)} אנשים שונים`)}
+            ${kpi('fa-arrow-pointer', 'info', 'לחצו על הכפתור', ad.cta_url ? num(clickers) : '—', ad.cta_url ? `${viewers.length ? Math.round(clickers / viewers.length * 100) : 0}% מהצופים` : 'אין כפתור בקמפיין', ad.cta_url && viewers.length ? clickers / viewers.length * 100 : undefined)}
+            ${kpi('fa-xmark', 'warn', 'סגרו', num(closers), 'לחצו על ✕')}
+        </div>
+        <div class="card"><div class="card-head"><h3>14 ימים אחרונים</h3></div><div class="card-body">
+            <div class="day-bars">${days.map(d => { const x = byDay[d] || {}; return `<div class="db" title="${esc(d)}\n${num(x.views || 0)} צפיות · ${num(x.people || 0)} אנשים${x.clicks ? ` · ${num(x.clicks)} הקלקות` : ''}"><i style="height:${Math.round(((x.views || 0) / max) * 100)}%"></i>${x.clicks ? `<em style="height:${Math.round((x.clicks / max) * 100)}%"></em>` : ''}<small>${Number(d.slice(8))}</small></div>`; }).join('')}</div>
+            <div class="muted" style="font-size:12px; margin-top:6px;"><span class="lg-dot"></span> צפיות <span class="lg-dot info"></span> הקלקות</div>
+        </div></div>
+        <div class="card"><div class="card-head"><h3>מי ראה</h3><div class="tools"><div class="chips">${[['all', 'כולם'], ['clicked', 'לחצו'], ['closed', 'סגרו'], ['repeat', 'ראו יותר מפעם']].map(([k, l]) => `<button class="chip ${f === k ? 'active' : ''}" data-action="ad-viewers" data-filter="${k}">${l}</button>`).join('')}</div></div></div>
+        <div class="table-wrap"><table class="tbl"><thead><tr><th>אדם</th><th>צפיות</th><th>ראשונה</th><th>אחרונה</th><th>פעולה</th><th>מכשיר</th></tr></thead><tbody>
+        ${rows.length ? rows.slice(0, 500).map(v => `<tr><td><div class="cell-user">${avatarHtml(v.name || v.phone, null, 'sm')}<div><b>${esc(v.name || v.phone)}</b><small class="ltr">${esc(v.phone)}</small></div></div></td>
+            <td><b>${num(v.views)}</b></td><td class="muted nowrap">${esc(fmtDate(v.firstView))}</td><td class="muted nowrap" title="${esc(fmtDate(v.lastView))}">${esc(relTime(v.lastView))}</td>
+            <td>${v.clicks ? `<span class="badge info" title="${esc(fmtDate(v.clickedAt))}"><i class="fa-solid fa-arrow-pointer"></i> לחץ${v.clicks > 1 ? ` ×${num(v.clicks)}` : ''}</span>` : ''}${v.closes ? ` <span class="badge"><i class="fa-solid fa-xmark"></i> סגר</span>` : ''}</td>
+            <td class="muted" title="${esc(v.ip)}">${esc(v.device || '')}</td></tr>`).join('') : emptyRow(6, 'אין צפיות עדיין', 'fa-eye-slash')}
+        </tbody></table></div></div>`;
+}
+
+function adCsv() {
+    const { viewers } = S.adInsights;
+    downloadCsv(`campaign-${S.adInsightsId}.csv`, [['שם', 'טלפון', 'צפיות', 'צפייה ראשונה', 'צפייה אחרונה', 'הקלקות', 'סגירות', 'מכשיר', 'IP'],
+        ...viewers.map(v => [v.name, v.phone, v.views, v.firstView, v.lastView, v.clicks, v.closes, v.device, v.ip])]);
 }
 
 async function deleteAd(id) {
@@ -1861,7 +2142,498 @@ async function deleteAd(id) {
     const r = await api('/admin/system-messages/delete', { id: Number(id) });
     if (!r.ok) { toast(r.error || 'שגיאה במחיקה', 'bad'); return; }
     toast('הקמפיין נמחק');
+    closeDrawers();
     loadAds();
+}
+
+async function saveAdDesign() {
+    const r = await dialog({ title: 'שמירת ערכת עיצוב', text: 'הצבעים, הצורה, האייקון והתגית יישמרו, ותוכל להחיל אותם על כל קמפיין.', icon: 'info', input: { placeholder: 'שם הערכה, למשל "מבצעים"' }, buttons: [{ label: 'ביטול' }, { label: 'שמירה', value: 'ok', cls: 'btn-primary' }] });
+    if (!r || !r.input) return;
+    const res = await api('/admin/system-messages/designs', { action: 'save', name: r.input, bgColor: $('#ad-bg').value, textColor: $('#ad-text').value, design: adDesignFromForm() });
+    if (!res.ok) { toast(res.error || 'שגיאה', 'bad'); return; }
+    S.adDesigns = res.data.designs;
+    renderAdPresets();
+    toast('ערכת העיצוב נשמרה');
+}
+
+function openDesigns() {
+    renderDesigns();
+    openDrawer('designs-drawer');
+}
+
+function renderDesigns() {
+    const list = S.adDesigns || [];
+    $('#designs-body').innerHTML = list.length ? list.map(p => `<div class="card design-row">
+        <div class="preset" style="background:${adBackground(p.bgColor, p.design)}; color:${safeColor(p.textColor, '#1a202c')}; ${p.design.border ? `border-color:${p.design.border};` : ''}"><span>${p.design.icon ? `<i class="fa-solid ${esc(p.design.icon)}"></i>` : 'Aa'}</span></div>
+        <div style="flex:1; min-width:0;"><b>${esc(p.name)}</b><small class="muted" style="display:block;">${p.design.gradient ? 'מעבר צבע · ' : ''}${p.design.radius === null ? 'פינות רגילות' : `פינות ${p.design.radius}px`}${p.design.badge ? ` · תגית "${esc(p.design.badge)}"` : ''}</small></div>
+        <button class="btn btn-sm" data-action="design-rename" data-id="${esc(p.id)}"><i class="fa-solid fa-pen"></i></button>
+        <button class="icon-btn sm danger" data-action="design-delete" data-id="${esc(p.id)}" title="מחיקה"><i class="fa-solid fa-trash-can"></i></button>
+    </div>`).join('') : '<div class="empty"><i class="fa-solid fa-swatchbook"></i>עוד אין ערכות עיצוב שמורות.<br>פתח קמפיין, עצב אותו בלשונית "עיצוב" ולחץ "שמירת העיצוב הנוכחי".</div>';
+}
+
+async function designAction(id, kind) {
+    const p = (S.adDesigns || []).find(x => String(x.id) === String(id));
+    if (!p) return;
+    let res;
+    if (kind === 'delete') {
+        if (!await confirmDanger('מחיקת ערכת עיצוב', `למחוק את "${p.name}"? קמפיינים שכבר משתמשים בעיצוב לא ישתנו.`, 'מחיקה')) return;
+        res = await api('/admin/system-messages/designs', { action: 'delete', id: p.id });
+    } else {
+        const r = await dialog({ title: 'שינוי שם', icon: 'info', input: { value: p.name }, buttons: [{ label: 'ביטול' }, { label: 'שמירה', value: 'ok', cls: 'btn-primary' }] });
+        if (!r || !r.input) return;
+        res = await api('/admin/system-messages/designs', { action: 'save', id: p.id, name: r.input, bgColor: p.bgColor, textColor: p.textColor, design: p.design });
+    }
+    if (!res.ok) { toast(res.error || 'שגיאה', 'bad'); return; }
+    S.adDesigns = res.data.designs;
+    renderDesigns();
+}
+
+// ---------- Mail ----------
+
+const MAIL_STATUS = {
+    draft: ['טיוטה', '', 'fa-pen'], scheduled: ['מתוזמן', 'info', 'fa-clock'], sending: ['בשליחה', 'warn', 'fa-spinner'],
+    sent: ['נשלח', 'good', 'fa-check'], failed: ['נכשל', 'bad', 'fa-triangle-exclamation'],
+};
+const MAIL_FILTERS = [['all', 'הכל'], ['sent', 'נשלחו'], ['scheduled', 'מתוזמנים'], ['draft', 'טיוטות']];
+const MAIL_DEFAULT_THEMES = {
+    salamon: { label: 'סלומון', accent: '#16a34a', accent2: '#0ea5e9', page: '#eef1f7', card: '#ffffff' },
+};
+
+function pct(a, b) { return b ? Math.round((a / b) * 100) : 0; }
+
+async function loadMail() {
+    $('#mail-body').innerHTML = loadingRows(8, 4);
+    const r = await api('/admin/mail/list');
+    if (!r.ok) { $('#mail-body').innerHTML = emptyRow(8, r.error, 'fa-circle-exclamation'); return; }
+    S.mail = r.data.campaigns || [];
+    S.mailSegments = r.data.segments || {};
+    if (r.data.themes) S.mailThemes = r.data.themes;
+    renderMail();
+}
+
+function audienceLabel(a = {}) {
+    if (a.mode === 'segment') return `${esc((S.mailSegments || {})[a.segment] || 'קהל')}${['active', 'inactive', 'new', 'listeners'].includes(a.segment) ? ` · ${num(a.days)} ימים` : ''}`;
+    if (a.mode === 'emails') return `${num((a.emails || []).length)} כתובות`;
+    return `${num((a.phones || []).length)} אנשים`;
+}
+
+function renderMail() {
+    const list = S.mail || [];
+    const sent = list.filter(c => c.status === 'sent');
+    const tot = sent.reduce((a, c) => a + c.sent, 0), op = sent.reduce((a, c) => a + c.opened, 0), cl = sent.reduce((a, c) => a + c.clicked, 0);
+    $('#mail-kpis').innerHTML = [
+        kpi('fa-paper-plane', '', 'מיילים שנשלחו', num(tot), `${num(sent.length)} דיוורים`),
+        kpi('fa-envelope-open', 'good', 'שיעור פתיחה', pct(op, tot) + '%', `${num(op)} פתחו`, pct(op, tot)),
+        kpi('fa-arrow-pointer', 'info', 'שיעור הקלקה', pct(cl, tot) + '%', `${num(cl)} לחצו על קישור`, pct(cl, tot)),
+        kpi('fa-clock', 'warn', 'מתוזמנים וטיוטות', num(list.filter(c => c.status === 'scheduled').length), `${num(list.filter(c => c.status === 'draft').length)} טיוטות`),
+    ].join('');
+    const f = S.mailFilter || 'all';
+    $('#mail-chips').innerHTML = MAIL_FILTERS.map(([k, l]) => `<button class="chip ${f === k ? 'active' : ''}" data-action="mail-filter" data-filter="${k}">${l}</button>`).join('');
+    const rows = list.filter(c => f === 'all' || c.status === f || (f === 'sent' && ['sent', 'failed', 'sending'].includes(c.status)));
+    if (!rows.length) {
+        $('#mail-body').innerHTML = `<tr><td colspan="8"><div class="empty"><i class="fa-solid fa-envelope-open-text"></i>${list.length ? 'אין דיוורים בסינון הזה' : 'עוד לא נשלחו דיוורים'}<br><br><button class="btn btn-primary" data-action="new-mail"><i class="fa-solid fa-pen-to-square"></i> דיוור חדש</button></div></td></tr>`;
+        return;
+    }
+    $('#mail-body').innerHTML = rows.map(c => {
+        const [label, tone, icon] = MAIL_STATUS[c.status] || [c.status, '', 'fa-circle'];
+        const t = (S.mailThemes || MAIL_DEFAULT_THEMES)[c.theme] || MAIL_DEFAULT_THEMES.salamon;
+        const when = c.status === 'scheduled' ? c.scheduledAt : c.sentAt || c.updatedAt || c.createdAt;
+        const isSent = ['sent', 'failed', 'sending'].includes(c.status);
+        return `<tr class="clickable" data-action="${isSent ? 'mail-report' : 'edit-mail'}" data-id="${esc(c.id)}">
+            <td><div class="cell-user"><span class="mail-dot" style="background:linear-gradient(135deg,${esc(t.accent)},${esc(t.accent2)})"></span><div><b>${esc(c.subject)}</b><small>${esc(c.layout === 'banner' ? 'באנר' : c.layout === 'letter' ? 'מכתב' : 'כרטיס')} · ${esc(t.label)}</small></div></div></td>
+            <td><span class="badge ${tone}"><i class="fa-solid ${icon}"></i> ${label}</span></td>
+            <td class="muted">${audienceLabel(c.audience)}</td>
+            <td>${isSent ? `${num(c.sent)}${c.failed ? ` <span class="badge bad">${num(c.failed)} נכשלו</span>` : ''}` : `<span class="muted">${c.total ? num(c.total) : '—'}</span>`}</td>
+            <td>${isSent ? `<div class="mini-bar" title="${num(c.opened)} פתחו"><i style="width:${pct(c.opened, c.sent)}%"></i></div><small>${pct(c.opened, c.sent)}%</small>` : '<span class="muted">—</span>'}</td>
+            <td>${isSent ? `<div class="mini-bar info" title="${num(c.clicked)} לחצו"><i style="width:${pct(c.clicked, c.sent)}%"></i></div><small>${pct(c.clicked, c.sent)}%</small>` : '<span class="muted">—</span>'}</td>
+            <td class="muted nowrap" title="${esc(fmtDate(when))}">${esc(relTime(when))}</td>
+            <td><div class="row-actions">
+                <button class="icon-btn sm" data-action="dup-mail" data-id="${esc(c.id)}" title="שכפול"><i class="fa-regular fa-copy"></i></button>
+                <button class="icon-btn sm danger" data-action="delete-mail" data-id="${esc(c.id)}" title="מחיקה"><i class="fa-solid fa-trash-can"></i></button>
+            </div></td>
+        </tr>`;
+    }).join('');
+}
+
+// --- composer state ---
+
+function mcVal(id) { return $(id).value; }
+
+function mcDesign() {
+    return {
+        theme: S.mc.theme, layout: S.mc.layout, align: S.mc.align, bodyMode: S.mc.bodyMode,
+        accent: $('#mc-accent-on').checked ? $('#mc-accent').value : '',
+        bannerUrl: mcVal('#mc-banner').trim(), eyebrow: mcVal('#mc-eyebrow'), title: mcVal('#mc-title'), highlight: mcVal('#mc-highlight'),
+        body: mcVal('#mc-body'), ctaLabel: mcVal('#mc-cta-label'), ctaUrl: mcVal('#mc-cta-url').trim(), cta2Label: mcVal('#mc-cta2-label'), cta2Url: mcVal('#mc-cta2-url').trim(),
+        signature: mcVal('#mc-signature'), footnote: mcVal('#mc-footnote'),
+    };
+}
+
+function mcAudience() {
+    const mode = $('input[name="mc-mode"]:checked').value;
+    return { mode, phones: [...S.mc.picked.keys()], emails: mcVal('#mc-emails'), segment: mcVal('#mc-segment'), days: parseInt(mcVal('#mc-days'), 10) || 30, service: $('#mc-service').checked };
+}
+
+function switchMailTab(tab) {
+    $$('#mc-tabs .drawer-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    $$('#mail-form .tab-pane').forEach(p => p.classList.toggle('active', p.dataset.pane === tab));
+    if (tab === 'send') renderMailSummary();
+}
+
+async function openMail(prefill = {}) {
+    if (S.view !== 'mail') go('mail');
+    if (!S.users.length) loadUsers(true);
+    const c = prefill.campaign || null;
+    const d = (c && c.design) || {};
+    const a = (c && c.audience) || prefill.audience || { mode: 'users' };
+    S.mc = { theme: d.theme || 'salamon', layout: d.layout || 'card', align: d.align || 'right', bodyMode: d.bodyMode || 'text', picked: new Map(), editing: c && !prefill.duplicate ? c.id : null };
+    $('#mail-form').reset();
+    $('#mc-id').value = S.mc.editing || '';
+    $('#mc-head').textContent = S.mc.editing ? 'עריכת דיוור' : prefill.duplicate ? 'דיוור חדש (העתק)' : 'דיוור חדש';
+    $('#mc-subject').value = c ? c.subject : '';
+    $('#mc-preheader').value = (c && c.preheader) || '';
+    for (const [id, k] of [['#mc-eyebrow', 'eyebrow'], ['#mc-title', 'title'], ['#mc-highlight', 'highlight'], ['#mc-body', 'body'], ['#mc-cta-label', 'ctaLabel'], ['#mc-cta-url', 'ctaUrl'], ['#mc-cta2-label', 'cta2Label'], ['#mc-cta2-url', 'cta2Url'], ['#mc-signature', 'signature'], ['#mc-footnote', 'footnote'], ['#mc-banner', 'bannerUrl']]) $(id).value = d[k] || '';
+    if (!c) { $('#mc-signature').value = 'בברכה,\nצוות עכשיו סלומון'; $('#mc-cta-label').value = 'למעבר לאתר'; $('#mc-cta-url').value = 'https://smti.uk/salamon'; }
+    $('#mc-accent-on').checked = !!d.accent; if (d.accent) $('#mc-accent').value = d.accent;
+    $(`input[name="mc-mode"][value="${a.mode || 'users'}"]`).checked = true;
+    $('#mc-emails').value = (a.emails || []).join(', ');
+    renderSegmentOptions(a.segment);
+    $('#mc-days').value = a.days || 30;
+    $('#mc-service').checked = !!a.service;
+    for (const p of a.phones || []) S.mc.picked.set(p, mailPerson(p));
+    if (c && c.status === 'scheduled' && c.scheduledAt) { $('input[name="mc-when"][value="schedule"]').checked = true; $('#mc-schedule').value = String(c.scheduledAt).replace(' ', 'T').slice(0, 16); }
+    $('#mc-results').hidden = true;
+    renderMcSegs();
+    renderPicked();
+    renderMcMode();
+    switchMailTab(prefill.tab || 'to');
+    openDrawer('mail-drawer');
+    mailAudience();
+    mailPreview();
+}
+
+function mailPerson(phone) {
+    const u = S.users.find(x => x.phone === phone);
+    return { phone, name: (u && u.name) || '', email: (u && u.email) || '' };
+}
+
+function renderSegmentOptions(sel) {
+    const segs = Object.keys(S.mailSegments || {}).length ? S.mailSegments : { all: 'כל המשתמשים עם מייל', active: 'פעילים לאחרונה', inactive: 'לא נכנסו זמן מה', new: 'נרשמו לאחרונה', listeners: 'האזינו להודעות לאחרונה', staff: 'אנשי צוות' };
+    $('#mc-segment').innerHTML = Object.entries(segs).map(([k, l]) => `<option value="${esc(k)}" ${k === sel ? 'selected' : ''}>${esc(l)}</option>`).join('');
+}
+
+function renderMcMode() {
+    const mode = $('input[name="mc-mode"]:checked').value;
+    $$('#mail-form .mc-mode').forEach(el => { el.hidden = el.dataset.mode !== mode; });
+    $('#mc-days-wrap').hidden = !['active', 'inactive', 'new', 'listeners'].includes(mcVal('#mc-segment'));
+}
+
+function renderMcSegs() {
+    $$('#mc-bodymode button').forEach(b => b.classList.toggle('active', b.dataset.mode === S.mc.bodyMode));
+    $$('#mc-align button').forEach(b => b.classList.toggle('active', b.dataset.align === S.mc.align));
+    $$('#mc-layouts .layout-opt').forEach(b => b.classList.toggle('active', b.dataset.layout === S.mc.layout));
+    const themes = S.mailThemes || MAIL_DEFAULT_THEMES;
+    $('#mc-themes').innerHTML = Object.entries(themes).map(([k, t]) => `<button type="button" class="theme-opt ${k === S.mc.theme ? 'active' : ''}" data-action="mc-theme" data-theme="${esc(k)}">
+        <span class="th" style="background:${esc(t.page)};"><i style="background:linear-gradient(135deg,${esc(t.accent)},${esc(t.accent2)});"></i><em style="background:${esc(t.card)};"></em></span>${esc(t.label)}</button>`).join('');
+}
+
+function renderPicked() {
+    const list = [...S.mc.picked.values()];
+    $('#mc-picked').innerHTML = list.length ? list.map(p => `<span class="pick-chip ${p.email ? '' : 'warn'}" title="${esc(p.email || 'אין מייל למשתמש הזה')}">${avatarHtml(p.name || p.phone, null, 'xs')}<b>${esc(p.name || p.phone)}</b><small class="ltr">${esc(p.email || 'אין מייל')}</small><button type="button" class="icon-btn sm" data-action="mc-unpick" data-phone="${esc(p.phone)}" aria-label="הסרה"><i class="fa-solid fa-xmark"></i></button></span>`).join('')
+        : '<div class="muted" style="padding:6px 2px;">עוד לא נבחרו נמענים. חפש למעלה ולחץ על שם כדי להוסיף.</div>';
+}
+
+function renderMailSearch() {
+    const q = mcVal('#mc-search').trim().toLowerCase();
+    const box = $('#mc-results');
+    if (!q) { box.hidden = true; return; }
+    const hits = S.users.filter(u => u.email && (String(u.phone).includes(q) || String(u.name || '').toLowerCase().includes(q) || String(u.email).toLowerCase().includes(q))).slice(0, 8);
+    box.hidden = false;
+    box.innerHTML = hits.length ? hits.map(u => `<button type="button" class="mc-hit ${S.mc.picked.has(u.phone) ? 'on' : ''}" data-action="mc-pick" data-phone="${esc(u.phone)}">${avatarHtml(u.name || u.phone, u.profilePictureUrl, 'xs')}<span><b>${esc(u.name || u.phone)}</b><small class="ltr">${esc(u.email)} · ${esc(u.phone)}</small></span><i class="fa-solid ${S.mc.picked.has(u.phone) ? 'fa-check' : 'fa-plus'}"></i></button>`).join('')
+        : `<div class="muted" style="padding:10px;">${S.users.length ? 'לא נמצאו משתמשים עם מייל' : 'טוען משתמשים…'}</div>`;
+}
+
+const mailAudience = debounce(async () => {
+    if (!S.mc) return;
+    const box = $('#mc-audience');
+    box.innerHTML = '<div class="muted"><i class="fa-solid fa-spinner fa-spin"></i> מחשב נמענים…</div>';
+    const r = await api('/admin/mail/audience', { audience: mcAudience() });
+    if (!r.ok) { box.innerHTML = `<div class="alert bad">${esc(r.error)}</div>`; return; }
+    S.mc.count = r.data.count;
+    const x = r.data.excluded || {};
+    const parts = [x.optedOut && `${num(x.optedOut)} ביטלו קבלת עדכונים`, x.blocked && `${num(x.blocked)} חסומים`, x.noEmail && `${num(x.noEmail)} בלי מייל`, x.invalid && `${num(x.invalid)} כתובות לא תקינות`, x.duplicate && `${num(x.duplicate)} כפולים`].filter(Boolean);
+    box.innerHTML = `<div class="aud-count"><b>${num(r.data.count)}</b><span>נמענים יקבלו את המייל</span></div>
+        ${parts.length ? `<div class="muted"><i class="fa-solid fa-filter"></i> לא יקבלו: ${parts.join(' · ')}${x.optedOut && !$('#mc-service').checked ? ' (אפשר לכלול אותם בהודעת שירות)' : ''}</div>` : ''}
+        ${(r.data.sample || []).length ? `<div class="aud-sample">${r.data.sample.map(p => `<span title="${esc(p.email)}">${esc(p.name || p.email)}</span>`).join('')}${r.data.count > r.data.sample.length ? `<span class="muted">ועוד ${num(r.data.count - r.data.sample.length)}</span>` : ''}</div>` : ''}`;
+    $('#mc-count-tab').textContent = r.data.count ? num(r.data.count) : '';
+    renderMailSummary();
+}, 350);
+
+const mailPreview = debounce(async () => {
+    if (!S.mc) return;
+    $('#mc-pv-subject').textContent = (mcVal('#mc-subject') || 'נושא המייל').replace(/\{\{\s*(first_name|name)\s*\}\}/g, 'ישראל');
+    $('#mc-pv-pre').textContent = mcVal('#mc-preheader');
+    const r = await api('/admin/mail/preview', { design: mcDesign(), subject: mcVal('#mc-subject'), preheader: mcVal('#mc-preheader') });
+    if (!r.ok) return;
+    if (r.data.themes && !S.mailThemes) { S.mailThemes = r.data.themes; renderMcSegs(); }
+    // נטען ב-iframe מבודד (sandbox בלי סקריפטים), כך שה-HTML של המייל לא רץ בתוך מרכז השליטה
+    $('#mc-preview').srcdoc = r.data.html;
+}, 400);
+
+function renderMailSummary() {
+    if (!S.mc) return;
+    const when = $('input[name="mc-when"]:checked').value;
+    $('#mc-now-hint').textContent = S.mc.count ? `המייל ייצא מיד ל-${num(S.mc.count)} נמענים` : 'בחר נמענים בלשונית "נמענים"';
+    $('#mc-send span').textContent = when === 'schedule' ? 'תזמון' : S.mc.count ? `שליחה ל-${num(S.mc.count)}` : 'שליחה';
+    $('#mc-send i').className = when === 'schedule' ? 'fa-regular fa-clock' : 'fa-solid fa-paper-plane';
+    const d = mcDesign();
+    const issues = [!mcVal('#mc-subject').trim() && 'חסר נושא', !d.title.trim() && !d.body.trim() && 'המייל ריק', !S.mc.count && 'אין נמענים', d.ctaLabel && !/^https?:\/\//.test(d.ctaUrl) && 'לכפתור חסר קישור תקין'].filter(Boolean);
+    $('#mc-summary').innerHTML = issues.length ? `<div class="alert warn"><i class="fa-solid fa-circle-exclamation"></i> ${issues.join(' · ')}</div>` : `<div class="alert good"><i class="fa-solid fa-circle-check"></i> הכל מוכן לשליחה</div>`;
+}
+
+function mailFormat(kind) {
+    const ta = $('#mc-body');
+    const [a, b] = [ta.selectionStart, ta.selectionEnd];
+    const sel = ta.value.slice(a, b);
+    let ins;
+    if (kind === 'bold') ins = `**${sel || 'טקסט מודגש'}**`;
+    else if (kind === 'list') ins = (a && ta.value[a - 1] !== '\n' ? '\n' : '') + (sel ? sel.split('\n').map(l => '- ' + l).join('\n') : '- פריט ראשון\n- פריט שני');
+    else ins = '{{first_name}}';
+    ta.setRangeText(ins, a, b, 'end');
+    ta.focus();
+    mailPreview();
+}
+
+async function mailSubmit(action) {
+    const when = $('input[name="mc-when"]:checked').value;
+    if (action === 'send' && when === 'schedule') action = 'schedule';
+    const payload = { id: $('#mc-id').value || undefined, action, subject: mcVal('#mc-subject'), preheader: mcVal('#mc-preheader'), design: mcDesign(), audience: mcAudience(), scheduleAt: mcVal('#mc-schedule') };
+    if (action === 'send') {
+        if (!S.mc.count) { toast('אין נמענים', 'bad'); switchMailTab('to'); return; }
+        if (!await confirmDanger('שליחת הדיוור', `המייל "${payload.subject}" יישלח עכשיו ל-${num(S.mc.count)} נמענים. אי אפשר לבטל אחרי השליחה.`, `שליחה ל-${num(S.mc.count)}`)) return;
+    }
+    const btn = action === 'draft' ? $('[data-action="mc-draft"]') : $('#mc-send');
+    busy(btn, true);
+    const r = await api('/admin/mail/send', payload);
+    busy(btn, false);
+    if (r.data && r.data.id) $('#mc-id').value = r.data.id;
+    if (!r.ok) { toast(r.error || 'שגיאה', 'bad'); return; }
+    if (action === 'draft') { S.mc.editing = r.data.id; toast('הטיוטה נשמרה'); loadMail(); return; }
+    toast(action === 'schedule' ? `הדיוור תוזמן ל-${num(r.data.total)} נמענים` : r.data.status === 'failed' ? 'השליחה נכשלה' : `נשלח ל-${num(r.data.sent)} נמענים${r.data.failed ? ` (${num(r.data.failed)} נכשלו)` : ''}`, r.data.status === 'failed' ? 'bad' : 'good');
+    closeDrawers();
+    await loadMail();
+    if (action === 'send') mailReport(r.data.id);
+}
+
+async function mailTest() {
+    const btn = $('[data-action="mc-test"]');
+    busy(btn, true);
+    const r = await api('/admin/mail/test', { to: mcVal('#mc-test-to').trim(), subject: mcVal('#mc-subject') || 'מייל בדיקה', preheader: mcVal('#mc-preheader'), design: mcDesign() });
+    busy(btn, false);
+    if (!r.ok) { toast(r.error || 'שגיאה בשליחה', 'bad'); return; }
+    toast(`מייל בדיקה נשלח ל-${r.data.to}`);
+}
+
+async function editMail(id, duplicate) {
+    const r = await api('/admin/mail/get', { id: Number(id) });
+    if (!r.ok) { toast(r.error, 'bad'); return; }
+    if (!S.users.length) await loadUsers(true);
+    openMail({ campaign: r.data.campaign, duplicate, tab: duplicate ? 'to' : 'content' });
+}
+
+async function mailReport(id) {
+    $('#mr-body').innerHTML = '<div class="skeleton" style="height:120px;"></div>';
+    $('#mr-foot').innerHTML = '';
+    openDrawer('mailrep-drawer');
+    const r = await api('/admin/mail/get', { id: Number(id) });
+    if (!r.ok) { $('#mr-body').innerHTML = `<div class="empty">${esc(r.error)}</div>`; return; }
+    S.mailRep = r.data;
+    S.mailRepFilter = 'all';
+    const c = r.data.campaign;
+    const [label, tone, icon] = MAIL_STATUS[c.status] || [c.status, '', 'fa-circle'];
+    $('#mr-title').textContent = c.subject;
+    $('#mr-sub').innerHTML = `<span class="badge ${tone}"><i class="fa-solid ${icon}"></i> ${label}</span> ${esc(fmtDate(c.sentAt || c.scheduledAt || c.createdAt))} · ${audienceLabel(c.audience)}`;
+    $('#mr-foot').innerHTML = `${c.status === 'scheduled' ? `<button class="btn" data-action="cancel-mail" data-id="${esc(c.id)}"><i class="fa-solid fa-ban"></i> ביטול התזמון</button>` : ''}
+        <button class="btn btn-danger" data-action="delete-mail" data-id="${esc(c.id)}"><i class="fa-solid fa-trash-can"></i> מחיקה</button><div class="spacer"></div>
+        <button class="btn" data-action="mail-csv"><i class="fa-solid fa-file-csv"></i> ייצוא</button>
+        <button class="btn btn-primary" data-action="dup-mail" data-id="${esc(c.id)}"><i class="fa-regular fa-copy"></i> שכפול כדיוור חדש</button>`;
+    renderMailReport();
+}
+
+const MR_FILTERS = [['all', 'כולם'], ['opened', 'פתחו'], ['unopened', 'לא פתחו'], ['clicked', 'לחצו'], ['failed', 'נכשלו']];
+
+function renderMailReport() {
+    const { campaign: c, recipients, links } = S.mailRep;
+    const f = S.mailRepFilter;
+    const rows = recipients.filter(x => f === 'all' || (f === 'opened' && x.opened_at) || (f === 'unopened' && !x.opened_at && x.status === 'sent') || (f === 'clicked' && x.clicked_at) || (f === 'failed' && x.status === 'failed'));
+    const statusCell = x => x.status === 'failed' ? `<span class="badge bad" title="${esc(x.error || '')}">נכשל</span>` : x.status === 'pending' ? '<span class="badge">ממתין</span>'
+        : x.clicked_at ? '<span class="badge info"><i class="fa-solid fa-arrow-pointer"></i> לחץ</span>' : x.opened_at ? '<span class="badge good"><i class="fa-solid fa-envelope-open"></i> פתח</span>' : '<span class="badge">נשלח</span>';
+    $('#mr-body').innerHTML = `
+        <div class="kpis" style="margin:0;">
+            ${kpi('fa-paper-plane', '', 'נשלחו', num(c.sent), c.failed ? `${num(c.failed)} נכשלו` : `מתוך ${num(c.total)}`)}
+            ${kpi('fa-envelope-open', 'good', 'פתחו', pct(c.opened, c.sent) + '%', `${num(c.opened)} אנשים`, pct(c.opened, c.sent))}
+            ${kpi('fa-arrow-pointer', 'info', 'לחצו', pct(c.clicked, c.sent) + '%', `${num(c.clicked)} אנשים`, pct(c.clicked, c.sent))}
+        </div>
+        ${links.length ? `<div class="card"><div class="card-head"><h3>הקלקות לפי קישור</h3></div><table class="tbl"><tbody>${links.map(l => `<tr><td class="ltr mono" style="text-align:right; max-width:420px; overflow:hidden; text-overflow:ellipsis;">${esc(l.url)}</td><td class="nowrap"><b>${num(l.people)}</b> <span class="muted">אנשים · ${num(l.clicks)} הקלקות</span></td></tr>`).join('')}</tbody></table></div>` : ''}
+        <div class="card"><div class="card-head"><h3>נמענים</h3><div class="tools"><div class="chips">${MR_FILTERS.map(([k, l]) => `<button class="chip ${f === k ? 'active' : ''}" data-action="mr-filter" data-filter="${k}">${l}</button>`).join('')}</div></div></div>
+        <div class="table-wrap"><table class="tbl"><thead><tr><th>נמען</th><th>סטטוס</th><th>נפתח</th><th>פתיחות</th><th>מכשיר</th></tr></thead><tbody>
+        ${rows.length ? rows.map(x => `<tr><td><div class="cell-user">${avatarHtml(x.name || x.email, null, 'sm')}<div><b>${esc(x.name || x.phone || x.email)}</b><small class="ltr">${esc(x.email)}</small></div></div></td>
+            <td>${statusCell(x)}</td><td class="muted nowrap" title="${esc(fmtDate(x.opened_at))}">${x.opened_at ? esc(relTime(x.opened_at)) : '—'}</td>
+            <td>${x.open_count ? num(x.open_count) : '—'}${x.click_count ? ` <span class="muted">· ${num(x.click_count)} הקלקות</span>` : ''}</td><td class="muted">${esc(x.last_device || '')}</td></tr>`).join('') : emptyRow(5, 'אין נמענים בסינון הזה', 'fa-filter')}
+        </tbody></table></div></div>
+        <div class="muted" style="font-size:12px;"><i class="fa-solid fa-circle-info"></i> פתיחה נמדדת כשהתמונות במייל נטענות. יש תוכנות דואר שחוסמות תמונות, ולכן המספר האמיתי יכול להיות גבוה יותר.</div>`;
+}
+
+async function deleteMail(id) {
+    const c = (S.mail || []).find(x => String(x.id) === String(id));
+    if (!await confirmDanger('מחיקת דיוור', `למחוק את "${c ? c.subject : ''}" עם כל נתוני הפתיחות וההקלקות? מיילים שכבר נשלחו לא יימחקו מתיבות הדואר.`, 'מחיקה')) return;
+    const r = await api('/admin/mail/delete', { id: Number(id) });
+    if (!r.ok) { toast(r.error || 'שגיאה', 'bad'); return; }
+    toast('הדיוור נמחק');
+    closeDrawers();
+    loadMail();
+}
+
+async function cancelMail(id) {
+    const r = await api('/admin/mail/cancel', { id: Number(id) });
+    if (!r.ok) { toast(r.error || 'שגיאה', 'bad'); return; }
+    toast('התזמון בוטל, הדיוור חזר לטיוטות');
+    closeDrawers();
+    loadMail();
+}
+
+function mailCsv() {
+    const { campaign: c, recipients } = S.mailRep;
+    downloadCsv(`mail-${c.id}.csv`, [['שם', 'טלפון', 'מייל', 'סטטוס', 'נשלח', 'נפתח', 'פתיחות', 'נלחץ', 'הקלקות', 'מכשיר'],
+        ...recipients.map(x => [x.name, x.phone, x.email, x.status, x.sent_at, x.opened_at, x.open_count, x.clicked_at, x.click_count, x.last_device])]);
+}
+
+// ---------- Voice messages ----------
+
+const VOICE_SOURCE = { phone: ['בטלפון', 'fa-phone'], web_record: ['הוקלט באתר', 'fa-microphone'], web_file: ['הועלה כקובץ', 'fa-file-audio'] };
+
+async function loadVoice(page = S.voicePage || 1) {
+    S.voicePage = page;
+    $('#voice-body').innerHTML = loadingRows(7, 6);
+    $('#voice-pager').innerHTML = '';
+    const r = await api('/admin/voice/list', { page, limit: 25 });
+    if (!r.ok) { $('#voice-body').innerHTML = emptyRow(7, r.error, 'fa-circle-exclamation'); return; }
+    S.voice = r.data.messages || [];
+    S.voiceHasMore = r.data.hasMore;
+    S.voicePhone = S.voicePhone || {};
+    renderVoice();
+    // מספרי השומעים בטלפון נטענים ברקע, בקבוצות קטנות, כדי שהרשימה תופיע מיד
+    const ids = S.voice.map(m => m.fileId).filter(id => !(id in S.voicePhone));
+    for (let i = 0; i < ids.length; i += 10) {
+        const res = await api('/admin/voice/phone-stats', { fileIds: ids.slice(i, i + 10) });
+        if (!res.ok) break;
+        Object.assign(S.voicePhone, res.data.stats);
+        if (S.view === 'voice') renderVoice();
+    }
+}
+
+function voiceTitle(m) {
+    const d = parseDate(m.mtime);
+    return `הודעה #${Number(m.fileId)}${d ? ` · ${d.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' })}` : ''}`;
+}
+
+function renderVoice() {
+    const rows = S.voice || [];
+    $('#voice-page-info').textContent = `עמוד ${num(S.voicePage)}`;
+    $('#voice-pager').innerHTML = `<button class="btn btn-sm" data-action="voice-page" data-page="${S.voicePage - 1}" ${S.voicePage <= 1 ? 'disabled' : ''}><i class="fa-solid fa-chevron-right"></i> חדשות יותר</button><div class="spacer"></div>
+        <button class="btn btn-sm" data-action="voice-page" data-page="${S.voicePage + 1}" ${S.voiceHasMore ? '' : 'disabled'}>ישנות יותר <i class="fa-solid fa-chevron-left"></i></button>`;
+    if (!rows.length) { $('#voice-body').innerHTML = emptyRow(7, 'אין הודעות בשלוחה', 'fa-microphone-slash'); return; }
+    $('#voice-body').innerHTML = rows.map(m => {
+        const tel = S.voicePhone[m.fileId];
+        const [srcLabel, srcIcon] = VOICE_SOURCE[m.recorder.source] || VOICE_SOURCE.phone;
+        const telCell = !tel ? '<span class="skeleton" style="display:inline-block; width:34px;"></span>' : tel.available ? `<b>${num(tel.amount)}</b>` : '<span class="muted" title="ימות המשיח לא שמרה נתוני האזנה להודעה הזו">—</span>';
+        return `<tr class="clickable" data-action="voice-open" data-id="${esc(m.fileId)}">
+            <td><div class="cell-user"><div class="avatar sm voice-ic"><i class="fa-solid fa-microphone-lines"></i></div><div><b>${esc(voiceTitle(m))}</b><small>${esc(m.duration || '')}${m.mtime ? ` · ${esc(fmtDate(m.mtime))}` : ''}</small></div></div></td>
+            <td><div><b style="font-weight:500;">${esc(m.recorder.name || m.recorder.phone || 'לא מזוהה')}</b><small class="muted" style="display:block;"><i class="fa-solid ${srcIcon}"></i> ${srcLabel}</small></div></td>
+            <td><b>${num(m.site.viewers)}</b></td>
+            <td><b>${num(m.site.listeners)}</b>${m.site.listens > m.site.listeners ? ` <span class="muted">· ${num(m.site.listens)} השמעות</span>` : ''}</td>
+            <td>${telCell}</td>
+            <td class="muted nowrap">${m.site.lastListen ? esc(relTime(m.site.lastListen)) : '—'}</td>
+            <td><button class="btn btn-sm" data-action="voice-open" data-id="${esc(m.fileId)}"><i class="fa-solid fa-users-viewfinder"></i> מי ראה ושמע</button></td>
+        </tr>`;
+    }).join('');
+}
+
+const VA_FILTERS = [['all', 'כולם'], ['tel', 'שמעו בטלפון'], ['web', 'השמיעו באתר'], ['site', 'ראו באתר'], ['seen-only', 'ראו ולא שמעו'], ['not', 'לא שמעו']];
+
+async function openVoice(fileId) {
+    const m = (S.voice || []).find(x => x.fileId === fileId);
+    $('#va-title').textContent = m ? voiceTitle(m) : `הודעה #${Number(fileId)}`;
+    $('#va-sub').textContent = m ? `${m.duration || ''} · ${fmtDate(m.mtime)}` : '';
+    $('#va-body').innerHTML = '<div class="skeleton" style="height:120px;"></div>';
+    openDrawer('voice-drawer');
+    const r = await api('/admin/voice/audience', { fileId });
+    if (!r.ok) { $('#va-body').innerHTML = `<div class="empty">${esc(r.error)}</div>`; return; }
+    S.va = r.data;
+    S.vaFilter = 'all';
+    S.vaSearch = '';
+    renderVoiceAudience();
+}
+
+function vaChannel(icon, label, x, tone) {
+    if (!x) return `<span class="ch off" title="${label}: לא"><i class="fa-solid ${icon}"></i></span>`;
+    const times = x.count > 1 ? ` · ${num(x.count)} פעמים` : '';
+    return `<span class="ch on ${tone}" title="${label}${times}${x.first ? `\nראשונה: ${fmtDate(x.first)}` : ''}${x.last ? `\nאחרונה: ${fmtDate(x.last)}` : ''}"><i class="fa-solid ${icon}"></i>${x.count > 1 ? `<b>${num(x.count)}</b>` : ''}</span>`;
+}
+
+function renderVoiceAudience() {
+    const d = S.va;
+    const f = S.vaFilter, q = S.vaSearch.trim().toLowerCase();
+    const t = d.totals;
+    const match = p => !q || String(p.phone).includes(q) || String(p.name || '').toLowerCase().includes(q);
+    let rows;
+    if (f === 'not') rows = d.notHeard.filter(match);
+    else rows = d.people.filter(p => match(p) && (f === 'all' || (f === 'tel' && p.tel) || (f === 'web' && p.web) || (f === 'site' && p.site) || (f === 'seen-only' && p.site && !p.heard)));
+    const counts = { all: d.people.length, tel: d.people.filter(p => p.tel).length, web: d.people.filter(p => p.web).length, site: d.people.filter(p => p.site).length, 'seen-only': d.people.filter(p => p.site && !p.heard).length, not: d.notHeard.length };
+    const telNote = !d.phone.available
+        ? `<div class="alert warn"><i class="fa-solid fa-phone-slash"></i> אין נתוני האזנה מהטלפון להודעה הזו. כדי שימות המשיח תשמור מי שמע, צריך להגדיר בשלוחה 1/2 <span class="mono ltr">save_listening_data=yes</span>.</div>`
+        : !d.phone.detailed && d.phone.amount ? `<div class="alert info"><i class="fa-solid fa-circle-info"></i> ימות המשיח שמרה רק את מספר השומעים בטלפון (${num(d.phone.amount)}), בלי פירוט לפי מספר.</div>` : '';
+    const isNot = f === 'not';
+    $('#va-body').innerHTML = `
+        <div class="va-rec"><i class="fa-solid fa-microphone"></i> הוקלט ע״י <b>${esc(d.recorder.displayName || 'לא מזוהה')}</b>${d.recorder.phone ? ` <span class="mono ltr muted">${esc(d.recorder.phone)}</span>` : ''}</div>
+        <div class="kpis" style="margin:0;">
+            ${kpi('fa-bullseye', '', 'הגיעה ל', num(t.reached), 'אנשים ששמעו בטלפון או באתר')}
+            ${kpi('fa-phone', 'good', 'שמעו בטלפון', num(t.phoneListeners), d.phone.detailed ? 'לפי נתוני ימות המשיח' : 'סה״כ מימות המשיח')}
+            ${kpi('fa-headphones', 'info', 'השמיעו באתר', num(t.webListeners), `${num(t.siteViewers)} ראו ברשימה`)}
+            ${kpi('fa-user-clock', 'warn', 'עוד לא שמעו', num(d.notHeard.length), 'מספר הטלפונים ובעלי החשבון')}
+        </div>
+        ${telNote}
+        <div class="card">
+            <div class="card-head" style="flex-wrap:wrap; gap:8px;">
+                <div class="chips">${VA_FILTERS.map(([k, l]) => `<button class="chip ${f === k ? 'active' : ''}" data-action="va-filter" data-filter="${k}">${l} <span class="n">${num(counts[k])}</span></button>`).join('')}</div>
+                <div class="tools"><div class="search" style="min-width:180px;"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="va-search" placeholder="שם או טלפון" value="${esc(S.vaSearch)}"></div>
+                <button class="icon-btn" data-action="va-csv" title="ייצוא"><i class="fa-solid fa-file-csv"></i></button></div>
+            </div>
+            <div class="table-wrap"><table class="tbl"><thead><tr><th>אדם</th>${isNot ? '<th>חשבון באתר</th><th>ראה באתר</th>' : '<th>ערוצים</th><th>שמע בטלפון</th><th>באתר</th><th>פעילות אחרונה</th>'}</tr></thead><tbody>
+            ${rows.length ? rows.slice(0, 500).map(p => isNot
+                ? `<tr><td>${vaPerson(p)}</td><td>${p.hasAccount ? '<span class="badge good">יש</span>' : '<span class="muted">רק טלפון</span>'}</td><td>${p.sawOnSite ? '<span class="badge warn"><i class="fa-solid fa-eye"></i> ראה ולא שמע</span>' : '—'}</td></tr>`
+                : `<tr><td>${vaPerson(p)}</td>
+                    <td><div class="channels">${vaChannel('fa-phone', 'שמע בטלפון', p.tel, 'good')}${vaChannel('fa-headphones', 'השמיע באתר', p.web, 'info')}${vaChannel('fa-eye', 'ראה ברשימה באתר', p.site, '')}</div></td>
+                    <td class="nowrap">${p.tel ? (p.tel.last ? `<span title="${esc((p.tel.times || []).map(fmtDate).join('\n'))}">${esc(fmtDate(p.tel.last))}</span>${p.tel.count > 1 ? ` <span class="muted">(${num(p.tel.count)}×)</span>` : ''}` : `<span class="muted" title="${esc(p.tel.raw || '')}">שמע</span>`) : '<span class="muted">—</span>'}</td>
+                    <td class="nowrap">${p.web ? `<span title="ראשונה: ${esc(fmtDate(p.web.first))}">השמיע ${esc(relTime(p.web.last))}</span>${p.web.count > 1 ? ` <span class="muted">(${num(p.web.count)}×)</span>` : ''}` : p.site ? `<span class="muted">ראה ${esc(relTime(p.site.last))}</span>` : '<span class="muted">—</span>'}</td>
+                    <td class="muted nowrap">${p.last ? esc(relTime(p.last)) : '—'}</td></tr>`).join('')
+            : emptyRow(isNot ? 3 : 5, q ? 'לא נמצאו תוצאות' : 'אין אנשים בקטגוריה הזו', 'fa-users-slash')}
+            </tbody></table></div>
+            ${rows.length > 500 ? `<div class="pager">מוצגים 500 מתוך ${num(rows.length)}. ייצוא הקובץ כולל את כולם.</div>` : ''}
+        </div>`;
+    const inp = $('#va-search');
+    inp.addEventListener('input', debounce(() => { S.vaSearch = inp.value; renderVoiceAudience(); const el = $('#va-search'); el.focus(); el.setSelectionRange(el.value.length, el.value.length); }, 250));
+}
+
+function vaPerson(p) {
+    return `<div class="cell-user">${avatarHtml(p.name || p.phone, null, 'sm')}<div><b>${esc(p.name || p.phone)}</b><small class="ltr">${esc(p.phone)}${p.hasAccount ? '' : ' · רק טלפון'}</small></div>${p.hasAccount ? `<button class="icon-btn sm" data-action="open-user-activity" data-phone="${esc(p.phone)}" title="פעילות המשתמש"><i class="fa-solid fa-wave-square"></i></button>` : ''}</div>`;
+}
+
+function voiceCsv() {
+    const d = S.va;
+    downloadCsv(`voice-${d.fileId}.csv`, [['שם', 'טלפון', 'חשבון באתר', 'שמע בטלפון', 'פעמים בטלפון', 'שמיעה אחרונה בטלפון', 'השמיע באתר', 'פעמים באתר', 'השמעה אחרונה באתר', 'ראה ברשימה'],
+        ...d.people.map(p => [p.name, p.phone, p.hasAccount ? 'כן' : 'לא', p.tel ? 'כן' : 'לא', p.tel ? p.tel.count : '', p.tel ? p.tel.last : '', p.web ? 'כן' : 'לא', p.web ? p.web.count : '', p.web ? p.web.last : '', p.site ? 'כן' : 'לא']),
+        ...d.notHeard.map(p => [p.name, p.phone, p.hasAccount ? 'כן' : 'לא', 'לא', '', '', 'לא', '', '', p.sawOnSite ? 'כן' : 'לא'])]);
 }
 
 // ---------- Activity ----------
@@ -2340,7 +3112,7 @@ function renderCmdk() {
     const acts = S.mode === 'admin' ? [
         { group: 'פעולות', icon: 'fa-plus', title: 'קמפיין חדש', run: () => { go('ads'); openAd(); } },
         { group: 'פעולות', icon: 'fa-comment-medical', title: 'שיחה חדשה', run: () => { go('chat'); newChat(); } },
-        { group: 'פעולות', icon: 'fa-envelope', title: 'שליחת מייל חופשי', run: () => openDrawer('email-drawer') },
+        { group: 'פעולות', icon: 'fa-envelope', title: 'דיוור חדש במייל', run: () => openMail() },
         { group: 'פעולות', icon: 'fa-user-plus', title: 'פתיחת חשבון אתר', run: () => openCreate('') },
         { group: 'פעולות', icon: 'fa-circle-half-stroke', title: 'החלפת ערכת צבעים', run: toggleTheme },
         { group: 'פעולות', icon: 'fa-arrow-right-from-bracket', title: 'התנתקות', run: logout },
@@ -2502,6 +3274,15 @@ const ACTIONS = {
         else { loadUsers(true).then(() => { const x = S.users.find(y => y.phone === S.activePhone); x && x.hasWebAccount ? openUser(x.phone) : toast('למנוי זה אין חשבון אתר', 'info'); }); }
     },
     'delete-msg': el => deleteMsg(el.dataset.id),
+    'purge-msg': el => purgeMsg(el.dataset.id),
+    'restore-msg': el => restoreMsg(el.dataset.id),
+    'pick-msg': el => pickMsg(el.dataset.id),
+    'select-mode': () => { closePopovers(); setSelectMode(!S.selectMode); },
+    'select-cancel': () => setSelectMode(false),
+    'select-soft': () => deleteSelected(false),
+    'select-hard': () => deleteSelected(true),
+    'thread-purge-deleted': () => purgeThread('deleted'),
+    'thread-purge-all': () => purgeThread('all'),
     'reply-msg': el => startReply(el.dataset.id),
     'edit-msg': el => editMsg(el.dataset.id),
     'jump-msg': el => jumpToMessage(el.dataset.id),
@@ -2525,9 +3306,46 @@ const ACTIONS = {
     'act-more': () => loadActivity(true),
     'open-user-activity': el => { const p = el.dataset.phone; openUser(p); switchUserTab('activity'); },
     'new-chat': newChat,
-    'custom-email': () => { $('#email-form').reset(); openDrawer('email-drawer'); },
+    'custom-email': () => { const p = S.view === 'chat' && S.activePhone; openMail(p ? { audience: { mode: 'users', phones: [p] }, tab: 'content' } : {}); },
 
     'refresh-ads': loadAds,
+    'ads-filter': el => { S.adsFilter = el.dataset.filter; renderAds(); },
+    'ads-designs': openDesigns,
+    'ad-toggle': el => { const ad = S.ads.find(a => String(a.id) === el.dataset.id); adAction(el.dataset.id, ad && ad.is_paused ? 'resume' : 'pause', ad && ad.is_paused ? 'הקמפיין חזר לפעול' : 'הקמפיין הושהה'); },
+    'ad-dup': el => adAction(el.dataset.id, 'duplicate', 'נוצר עותק (מושהה)').then(d => d && d.id && openAd(d.id)),
+    'ad-reset': async el => { if (!await confirmDanger('איפוס נתונים', 'כל הצפיות, ההקלקות והסגירות של הקמפיין יימחקו. הקמפיין עצמו נשאר.', 'איפוס')) return; await adAction(el.dataset.id, 'reset-stats', 'הנתונים אופסו'); adLogs(el.dataset.id); },
+    'ad-csv': adCsv,
+    'ad-viewers': el => { S.adViewerFilter = el.dataset.filter; renderAdInsights(); },
+    'ad-preset': el => { const p = AD_PRESETS[Number(el.dataset.i)]; applyAdDesign(p.bgColor, p.textColor, { ...p.design, badge: $('#ad-badge').value, icon: p.design.icon !== undefined ? p.design.icon : S.adIcon }); updateAdPreview(); },
+    'ad-my-design': el => { const p = (S.adDesigns || []).find(x => String(x.id) === el.dataset.id); if (p) { applyAdDesign(p.bgColor, p.textColor, p.design); updateAdPreview(); } },
+    'ad-save-design': saveAdDesign,
+    'ad-icon': el => { S.adIcon = el.dataset.icon; renderAdIcons(); updateAdPreview(); },
+    'design-delete': el => designAction(el.dataset.id, 'delete'),
+    'design-rename': el => designAction(el.dataset.id, 'rename'),
+
+    'refresh-mail': loadMail,
+    'new-mail': () => openMail(),
+    'mail-filter': el => { S.mailFilter = el.dataset.filter; renderMail(); },
+    'edit-mail': el => editMail(el.dataset.id),
+    'dup-mail': el => { closeDrawers(); editMail(el.dataset.id, true); },
+    'delete-mail': el => deleteMail(el.dataset.id),
+    'cancel-mail': el => cancelMail(el.dataset.id),
+    'mail-report': el => mailReport(el.dataset.id),
+    'mr-filter': el => { S.mailRepFilter = el.dataset.filter; renderMailReport(); },
+    'mail-csv': mailCsv,
+    'mc-theme': el => { S.mc.theme = el.dataset.theme; renderMcSegs(); mailPreview(); },
+    'mc-pick': el => { const p = el.dataset.phone; S.mc.picked.has(p) ? S.mc.picked.delete(p) : S.mc.picked.set(p, mailPerson(p)); renderPicked(); renderMailSearch(); mailAudience(); },
+    'mc-unpick': el => { S.mc.picked.delete(el.dataset.phone); renderPicked(); mailAudience(); },
+    'mc-fmt': el => mailFormat(el.dataset.fmt),
+    'mc-test': mailTest,
+    'mc-draft': () => mailSubmit('draft'),
+    'mc-send': () => mailSubmit('send'),
+
+    'refresh-voice': () => { S.voicePhone = {}; loadVoice(); },
+    'voice-page': el => loadVoice(Number(el.dataset.page)),
+    'voice-open': el => openVoice(el.dataset.id),
+    'va-filter': el => { S.vaFilter = el.dataset.filter; renderVoiceAudience(); },
+    'va-csv': voiceCsv,
     'new-ad': () => { if (S.view !== 'ads') go('ads'); openAd(); },
     'edit-ad': el => openAd(el.dataset.id),
     'ad-logs': el => adLogs(el.dataset.id),
@@ -2568,7 +3386,6 @@ function bindEvents() {
     $('#block-form').addEventListener('submit', submitBlock);
     $('#composer').addEventListener('submit', sendMsg);
     $('#ad-form').addEventListener('submit', saveAd);
-    $('#email-form').addEventListener('submit', sendEmail);
 
     $('#scrim').addEventListener('click', requestCloseDrawers);
     $('#ud-form').addEventListener('input', () => { $('#ud-dirty').hidden = !userDirty(); });
@@ -2644,8 +3461,39 @@ function bindEvents() {
     });
     composer.addEventListener('blur', () => sendTyping(false));
 
-    ['ad-title', 'ad-html', 'ad-image', 'ad-bg', 'ad-text', 'ad-mandatory'].forEach(id => $(`#${id}`).addEventListener('input', debounce(updateAdPreview, 120)));
-    $('#ad-mandatory').addEventListener('change', updateAdPreview);
+    $('#ad-form').addEventListener('input', debounce(updateAdPreview, 120));
+    $('#ad-form').addEventListener('change', e => { if (e.target.name === 'ad-aud' || e.target.id === 'ad-phones') renderAdAudience(); updateAdPreview(); });
+    $('#ad-phones').addEventListener('input', renderAdAudience);
+    $('#ad-tabs').addEventListener('click', e => { const b = e.target.closest('.drawer-tab'); if (b) switchAdTab(b.dataset.tab); });
+    $('#ad-places').addEventListener('click', e => { const b = e.target.closest('.place-opt'); if (b) { S.adPlace = b.dataset.place; renderAdPlaces(); updateAdPreview(); } });
+    ['ad-size', 'ad-align', 'ad-imgpos'].forEach(id => $(`#${id}`).addEventListener('click', e => { const b = e.target.closest('button'); if (b) { setSeg(id, b.dataset.v); updateAdPreview(); } }));
+    $('#ad-device-pv').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; S.adPvDevice = b.dataset.device; $$('#ad-device-pv button').forEach(x => x.classList.toggle('active', x === b)); updateAdPreview(); });
+    $('#ad-dur').addEventListener('click', e => {
+        const c = e.target.closest('.chip'); if (!c) return;
+        const days = Number(c.dataset.days);
+        if (!days) { $('#ad-expires').value = ''; return; }
+        const base = $('#ad-starts').value ? new Date($('#ad-starts').value) : new Date();
+        const end = new Date(base.getTime() + days * 86400000);
+        const pad = n => String(n).padStart(2, '0');
+        $('#ad-expires').value = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}`;
+    });
+
+    // דיוור
+    $('#mc-tabs').addEventListener('click', e => { const b = e.target.closest('.drawer-tab'); if (b) switchMailTab(b.dataset.tab); });
+    $('#mail-form').addEventListener('submit', e => e.preventDefault());
+    $('#mail-form').addEventListener('input', e => {
+        if (e.target.id === 'mc-search') { renderMailSearch(); return; }
+        if (['mc-emails', 'mc-days'].includes(e.target.id)) mailAudience();
+        if (S.mc) { mailPreview(); renderMailSummary(); }
+    });
+    $('#mail-form').addEventListener('change', e => {
+        if (['mc-mode', 'mc-when'].includes(e.target.name) || ['mc-segment', 'mc-service'].includes(e.target.id)) { renderMcMode(); if (e.target.name !== 'mc-when') mailAudience(); renderMailSummary(); }
+        if (['mc-accent-on', 'mc-accent'].includes(e.target.id)) mailPreview();
+    });
+    $('#mc-bodymode').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { S.mc.bodyMode = b.dataset.mode; renderMcSegs(); mailPreview(); } });
+    $('#mc-align').addEventListener('click', e => { const b = e.target.closest('button'); if (b) { S.mc.align = b.dataset.align; renderMcSegs(); mailPreview(); } });
+    $('#mc-layouts').addEventListener('click', e => { const b = e.target.closest('.layout-opt'); if (b) { S.mc.layout = b.dataset.layout; renderMcSegs(); mailPreview(); } });
+    $('#mc-device').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; $$('#mc-device button').forEach(x => x.classList.toggle('active', x === b)); $('#mc-frame-wrap').classList.toggle('mobile', b.dataset.device === 'mobile'); });
 
     $('#sql-editor').addEventListener('keydown', e => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); runSql(); }
