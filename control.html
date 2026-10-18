@@ -300,11 +300,7 @@
                                         <div id="qr-list"></div>
                                     </div>
                                 </div>
-                                <select class="input email-mode" id="composer-email-mode" title="שליחת מייל ללקוח">
-                                    <option value="auto">✉️ חכם</option>
-                                    <option value="always">✉️ תמיד</option>
-                                    <option value="never">🚫 בלי מייל</option>
-                                </select>
+                                <label class="mail-toggle" id="composer-email-wrap"><input type="checkbox" id="composer-email"><span><i class="fa-solid fa-envelope"></i> גם במייל</span></label>
                                 <button type="submit" class="btn btn-primary" id="composer-send" style="height:42px;"><i class="fa-solid fa-paper-plane"></i></button>
                             </form>
                         </div>
@@ -430,24 +426,15 @@
                             <div class="card-head"><h3><i class="fa-solid fa-bell"></i> התראות צ'אט במייל</h3></div>
                             <form class="card-body stack" id="chat-settings-form">
                                 <div class="setting-group">
-                                    <div class="setting"><div class="s-text"><div class="s-title">מייל אליי כשלקוח כותב ואני לא בצ'אט</div><div class="s-desc">נשלח רק אחרי שלא היית פעיל במרכז השליטה, ופעם אחת לכל שיחה עד שתחזור</div></div><label class="switch"><input type="checkbox" id="cs-enabled"><span></span></label></div>
+                                    <div class="setting"><div class="s-text"><div class="s-title">מייל אליי כשלקוח כותב ואני לא בצ'אט</div><div class="s-desc">נשלח למייל של מנהל-העל, רק אחרי שלא היית פעיל במרכז השליטה, ופעם אחת לכל שיחה עד שתחזור</div></div><label class="switch"><input type="checkbox" id="cs-enabled"><span></span></label></div>
                                 </div>
-                                <div class="grid-3">
-                                    <div class="field"><label>כתובת המייל שלי</label><input type="email" id="cs-email" class="input ltr" placeholder="you@example.com"></div>
+                                <div id="cs-recipient" class="alert info"></div>
+                                <div class="grid-2">
                                     <div class="field"><label>לשלוח אחרי חוסר פעילות של (דקות)</label><input type="number" min="1" max="240" id="cs-idle" class="input"></div>
                                     <div class="field"><label>מינימום בין מיילים על אותה שיחה (דקות)</label><input type="number" min="1" max="1440" id="cs-cooldown" class="input"></div>
                                 </div>
-                                <div class="section-title">מייל ללקוח כשאני עונה</div>
-                                <div class="grid-2">
-                                    <div class="field"><label>ברירת מחדל</label>
-                                        <select id="cs-customer-mode" class="input">
-                                            <option value="auto">חכם: רק אם הלקוח לא מחובר, ופעם אחת עד שיפתח את הצ'אט</option>
-                                            <option value="always">תמיד לשלוח מייל</option>
-                                            <option value="never">לא לשלוח מייל</option>
-                                        </select>
-                                    </div>
-                                    <div class="field"><label>הלקוח נחשב "לא מחובר" אחרי (דקות)</label><input type="number" min="1" max="120" id="cs-offline" class="input"></div>
-                                </div>
+                                <div class="section-title">מייל ללקוח</div>
+                                <div class="alert info"><i class="fa-solid fa-hand-pointer"></i><span>מייל ללקוח נשלח רק כשאתה מסמן <b>"גם במייל"</b> ליד כפתור השליחה. המייל כולל את ההודעה וקישור חד-פעמי שפותח לו את הצ'אט מיד, וכל פתיחה מתועדת ליד ההודעה.</span></div>
                                 <div class="row wrap"><button type="button" class="btn" data-action="chat-test-email"><i class="fa-solid fa-paper-plane"></i> שליחת מייל בדיקה</button><div class="spacer"></div><button type="submit" class="btn btn-primary" id="cs-save"><i class="fa-solid fa-check"></i> שמירת הגדרות התראות</button></div>
                             </form>
                         </div>

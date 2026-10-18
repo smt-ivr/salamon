@@ -1247,7 +1247,7 @@ function renderConvs() {
             : `${last.sender === 'admin' ? '<i class="fa-solid fa-reply" style="font-size:10px;"></i>' : ''}<span>${esc(last.text || '')}</span>`;
         return `
         <div class="conv ${c.user_phone === S.activePhone ? 'active' : ''} ${Number(c.unread_count) > 0 ? 'unread' : ''}" data-action="open-conv" data-phone="${esc(c.user_phone)}">
-            ${avatarHtml(c.user_name, '', c.online ? 'online' : '')}
+            ${avatarHtml(c.user_name, '', presenceClass(c.presence, c.online))}
             <div class="c-main">
                 <div class="c-top">${c.pinned ? '<i class="fa-solid fa-thumbtack c-pin"></i>' : ''}<div class="c-name">${esc(c.user_name || c.user_phone)}</div>${c.note ? '<i class="fa-regular fa-note-sticky muted" title="יש הערה"></i>' : ''}</div>
                 <div class="c-prev">${preview}</div>
@@ -1286,9 +1286,16 @@ const searchMessages = debounce(async q => {
 }, 300);
 
 function presenceText(p) {
+    if (p && p.status === 'background') return 'באתר · בכרטיסייה אחרת';
     if (p && p.online) return 'מחובר/ת עכשיו';
     if (p && p.lastSeenAt) return `נראה/תה לאחרונה ${relTime(p.lastSeenAt)}`;
     return '';
+}
+
+// נקודת נוכחות על האווטאר: ירוק = מול המסך, צהוב = בכרטיסייה אחרת
+function presenceClass(status, online) {
+    if (status === 'background') return 'away';
+    return (status === 'active' || (status === undefined && online)) ? 'online' : '';
 }
 
 async function openConv(phone, focusMsgId) {
@@ -1306,7 +1313,7 @@ async function openConv(phone, focusMsgId) {
     $('#thread-name').textContent = c.user_name || phone;
     $('#thread-status').textContent = phone;
     $('#thread-status').className = 'ltr';
-    $('#thread-avatar').outerHTML = avatarHtml(c.user_name, '', c.online ? 'online' : '').replace('class="avatar', 'id="thread-avatar" class="avatar');
+    $('#thread-avatar').outerHTML = avatarHtml(c.user_name, '', presenceClass(c.presence, c.online)).replace('class="avatar', 'id="thread-avatar" class="avatar');
     $('#thread-msgs').innerHTML = '<div class="empty"><i class="fa-solid fa-circle-notch spin"></i></div>';
     $('#typing-bar').hidden = true;
     $('#thread-note').hidden = true;
@@ -1336,10 +1343,14 @@ function renderThreadMeta() {
     const status = $('#thread-status');
     const pText = presenceText(d.presence);
     status.textContent = pText || S.activePhone;
-    status.className = d.presence && d.presence.online ? 'online' : (pText ? '' : 'ltr');
+    status.className = d.presence && d.presence.status === 'background' ? 'away' : d.presence && d.presence.online ? 'online' : (pText ? '' : 'ltr');
     status.title = S.activePhone + (d.presence && d.presence.device ? ` · ${d.presence.device}` : '');
     const av = $('#thread-avatar');
-    if (av) av.classList.toggle('online', !!(d.presence && d.presence.online));
+    if (av) {
+        const pc = presenceClass(d.presence && d.presence.status, d.presence && d.presence.online);
+        av.classList.toggle('online', pc === 'online');
+        av.classList.toggle('away', pc === 'away');
+    }
     $('#thread-pin').classList.toggle('on', !!d.thread.pinned);
     $('#thread-pin').title = d.thread.pinned ? 'ביטול הצמדה' : 'הצמדה לראש הרשימה';
     $('#thread-archive').innerHTML = d.thread.archived ? '<i class="fa-solid fa-box-open"></i> הוצאה מהארכיון' : '<i class="fa-solid fa-box-archive"></i> העברה לארכיון';
@@ -1349,10 +1360,12 @@ function renderThreadMeta() {
     const typing = $('#typing-bar');
     typing.hidden = !d.userTyping;
     $('#typing-text').textContent = `${$('#thread-name').textContent} מקליד/ה…`;
-    const mode = $('#composer-email-mode');
+    const mail = $('#composer-email');
     const noEmail = !d.user || !d.user.hasAccount || !d.user.email || !d.user.receiveEmails;
-    mode.disabled = noEmail;
-    mode.title = noEmail ? 'ללקוח אין מייל פעיל' : 'שליחת מייל ללקוח';
+    mail.disabled = noEmail;
+    if (noEmail) mail.checked = false;
+    $('#composer-email-wrap').title = noEmail ? 'ללקוח אין מייל פעיל, או שביקש לא לקבל מיילים' : `לשלוח את ההודעה גם במייל ל-${d.user.email}, עם קישור חד-פעמי שפותח את הצ'אט`;
+    $('#composer-email-wrap').classList.toggle('disabled', noEmail);
 }
 
 async function refreshThread(silent = true) {
@@ -1396,6 +1409,7 @@ function renderThread(msgs, forceBottom) {
         html += `<div class="msg ${out ? 'out' : 'in'} ${deleted ? 'deleted' : ''}" data-msg="${esc(m.id)}">
             ${quote}
             <div class="m-text">${deleted ? '🚫 ההודעה נמחקה' : esc(m.message_text)}</div>
+            ${m.email ? `<div class="m-email" title="${m.email.openedAt ? `נפתח ב-${esc(fmtDate(m.email.openedAt))}${m.email.openedIp ? ` מ-${esc(m.email.openedIp)}` : ''}` : 'הלקוח עוד לא פתח את הקישור'}"><i class="fa-solid fa-envelope${m.email.openedAt ? '-open' : ''}"></i> ${m.email.ok ? 'נשלח במייל' : 'שליחת המייל נכשלה'}${m.email.openedAt ? ` · נפתח ${esc(chatTime(m.email.openedAt))}` : ''}</div>` : ''}
             <div class="m-meta">${m.edited ? '<span class="m-edited">נערך</span>' : ''}<span>${chatTime(m.created_at)}</span>${ticks}</div>
             ${actions}
         </div>`;
@@ -1443,8 +1457,10 @@ function sendTyping(on) {
 }
 
 const EMAIL_RESULT = {
-    queued: 'נשלח גם מייל ללקוח (הוא לא מחובר כרגע)',
-    customer_online: '', already_notified: '', disabled: '', no_email: '', opted_out: '', blocked: '',
+    queued: ['ההודעה נשלחה גם במייל, עם קישור חד-פעמי לצ׳אט', 'good'],
+    no_email: ['המייל לא נשלח: ללקוח אין כתובת מייל', 'bad'],
+    opted_out: ['המייל לא נשלח: הלקוח ביקש לא לקבל מיילים', 'bad'],
+    blocked: ['המייל לא נשלח: הכתובת חסומה ברשימה השחורה', 'bad'],
 };
 
 async function sendMsg(e) {
@@ -1465,11 +1481,13 @@ async function sendMsg(e) {
     typingSentAt = 0;
     const btn = $('#composer-send');
     btn.disabled = true;
-    const mode = $('#composer-email-mode');
-    const r = await api('/admin/chat/send', { targetPhone: S.activePhone, text, replyTo: replyTo ? replyTo.id : undefined, emailMode: mode.disabled ? 'never' : mode.value });
+    const mail = $('#composer-email');
+    const withEmail = mail.checked && !mail.disabled;
+    const r = await api('/admin/chat/send', { targetPhone: S.activePhone, text, replyTo: replyTo ? replyTo.id : undefined, sendEmail: withEmail });
     btn.disabled = false;
     if (!r.ok) { tmp.remove(); input.value = text; S.replyTo = replyTo; renderReplyBar(); toast(r.error || 'שגיאה בשליחת ההודעה', 'bad'); return; }
-    if (EMAIL_RESULT[r.data.email]) toast(EMAIL_RESULT[r.data.email], 'info');
+    mail.checked = false;
+    if (EMAIL_RESULT[r.data.email]) toast(...EMAIL_RESULT[r.data.email]);
     S.activeHash = '';
     refreshThread();
 }
@@ -1596,11 +1614,9 @@ function renderSessionsList(list) {
 function fillSettings(s) {
     S.chatSettings = s;
     $('#cs-enabled').checked = s.notify_admin_enabled === '1';
-    $('#cs-email').value = s.notify_admin_email || '';
+    renderNotifyRecipient(s);
     $('#cs-idle').value = s.notify_idle_minutes;
     $('#cs-cooldown').value = s.notify_cooldown_minutes;
-    $('#cs-customer-mode').value = s.customer_email_mode;
-    $('#cs-offline').value = s.customer_offline_minutes;
     $('#pv-presence').checked = s.admin_show_presence !== '0';
     $('#pv-typing').checked = s.admin_show_typing !== '0';
     $('#pv-receipts').checked = s.admin_show_read_receipts !== '0';
@@ -1611,14 +1627,12 @@ async function saveChatSettings(e) {
     const btn = $('#cs-save');
     busy(btn, true);
     const r = await api('/admin/settings', { settings: {
-        notify_admin_enabled: $('#cs-enabled').checked, notify_admin_email: $('#cs-email').value.trim(),
+        notify_admin_enabled: $('#cs-enabled').checked,
         notify_idle_minutes: $('#cs-idle').value, notify_cooldown_minutes: $('#cs-cooldown').value,
-        customer_email_mode: $('#cs-customer-mode').value, customer_offline_minutes: $('#cs-offline').value,
     } });
     busy(btn, false);
     if (!r.ok) { toast(r.error || 'שגיאה בשמירה', 'bad'); return; }
     fillSettings(r.data.settings);
-    $('#composer-email-mode').value = S.chatSettings.customer_email_mode;
     toast('הגדרות ההתראות נשמרו');
 }
 
@@ -1630,9 +1644,7 @@ async function savePrivacy(input) {
 }
 
 async function chatTestEmail() {
-    if ($('#cs-email').value.trim() !== ((S.chatSettings && S.chatSettings.notify_admin_email) || '')) {
-        toast('שמור קודם את כתובת המייל', 'info'); return;
-    }
+    if (!S.chatSettings || !S.chatSettings.notify_recipient) { toast('יש להגדיר קודם מנהל-על שיש לו כתובת מייל', 'info'); return; }
     const r = await api('/admin/chat/test-email');
     toast(r.ok ? r.data.message : (r.error || 'שליחת המייל נכשלה'), r.ok ? 'good' : 'bad');
 }
@@ -1690,9 +1702,20 @@ function presenceOffline() {
     } catch (e) {}
 }
 
+function renderNotifyRecipient(s) {
+    const box = $('#cs-recipient');
+    if (s.notify_recipient) {
+        box.className = 'alert info';
+        box.innerHTML = `<i class="fa-solid fa-envelope"></i><span>ההתראות נשלחות למייל של מנהל-העל: <b class="ltr">${esc(s.notify_recipient)}</b></span>`;
+    } else {
+        box.className = 'alert bad';
+        box.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i><span>${s.super_admin_set ? 'למנהל-העל אין כתובת מייל בחשבון, לכן לא יישלחו התראות.' : 'לא הוגדר מנהל-על, לכן לא יישלחו התראות.'} ההתראות נשלחות תמיד למייל של חשבון מנהל-העל.</span>`;
+    }
+}
+
 async function loadChatDefaults() {
     const r = await api('/admin/chat/settings');
-    if (r.ok) { S.chatSettings = r.data.settings; $('#composer-email-mode').value = S.chatSettings.customer_email_mode || 'auto'; }
+    if (r.ok) S.chatSettings = r.data.settings;
 }
 
 async function sendEmail(e) {
@@ -1859,6 +1882,7 @@ const ACTIVITY_TYPES = {
     LISTEN: ['האזנה להודעה', 'fa-headphones', ''],
     CHAT_SEND: ['הודעה בצ׳אט', 'fa-comment', 'accent'],
     NAME_RESTORED: ['שם שוחזר אוטומטית', 'fa-rotate', 'warn'],
+    EMAIL_LINK_OPENED: ['פתח קישור מהמייל', 'fa-envelope-open-text', 'info'],
 };
 const ACTIVITY_FILTERS = [
     ['', 'הכל'],
@@ -1912,15 +1936,15 @@ async function loadActivity(more = false) {
 function renderActivityTop() {
     const a = S.activity || { stats: {}, online: [], recentLogins: [] };
     $('#act-kpis').innerHTML = [
-        kpi('fa-signal', 'good', 'מחוברים עכשיו', num(a.stats.onlineNow), 'פעילים ב-2 הדקות האחרונות'),
+        kpi('fa-signal', 'good', 'מחוברים עכשיו', num(a.stats.onlineNow), `${num(a.stats.activeNow || 0)} מול המסך · ${num(Math.max(0, a.stats.onlineNow - (a.stats.activeNow || 0)))} בכרטיסייה אחרת`),
         kpi('fa-users', 'info', 'פעילים ב-24 שעות', num(a.stats.active24h), 'משתמשים שנכנסו לאתר'),
         kpi('fa-right-to-bracket', '', 'התחברויות היום', num(a.stats.loginsToday), 'מאז חצות'),
     ].join('');
     $('#act-online-count').textContent = a.online.length ? `${num(a.online.length)} משתמשים` : '';
     $('#act-online').innerHTML = a.online.length ? a.online.map(o => `
         <li class="clickable" data-action="open-user-activity" data-phone="${esc(o.phone)}">
-            ${avatarHtml(o.name, '', 'online')}
-            <div class="f-body"><div class="f-title">${esc(o.name || o.phone)}</div><div class="f-sub">${esc(o.device || '')}${o.ip ? ` · <span class="ltr">${esc(o.ip)}</span>` : ''}</div></div>
+            ${avatarHtml(o.name, '', presenceClass(o.status, true))}
+            <div class="f-body"><div class="f-title">${esc(o.name || o.phone)} ${o.status === 'background' ? '<span class="badge warn" style="height:20px;">בכרטיסייה אחרת</span>' : ''}</div><div class="f-sub">${esc(o.device || '')}${o.ip ? ` · <span class="ltr">${esc(o.ip)}</span>` : ''}</div></div>
             <div class="f-time">${esc(relTime(o.lastSeenAt))}</div>
         </li>`).join('') : '<li><div class="empty" style="padding:24px;width:100%;"><i class="fa-solid fa-moon"></i>אף אחד לא מחובר כרגע</div></li>';
     $('#act-logins').innerHTML = a.recentLogins.length ? a.recentLogins.map(e => `
@@ -1957,7 +1981,7 @@ async function loadUserActivity(phone) {
     $('#ud-presence').innerHTML = `
         <div class="avatar lg ${p.online ? 'online' : ''}"><i class="fa-solid fa-${p.online ? 'signal' : 'moon'}"></i></div>
         <div style="flex:1; min-width:0;">
-            <div class="p-state ${p.online ? 'online' : ''}">${p.online ? 'מחובר/ת עכשיו' : p.lastSeenAt ? `נראה/תה לאחרונה ${esc(relTime(p.lastSeenAt))}` : 'עדיין לא נרשמה פעילות'}</div>
+            <div class="p-state ${p.online ? 'online' : ''}">${p.status === 'background' ? 'באתר, בכרטיסייה אחרת' : p.online ? 'מחובר/ת עכשיו' : p.lastSeenAt ? `נראה/תה לאחרונה ${esc(relTime(p.lastSeenAt))}` : 'עדיין לא נרשמה פעילות'}</div>
             <div class="p-grid">
                 ${p.lastLoginAt ? `<span>התחברות אחרונה</span><span>${esc(fmtDate(p.lastLoginAt))} · ${p.lastLoginMethod === 'google' ? 'Google' : p.lastLoginMethod === 'master' ? 'מאסטר' : 'סיסמה'}</span>` : ''}
                 ${p.device ? `<span>מכשיר</span><span>${esc(p.device)}</span>` : ''}

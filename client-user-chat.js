@@ -4,7 +4,9 @@
 'use strict';
 
 const POLL_OPEN_MS = 3000;
-const POLL_CLOSED_MS = 15000;
+const POLL_CLOSED_MS = 12000;
+const PRESENCE_MS = 30000;
+const LOGO_URL = 'https://smt-tel-manager.netlify.app/salamon-logo.png';
 const MAX_LEN = 2000;
 const EMOJIS = ['😊', '🙏', '👍', '❤️', '😂', '🙂', '😅', '🤔', '😮', '😢', '🎉', '✅', '❌', '🔥', '👏', '💪', '📞', '🎧', '⏳', '📩', '🙌', '😉', '🤝', '⭐'];
 const TOPICS = ['יש לי בעיה עם הצינתוקים', 'שאלה על החשבון שלי', 'בעיה בהשמעת הודעות', 'משהו אחר'];
@@ -24,6 +26,10 @@ const C = {
     typingSentAt: 0,
     lastPoll: 0,
     lastUnread: 0,
+    presence: '',
+    presenceAt: 0,
+    notifyBaseline: null,
+    focusId: null,
 };
 
 const $ = sel => document.querySelector(sel);
@@ -164,6 +170,25 @@ function injectStyles() {
     .sc-emoji button { border: none; background: none; font-size: 1.3rem; padding: 4px; border-radius: 8px; cursor: pointer; }
     .sc-emoji button:hover { background: #f0f2f5; }
 
+    .sc-notify-bar { display: none; align-items: center; gap: 10px; padding: 9px 14px; background: #ecfdf5; border-bottom: 1px solid #bbf7d0; font-size: .84rem; color: #166534; }
+    .sc-notify-bar.show { display: flex; }
+    .sc-notify-bar span { flex: 1; }
+    .sc-notify-bar button { border: none; border-radius: 999px; padding: 6px 14px; font-size: .8rem; cursor: pointer; }
+    .sc-notify-bar .sc-nb-on { background: #16a34a; color: #fff; font-weight: 600; }
+    .sc-notify-bar .sc-nb-x { background: transparent; color: #166534; padding: 6px 8px; }
+    .sc-pop { position: fixed; bottom: 18px; left: 18px; z-index: 1300; width: min(360px, calc(100vw - 36px)); display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 16px; background: #fff; box-shadow: 0 18px 50px rgba(15,23,42,.25); border: 1px solid #e2e8f0; cursor: pointer; font-family: inherit; animation: scRise .25s cubic-bezier(.2,.8,.2,1); direction: rtl; }
+    .sc-pop img { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; }
+    .sc-pop b { display: block; font-size: .92rem; color: #0f172a; margin-bottom: 2px; }
+    .sc-pop p { margin: 0; font-size: .86rem; color: #475569; line-height: 1.45; max-height: 3.9em; overflow: hidden; }
+    .sc-pop small { display: block; margin-top: 6px; color: #16a34a; font-weight: 600; font-size: .78rem; }
+    .sc-pop-x { position: absolute; top: 8px; left: 8px; border: none; background: none; color: #94a3b8; cursor: pointer; font-size: .9rem; }
+    .sc-preview { position: fixed; inset: 0; z-index: 1250; display: flex; align-items: center; justify-content: center; background: rgba(15,23,42,.5); backdrop-filter: blur(3px); padding: 16px; }
+    .sc-preview-card { width: min(420px, 100%); background: #fff; border-radius: 20px; padding: 24px; box-shadow: 0 30px 80px rgba(0,0,0,.35); font-family: inherit; direction: rtl; text-align: right; }
+    .sc-preview-card h4 { margin: 0 0 12px; font-size: 1.1rem; }
+    .sc-preview-msg { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 14px; padding: 12px 14px; white-space: pre-wrap; color: #0f172a; line-height: 1.6; }
+    .sc-preview-card p { color: #64748b; font-size: .88rem; margin: 14px 0; }
+    .sc-preview-card button { width: 100%; border: none; border-radius: 12px; padding: 12px; background: #16a34a; color: #fff; font-weight: 700; font-size: .95rem; cursor: pointer; font-family: inherit; }
+
     .chat-badge-pulse { animation: badgePulse 1.5s infinite; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
     @keyframes badgePulse { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
     @media (prefers-reduced-motion: reduce) { .sc-overlay *, .sc-overlay { animation: none !important; } }
@@ -181,6 +206,7 @@ function injectModal() {
                 <div class="sc-title"><b>צוות עכשיו סלומון</b><small id="sc-status">מתחבר…</small></div>
                 <button class="sc-icon-btn" id="sc-close" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button>
             </div>
+            <div class="sc-notify-bar" id="sc-notify-bar"><i class="fa-regular fa-bell"></i><span>לקבל התראה בדפדפן כשעונים לך?</span><button type="button" class="sc-nb-on" id="sc-nb-on">הפעלה</button><button type="button" class="sc-nb-x" id="sc-nb-x" aria-label="לא תודה"><i class="fa-solid fa-xmark"></i></button></div>
             <div class="sc-body">
                 <div class="sc-msgs" id="sc-msgs"></div>
                 <button class="sc-fab" id="sc-fab" aria-label="לסוף השיחה"><i class="fa-solid fa-chevron-down"></i><b id="sc-fab-count" hidden></b></button>
@@ -273,6 +299,7 @@ function render({ keepPosition = false, forceBottom = false } = {}) {
     if (keepPosition) box.scrollTop = box.scrollHeight - prevHeight + prevTop;
     else if (forceBottom || atBottom) box.scrollTop = box.scrollHeight;
     else box.scrollTop = prevTop;
+    if (C.focusId && C.messages.some(m => String(m.id) === String(C.focusId))) { const id = C.focusId; C.focusId = null; setTimeout(() => jumpTo(id), 60); }
     updateFab();
 }
 
@@ -332,7 +359,9 @@ async function fetchChat({ forceBottom = false } = {}) {
         const hash = JSON.stringify(merged);
         if (hash !== C.hash) {
             const before = new Set(C.messages.map(m => m.id));
-            const fresh = msgs.filter(m => !before.has(m.id) && m.sender === 'admin').length;
+            const freshMsgs = C.messages.length ? msgs.filter(m => !before.has(m.id) && m.sender === 'admin' && !m.isDeleted) : [];
+            const fresh = freshMsgs.length;
+            if (fresh && document.hidden) notifyNewMessage(freshMsgs[freshMsgs.length - 1]);
             C.hash = hash;
             C.messages = merged;
             if (!older.length) C.hasMore = !!r.data.hasMore;
@@ -343,6 +372,7 @@ async function fetchChat({ forceBottom = false } = {}) {
         } else if (typingChanged) {
             render();
         }
+        renderNotifyBar();
         if (C.open && !document.hidden && msgs.some(m => m.sender === 'admin' && !m.isRead)) markRead();
     } catch (e) {
         renderHeader();
@@ -369,7 +399,15 @@ async function checkUnread() {
     if (!state.userToken) return;
     try {
         const r = await post('/chat/unread');
-        if (r.ok) updateBadge(r.data.unreadCount);
+        if (!r.ok) return;
+        updateBadge(r.data.unreadCount);
+        const last = r.data.lastUnread;
+        // הודעות שהגיעו לפני טעינת העמוד לא מקפיצות התראה, רק הודעות חדשות
+        if (C.notifyBaseline === null) { C.notifyBaseline = last ? last.id : 0; return; }
+        if (last && last.id > C.notifyBaseline) {
+            C.notifyBaseline = last.id;
+            if (!C.open || document.hidden) notifyNewMessage({ id: last.id, text: last.text });
+        }
     } catch (e) {}
 }
 
@@ -506,6 +544,8 @@ function bind() {
     document.addEventListener('click', e => { if (!e.target.closest('#sc-emoji, #sc-emoji-btn')) $('#sc-emoji').classList.remove('show'); });
 
     $('#sc-rb-cancel').addEventListener('click', () => { C.replyTo = null; renderReplyBar(); });
+    $('#sc-nb-on').addEventListener('click', enableNotifications);
+    $('#sc-nb-x').addEventListener('click', () => { try { localStorage.setItem('salamonChatNotifyAsked', '1'); } catch (e) {} renderNotifyBar(); });
     $('#sc-fab').addEventListener('click', () => { const box = $('#sc-msgs'); box.scrollTop = box.scrollHeight; C.unreadBelow = 0; updateFab(); });
     $('#sc-msgs').addEventListener('scroll', updateFab, { passive: true });
     $('#sc-msgs').addEventListener('click', e => {
@@ -529,11 +569,137 @@ function bind() {
     });
 }
 
+// ---------- Notifications ----------
+
+function notifySupported() { return 'Notification' in window; }
+function notifyEnabled() {
+    try { return notifySupported() && Notification.permission === 'granted' && localStorage.getItem('salamonChatNotify') !== '0'; } catch (e) { return false; }
+}
+
+function renderNotifyBar() {
+    let dismissed = false;
+    try { dismissed = localStorage.getItem('salamonChatNotifyAsked') === '1'; } catch (e) {}
+    const show = notifySupported() && Notification.permission === 'default' && !dismissed && C.messages.some(m => m.sender === 'user');
+    $('#sc-notify-bar').classList.toggle('show', show);
+}
+
+async function enableNotifications() {
+    if (!notifySupported()) return false;
+    let perm = Notification.permission;
+    if (perm === 'default') { try { perm = await Notification.requestPermission(); } catch (e) {} }
+    try { localStorage.setItem('salamonChatNotifyAsked', '1'); localStorage.setItem('salamonChatNotify', perm === 'granted' ? '1' : '0'); } catch (e) {}
+    renderNotifyBar();
+    if (perm === 'granted' && typeof showToast === 'function') showToast('מעכשיו תקבל התראה כשעונים לך בצ\'אט', 'success');
+    return perm === 'granted';
+}
+
+function chime() {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const t = ctx.currentTime;
+        [660, 990].forEach((f, i) => {
+            const o = ctx.createOscillator(), g = ctx.createGain();
+            o.frequency.value = f;
+            g.gain.setValueAtTime(0.0001, t + i * 0.13);
+            g.gain.exponentialRampToValueAtTime(0.09, t + i * 0.13 + 0.02);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.13 + 0.28);
+            o.connect(g).connect(ctx.destination);
+            o.start(t + i * 0.13); o.stop(t + i * 0.13 + 0.3);
+        });
+    } catch (e) {}
+}
+
+// הודעה חדשה מההנהלה: התראת דפדפן כשהלשונית ברקע, חלונית קופצת כשהאתר פתוח והצ'אט סגור
+function notifyNewMessage(m) {
+    const text = String(m.text || '').slice(0, 160);
+    if (document.hidden) {
+        if (!notifyEnabled()) return;
+        try {
+            const n = new Notification('תשובה חדשה מצוות עכשיו סלומון', { body: text, icon: LOGO_URL, tag: 'salamon-chat', renotify: true });
+            n.onclick = () => { window.focus(); C.focusId = m.id; openChat(); n.close(); };
+        } catch (e) {}
+        return;
+    }
+    if (C.open) return;
+    chime();
+    document.getElementById('sc-pop')?.remove();
+    const pop = document.createElement('div');
+    pop.className = 'sc-pop';
+    pop.id = 'sc-pop';
+    pop.setAttribute('role', 'alert');
+    pop.innerHTML = `<img src="${LOGO_URL}" alt=""><div><b>תשובה חדשה מצוות עכשיו סלומון</b><p>${esc(text)}</p><small>לחץ לפתיחת הצ'אט</small></div><button class="sc-pop-x" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button>`;
+    pop.addEventListener('click', e => {
+        pop.remove();
+        if (e.target.closest('.sc-pop-x')) return;
+        C.focusId = m.id;
+        openChat();
+    });
+    document.body.appendChild(pop);
+    setTimeout(() => pop.remove(), 12000);
+}
+
+// ---------- Presence ----------
+// מדווח להנהלה אם הלקוח מול המסך, בכרטיסייה אחרת, או שיצא מהאתר
+
+function sendPresence(st, force) {
+    if (!state.userToken) return;
+    if (!force && st === C.presence) return;
+    C.presence = st;
+    C.presenceAt = Date.now();
+    post('/chat/presence', { state: st }).catch(() => {});
+}
+
+function presenceOffline() {
+    if (!state.userToken) return;
+    try {
+        navigator.sendBeacon(`${API_BASE_URL}/chat/presence`, new Blob([JSON.stringify({ userToken: state.userToken, state: 'offline' })], { type: 'text/plain' }));
+    } catch (e) {}
+}
+
+// ---------- Email link ----------
+// קישור חד-פעמי מהמייל (?ml=...) - פותח את הצ'אט, ואם צריך מחבר את הלקוח בחיבור זמני
+
+async function handleEmailLink() {
+    let token = null;
+    try { token = sessionStorage.getItem('salamonChatLink'); sessionStorage.removeItem('salamonChatLink'); } catch (e) {}
+    if (!token) return;
+    let existing = null;
+    try { existing = localStorage.getItem('userToken'); } catch (e) {}
+    let r;
+    try {
+        const res = await fetch(`${API_BASE_URL}/chat/link`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, userToken: existing || undefined }) });
+        r = { ok: res.ok, data: await res.json().catch(() => ({})) };
+    } catch (e) { return; }
+
+    const openAfterLogin = id => { try { sessionStorage.setItem('salamonOpenChat', '1'); } catch (e) {} C.focusId = id || null; };
+
+    if (!r.ok) {
+        openAfterLogin();
+        if (!existing && typeof showToast === 'function') showToast(r.data.error || 'הקישור אינו תקין', 'error');
+        return;
+    }
+    openAfterLogin(r.data.messageId);
+    if (r.data.userToken) {
+        try { localStorage.setItem('userToken', r.data.userToken); } catch (e) {}
+        if (typeof silentLogin === 'function') silentLogin(r.data.userToken);
+        return;
+    }
+    if (r.data.needLogin && r.data.preview) {
+        const ov = document.createElement('div');
+        ov.className = 'sc-preview';
+        ov.innerHTML = `<div class="sc-preview-card"><h4>💬 הודעה מצוות עכשיו סלומון</h4><div class="sc-preview-msg">${esc(r.data.preview.text)}</div>
+            <p>החשבון שלך מוגדר לכניסה עם Google בלבד. התחבר עם Google, והצ'אט ייפתח אוטומטית כדי שתוכל להשיב.</p><button type="button">הבנתי, להתחברות</button></div>`;
+        ov.addEventListener('click', e => { if (e.target === ov || e.target.closest('button')) ov.remove(); });
+        document.body.appendChild(ov);
+    }
+}
+
 // ---------- Lifecycle ----------
 
 function tick() {
     if (!state.userToken) return;
     const now = Date.now();
+    if (!document.hidden && now - C.presenceAt > PRESENCE_MS) sendPresence('active', true);
     const interval = C.open && !document.hidden ? POLL_OPEN_MS : POLL_CLOSED_MS;
     if (now - C.lastPoll < interval) return;
     C.lastPoll = now;
@@ -545,9 +711,11 @@ function tick() {
 function captureOpenIntent() {
     try {
         const url = new URL(location.href);
-        if (url.searchParams.get('chat') !== 'open') return;
+        if (url.searchParams.get('chat') !== 'open' && !url.searchParams.get('ml')) return;
         sessionStorage.setItem('salamonOpenChat', '1');
+        if (url.searchParams.get('ml')) sessionStorage.setItem('salamonChatLink', url.searchParams.get('ml'));
         url.searchParams.delete('chat');
+        url.searchParams.delete('ml');
         history.replaceState(null, '', url.pathname + (url.search ? url.search : '') + url.hash);
     } catch (e) {}
 }
@@ -565,6 +733,7 @@ document.addEventListener('DOMContentLoaded', () => {
     injectStyles();
     injectModal();
     bind();
+    handleEmailLink();
 
     let hadToken = false;
     setInterval(() => {
@@ -572,6 +741,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (has && !hadToken) {
             hadToken = true;
             C.lastPoll = 0;
+            C.notifyBaseline = null;
+            sendPresence(document.hidden ? 'hidden' : 'active', true);
             checkUnread();
             setTimeout(consumeOpenIntent, 300);
         } else if (!has && hadToken) {
@@ -582,12 +753,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         tick();
     }, 500);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) { C.lastPoll = 0; tick(); } });
+    document.addEventListener('visibilitychange', () => {
+        sendPresence(document.hidden ? 'hidden' : 'active');
+        if (!document.hidden) { C.lastPoll = 0; tick(); }
+    });
+    window.addEventListener('pagehide', presenceOffline);
 });
 
 // נקודות כניסה שה-HTML של האתר קורא להן
 window.openUserChatModal = openChat;
 window.closeUserChatModal = closeChat;
 window.checkUnreadMessages = checkUnread;
+window.salamonChatNotifications = {
+    supported: notifySupported,
+    enabled: notifyEnabled,
+    permission: () => (notifySupported() ? Notification.permission : 'unsupported'),
+    enable: enableNotifications,
+    disable: () => { try { localStorage.setItem('salamonChatNotify', '0'); } catch (e) {} },
+};
 
 })();
