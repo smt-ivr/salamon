@@ -20,7 +20,7 @@ function setupStaffConsoleLink() {
     btn.id = 'btn-open-control';
     btn.title = 'מרכז השליטה';
     btn.innerHTML = '<i class="fa-solid fa-user-shield" style="color: var(--secondary);"></i>';
-    btn.onclick = () => window.open('/salamon/control', '_blank', 'noopener');
+    btn.onclick = () => window.open('/salamon/admin', '_blank', 'noopener');
 
     const logoutBtn = sidebarActions.querySelector('.logout-btn');
     if (logoutBtn) sidebarActions.insertBefore(btn, logoutBtn); else sidebarActions.appendChild(btn);

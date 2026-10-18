@@ -38,6 +38,12 @@ const S = {
     sqlRows: [],
     sqlCols: [],
     editingUser: null,
+    udSnapshot: '',
+    selected: new Set(),
+    chatFilter: 'all',
+    convsReady: false,
+    lastSync: 0,
+    offline: false,
 };
 
 const VIEWS = [
@@ -185,6 +191,7 @@ async function api(path, body = {}, auth = 'admin', method = 'POST') {
             ? { method: 'GET' }
             : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     } catch (e) {
+        S.offline = true; updateLive();
         return { ok: false, status: 0, data: {}, error: 'שגיאת תקשורת מול השרת' };
     }
     let data = {};
@@ -193,6 +200,7 @@ async function api(path, body = {}, auth = 'admin', method = 'POST') {
         sessionExpired();
     }
     const ok = res.ok && data.success !== false;
+    if (res.status < 500) { S.offline = false; S.lastSync = Date.now(); updateLive(); }
     return { ok, status: res.status, data, error: data.error || data.message || (ok ? '' : `שגיאה (${res.status})`) };
 }
 
@@ -271,7 +279,27 @@ function openDrawer(id) {
     $('#scrim').classList.add('open');
 }
 
+function udSerialize() {
+    return $$('#ud-form input').map(i => i.type === 'checkbox' ? (i.checked ? 1 : 0) : i.value).join('\u0001');
+}
+
+function userDirty() {
+    return $('#user-drawer').classList.contains('open') && !!S.udSnapshot && udSerialize() !== S.udSnapshot;
+}
+
+function markUserClean() {
+    S.udSnapshot = udSerialize();
+    $('#ud-dirty').hidden = true;
+}
+
+// User-initiated close (Esc, scrim, close buttons): asks before discarding unsaved edits.
+async function requestCloseDrawers() {
+    if (userDirty() && !await confirmDanger('שינויים שלא נשמרו', 'ביצעת שינויים במשתמש שעדיין לא נשמרו. לצאת בלי לשמור?', 'יציאה בלי שמירה')) return;
+    closeDrawers();
+}
+
 function closeDrawers() {
+    S.udSnapshot = '';
     $$('.drawer.open').forEach(d => { d.classList.remove('open'); d.setAttribute('aria-hidden', 'true'); });
     $('#scrim').classList.remove('open');
     $('#app').classList.remove('mobile-nav');
@@ -298,6 +326,7 @@ function toggleTheme() {
 async function boot() {
     applyTheme();
     if (getItem('controlSidebar') === 'collapsed') $('#app').classList.add('collapsed');
+    if (getItem('controlDensity') === 'dense') document.body.classList.add('dense');
 
     S.adminToken = getItem('adminToken', 'session') || getItem('adminToken');
     S.userToken = getItem('userToken');
@@ -437,7 +466,7 @@ function go(id) {
     $$('.view').forEach(el => el.classList.toggle('active', el.id === `view-${id}`));
     $$('#nav .nav-link').forEach(el => el.classList.toggle('active', el.dataset.view === id));
     $('#crumb').textContent = v.label;
-    document.title = `${v.label} · Salamon Control`;
+    updateTitle();
     if (location.hash !== `#${id}`) history.replaceState(null, '', `#${id}`);
     $('#app').classList.remove('mobile-nav');
     $('#content').scrollTop = 0;
@@ -578,11 +607,11 @@ function renderChart() {
 // ---------- Users ----------
 
 async function loadUsers(silent = false) {
-    if (!silent) $('#users-body').innerHTML = loadingRows(7, 8);
+    if (!silent) $('#users-body').innerHTML = loadingRows(8, 8);
     const r = await api('/admin/users');
     if (!r.ok) {
         if (r.status === 403) { sessionExpired(); return; }
-        if (!silent) { $('#users-body').innerHTML = emptyRow(7, r.error, 'fa-circle-exclamation'); toast(r.error, 'bad'); }
+        if (!silent) { $('#users-body').innerHTML = emptyRow(8, r.error, 'fa-circle-exclamation'); toast(r.error, 'bad'); }
         return;
     }
     S.users = r.data.users || [];
@@ -646,7 +675,9 @@ function renderUsers() {
         const web = u.hasWebAccount
             ? `<span class="badge info"><i class="fa-solid fa-envelope"></i> <span class="ltr">${esc(u.email || 'ללא אימייל')}</span></span>`
             : `<button class="btn btn-sm" data-action="create-user" data-phone="${phone}"><i class="fa-solid fa-user-plus"></i> פתיחת חשבון</button>`;
-        return `<tr class="${u.hasWebAccount ? 'clickable' : ''}" ${u.hasWebAccount ? `data-action="open-user" data-phone="${phone}"` : ''}>
+        const sel = S.selected.has(u.phone);
+        return `<tr class="${u.hasWebAccount ? 'clickable' : ''} ${sel ? 'selected' : ''}" ${u.hasWebAccount ? `data-action="open-user" data-phone="${phone}"` : ''}>
+            <td class="col-check">${u.hasWebAccount ? `<input type="checkbox" class="user-check" data-phone="${phone}" ${sel ? 'checked' : ''} aria-label="בחירה">` : ''}</td>
             <td><div class="cell-user">${avatarHtml(u.name, u.profilePictureUrl)}<div><b>${esc(u.name || 'ללא שם')}${u.isAdmin ? ' <span class="badge bad" style="height:20px;"><i class="fa-solid fa-user-shield"></i> צוות</span>' : ''}</b></div></div></td>
             <td class="ltr mono" style="text-align:right;">${phone}</td>
             <td>${u.yemotActive ? '<span class="badge good"><i class="fa-solid fa-circle-check"></i> פעיל</span>' : '<span class="badge bad"><i class="fa-solid fa-circle-xmark"></i> מנותק</span>'}</td>
@@ -655,12 +686,60 @@ function renderUsers() {
             <td>${toggles}</td>
             <td>${u.hasWebAccount ? '<i class="fa-solid fa-chevron-left muted"></i>' : ''}</td>
         </tr>`;
-    }).join('') : emptyRow(7, 'לא נמצאו משתמשים התואמים לסינון', 'fa-user-slash');
+    }).join('') : emptyRow(8, 'לא נמצאו משתמשים התואמים לסינון', 'fa-user-slash');
+    const pageWeb = slice.filter(u => u.hasWebAccount);
+    const all = $('#users-check-all');
+    all.checked = pageWeb.length > 0 && pageWeb.every(u => S.selected.has(u.phone));
+    all.indeterminate = !all.checked && pageWeb.some(u => S.selected.has(u.phone));
+    S.usersPageList = pageWeb.map(u => u.phone);
+    renderBulkBar();
 
     $('#users-pager').innerHTML = `<span>${num(list.length)} תוצאות</span><div class="spacer"></div>
         <button class="icon-btn sm" data-action="users-page" data-dir="-1" ${S.usersPage === 0 ? 'disabled' : ''} aria-label="הקודם"><i class="fa-solid fa-chevron-right"></i></button>
         <span>עמוד ${S.usersPage + 1} מתוך ${pages}</span>
         <button class="icon-btn sm" data-action="users-page" data-dir="1" ${S.usersPage >= pages - 1 ? 'disabled' : ''} aria-label="הבא"><i class="fa-solid fa-chevron-left"></i></button>`;
+}
+
+function renderBulkBar() {
+    // Drop selections that no longer exist after a refresh.
+    for (const p of S.selected) if (!S.users.some(u => u.phone === p && u.hasWebAccount)) S.selected.delete(p);
+    $('#users-bulk').hidden = !S.selected.size;
+    if (!S.bulkBusy) $('#bulk-count').textContent = `${num(S.selected.size)} נבחרו`;
+}
+
+const FIELD_LABELS = { canListen: 'האזנה', canTzintuk: 'צינתוקים', canUpload: 'העלאת קבצים', canRecord: 'הקלטה' };
+
+async function bulkSet(value) {
+    const field = $('#bulk-field').value;
+    const phones = [...S.selected];
+    if (!phones.length || S.bulkBusy) return;
+    const ok = await dialog({
+        title: `${value ? 'הפעלת' : 'חסימת'} ${FIELD_LABELS[field]}`,
+        text: `הפעולה תחול על ${num(phones.length)} משתמשים.`, icon: value ? 'info' : 'warn',
+        buttons: [{ label: 'ביטול' }, { label: 'ביצוע', value: 'ok', cls: value ? 'btn-primary' : 'btn-danger-solid' }],
+    });
+    if (!ok) return;
+    S.bulkBusy = true;
+    $$('#users-bulk button, #users-bulk select').forEach(b => { b.disabled = true; });
+    let done = 0, failed = 0;
+    for (const phone of phones) {
+        $('#bulk-count').textContent = `מעדכן ${num(done + failed + 1)} מתוך ${num(phones.length)}…`;
+        const r = await api('/admin/update-user', { phone, [field]: !!value });
+        if (r.ok) { done++; const u = S.users.find(x => x.phone === phone); if (u) u[field] = !!value; } else failed++;
+    }
+    S.bulkBusy = false;
+    $$('#users-bulk button, #users-bulk select').forEach(b => { b.disabled = false; });
+    renderUsers();
+    if (failed) toast(`${num(done)} עודכנו, ${num(failed)} נכשלו`, 'bad');
+    else toast(`${FIELD_LABELS[field]}: עודכן ל-${num(done)} משתמשים`);
+}
+
+function bulkExport() {
+    const list = S.users.filter(u => S.selected.has(u.phone));
+    downloadCsv(`salamon-selected-${new Date().toISOString().slice(0, 10)}.csv`, [
+        ['phone', 'name', 'email', 'yemotActive', 'isAdmin', 'canListen', 'canTzintuk', 'canUpload', 'canRecord', 'createdAt'],
+        ...list.map(u => [u.phone, u.name, u.email, u.yemotActive, u.isAdmin, u.canListen, u.canTzintuk, u.canUpload, u.canRecord, u.createdAt]),
+    ]);
 }
 
 function permToggle(u, field, icon, label, offIsBad = false) {
@@ -739,6 +818,7 @@ async function openUser(phone) {
         renderPerms('ud-perms', x.admin_permissions || '');
     }
     renderSessions(p.activeSessions || []);
+    markUserClean();
 }
 
 function renderSessions(list) {
@@ -773,6 +853,7 @@ async function saveUser(e) {
     busy(btn, false);
     if (!r.ok) { toast(r.error || 'שגיאה בעדכון', 'bad'); return; }
     $('#ud-password').value = '';
+    markUserClean();
     toast('השינויים נשמרו');
     loadUsers(true);
 }
@@ -848,7 +929,7 @@ function exportUsers() {
 async function loadSecurity(silent = false) {
     if (!silent) {
         $('#blocks-body').innerHTML = loadingRows(6, 3);
-        $('#logs-body').innerHTML = loadingRows(7, 6);
+        $('#logs-body').innerHTML = loadingRows(8, 6);
     }
     const [b, l] = await Promise.all([api('/verify/admin/blocks'), api('/verify/admin/logs', { limit: 150 })]);
     if (b.ok) S.blocks = b.data.blocks || [];
@@ -886,7 +967,7 @@ function renderSecurity(blockErr, logErr) {
     const q = S.logsSearch.toLowerCase();
     const logs = S.logs.filter(l => (S.logsLevel === 'all' || l.level === S.logsLevel) &&
         (!q || [l.phone, l.ip_address, l.details, l.action].some(v => String(v || '').toLowerCase().includes(q))));
-    $('#logs-body').innerHTML = logErr ? emptyRow(7, logErr, 'fa-circle-exclamation') : logs.length ? logs.map(l => {
+    $('#logs-body').innerHTML = logErr ? emptyRow(8, logErr, 'fa-circle-exclamation') : logs.length ? logs.map(l => {
         const [label, tone] = ACTION_LABELS[l.action] || [l.action, ''];
         return `<tr>
             <td class="muted mono">${esc(l.id)}</td>
@@ -896,8 +977,12 @@ function renderSecurity(blockErr, logErr) {
             <td class="ltr mono" style="text-align:right;">${esc(l.phone || '—')}</td>
             <td class="ltr mono muted" style="text-align:right;">${esc(l.ip_address || '—')}</td>
             <td style="max-width:320px; white-space:normal; font-size:12.5px;">${esc(l.details || '')}</td>
+            <td><div class="row-actions">
+                ${l.phone ? `<button class="icon-btn sm danger" data-action="quick-block" data-type="phone" data-value="${esc(l.phone)}" title="חסימת הטלפון"><i class="fa-solid fa-phone-slash"></i></button>` : ''}
+                ${l.ip_address ? `<button class="icon-btn sm danger" data-action="quick-block" data-type="ip" data-value="${esc(l.ip_address)}" title="חסימת ה-IP"><i class="fa-solid fa-network-wired"></i></button>` : ''}
+            </div></td>
         </tr>`;
-    }).join('') : emptyRow(7, 'אין אירועים תואמים', 'fa-list');
+    }).join('') : emptyRow(8, 'אין אירועים תואמים', 'fa-list');
 }
 
 function levelBadge(level) {
@@ -924,6 +1009,18 @@ async function submitBlock(e) {
     loadSecurity(true);
 }
 
+function quickBlock(el) {
+    const blocked = S.blocks.some(b => b.block_type === el.dataset.type && String(b.block_value) === el.dataset.value);
+    if (blocked) { toast(`${el.dataset.value} כבר חסום`, 'info'); return; }
+    $('#block-type').value = el.dataset.type;
+    $('#block-value').value = el.dataset.value;
+    const form = $('#block-form').closest('.card');
+    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    form.style.boxShadow = '0 0 0 3px var(--bad-soft)';
+    setTimeout(() => { form.style.boxShadow = ''; }, 1600);
+    setTimeout(() => $('#block-reason').focus(), 300);
+}
+
 async function unblock(el) {
     const value = el.dataset.value;
     if (!await confirmDanger('שחרור חסימה', `לשחרר את החסימה על ${value}?`, 'שחרור')) return;
@@ -947,24 +1044,142 @@ async function loadConvs(silent = false) {
     if (!silent && !S.convs.length) $('#conv-list').innerHTML = '<div class="empty"><i class="fa-solid fa-circle-notch spin"></i></div>';
     const r = await api('/admin/chat/conversations');
     if (!r.ok) { if (!silent) $('#conv-list').innerHTML = `<div class="empty">${esc(r.error)}</div>`; return; }
+    const prev = new Map(S.convs.map(c => [c.user_phone, Number(c.unread_count) || 0]));
     S.convs = r.data.conversations || [];
+    if (S.convsReady) {
+        S.convs.forEach(c => {
+            const n = Number(c.unread_count) || 0;
+            const viewing = S.view === 'chat' && S.activePhone === c.user_phone && !document.hidden;
+            if (n > (prev.get(c.user_phone) || 0) && !viewing) notifyMessage(c);
+        });
+    }
+    S.convsReady = true;
     renderConvs();
     updateUnreadBadge();
 }
 
+function notifyMessage(c) {
+    const who = c.user_name || c.user_phone;
+    toast(`הודעה חדשה מ${who}`, 'info');
+    const bell = $('#notif-btn');
+    bell.classList.remove('ring'); void bell.offsetWidth; bell.classList.add('ring');
+    if (getItem('controlNotify') !== '1') return;
+    playChime();
+    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+        try {
+            const n = new Notification('הודעה חדשה · Salamon Control', { body: who, tag: `chat-${c.user_phone}`, icon: 'https://smt-tel-manager.netlify.app/salamon-logo.png' });
+            n.onclick = () => { window.focus(); openConv(c.user_phone); n.close(); };
+        } catch (e) {}
+    }
+}
+
+let audioCtx = null;
+function playChime() {
+    try {
+        audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+        const t = audioCtx.currentTime;
+        [880, 1320].forEach((f, i) => {
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.frequency.value = f; o.type = 'sine';
+            g.gain.setValueAtTime(0.0001, t + i * 0.12);
+            g.gain.exponentialRampToValueAtTime(0.12, t + i * 0.12 + 0.02);
+            g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.12 + 0.25);
+            o.connect(g).connect(audioCtx.destination);
+            o.start(t + i * 0.12); o.stop(t + i * 0.12 + 0.3);
+        });
+    } catch (e) {}
+}
+
+function totalUnread() { return S.convs.reduce((a, c) => a + (Number(c.unread_count) || 0), 0); }
+
+function updateTitle() {
+    const v = VIEWS.find(x => x.id === S.view);
+    const n = totalUnread();
+    document.title = `${n ? `(${n > 99 ? '99+' : n}) ` : ''}${v ? v.label + ' · ' : ''}Salamon Control`;
+}
+
+function renderNotifs() {
+    const waiting = S.convs.filter(c => Number(c.unread_count) > 0);
+    $('#notif-list').innerHTML = waiting.length ? waiting.map(c => `
+        <li class="clickable" data-action="open-conv" data-phone="${esc(c.user_phone)}">
+            ${avatarHtml(c.user_name)}
+            <div class="f-body"><div class="f-title">${esc(c.user_name || c.user_phone)}</div><div class="f-sub">${num(c.unread_count)} הודעות שלא נקראו</div></div>
+            <div class="f-time">${esc(relTime(c.last_message_time))}</div>
+        </li>`).join('') : '<li><div class="empty" style="padding:28px;width:100%;"><i class="fa-regular fa-bell-slash"></i>אין התראות חדשות</div></li>';
+}
+
+function updateLive() {
+    const el = $('#live');
+    if (!el) return;
+    const age = S.lastSync ? Math.floor((Date.now() - S.lastSync) / 1000) : null;
+    el.classList.toggle('offline', S.offline);
+    el.classList.toggle('stale', !S.offline && age !== null && age > 120);
+    $('#live-text').textContent = S.offline ? 'אין חיבור לשרת' : age === null ? 'מתחבר…' : age < 60 ? 'עודכן עכשיו' : `עודכן לפני ${Math.floor(age / 60)} דק׳`;
+}
+
+const QR_DEFAULTS = [
+    'שלום, איך אפשר לעזור?',
+    'תודה על הפנייה! אנחנו בודקים את הנושא ונחזור אליך בהקדם.',
+    'הבעיה טופלה. אם יש עוד משהו — אנחנו כאן.',
+    'אפשר לשלוח מספר טלפון מלא כדי שנוכל לבדוק?',
+];
+
+function quickReplies() {
+    try { const v = JSON.parse(getItem('controlQuickReplies')); return Array.isArray(v) ? v : QR_DEFAULTS.slice(); } catch (e) { return QR_DEFAULTS.slice(); }
+}
+
+function renderQuickReplies() {
+    const list = quickReplies();
+    $('#qr-list').innerHTML = list.length ? list.map((t, i) => `
+        <div class="qr-item" data-action="qr-use" data-i="${i}"><span title="${esc(t)}">${esc(t)}</span>
+        <button type="button" class="icon-btn sm danger" data-action="qr-del" data-i="${i}" title="מחיקה"><i class="fa-solid fa-trash-can"></i></button></div>`).join('')
+        : '<div class="empty" style="padding:20px;">אין תשובות שמורות. כתוב טקסט ולחץ "שמור".</div>';
+}
+
+function closePopovers(except) {
+    $$('.popover').forEach(p => { if (p !== except) p.hidden = true; });
+}
+
+function togglePopover(id) {
+    const p = $(`#${id}`);
+    const show = p.hidden;
+    closePopovers(p);
+    p.hidden = !show;
+    return show;
+}
+
+function renderThreadTags() {
+    const u = S.users.find(x => x.phone === S.activePhone);
+    $('#thread-tags').innerHTML = !u ? '' : [
+        u.yemotActive ? '<span class="badge good"><i class="fa-solid fa-phone-volume"></i> פעיל בימות</span>' : '<span class="badge bad"><i class="fa-solid fa-phone-slash"></i> מנותק בימות</span>',
+        u.hasWebAccount ? `<span class="badge info"><i class="fa-solid fa-envelope"></i> <span class="ltr">${esc(u.email || 'ללא אימייל')}</span></span>` : '<span class="badge">ללא חשבון אתר</span>',
+        u.isAdmin ? '<span class="badge bad"><i class="fa-solid fa-user-shield"></i> צוות</span>' : '',
+    ].join('');
+}
+
 function renderConvs() {
     const q = S.chatSearch.toLowerCase();
-    const list = S.convs.filter(c => String(c.user_phone || '').includes(q) || String(c.user_name || '').toLowerCase().includes(q));
+    const unread = S.convs.filter(c => Number(c.unread_count) > 0).length;
+    $('#chat-chips').innerHTML = `
+        <button class="chip ${S.chatFilter === 'all' ? 'active' : ''}" data-action="chat-filter" data-filter="all">הכל <span class="n">${num(S.convs.length)}</span></button>
+        <button class="chip ${S.chatFilter === 'unread' ? 'active' : ''}" data-action="chat-filter" data-filter="unread">לא נקראו <span class="n">${num(unread)}</span></button>`;
+    const list = S.convs.filter(c => (S.chatFilter !== 'unread' || Number(c.unread_count) > 0 || c.user_phone === S.activePhone) &&
+        (String(c.user_phone || '').includes(q) || String(c.user_name || '').toLowerCase().includes(q)));
     $('#conv-list').innerHTML = list.length ? list.map(c => `
         <div class="conv ${c.user_phone === S.activePhone ? 'active' : ''}" data-action="open-conv" data-phone="${esc(c.user_phone)}">
             ${avatarHtml(c.user_name)}
             <div class="c-main"><div class="c-name">${esc(c.user_name || c.user_phone)}</div><div class="c-sub"><span class="ltr">${esc(c.user_phone)}</span> · ${esc(relTime(c.last_message_time))}</div></div>
             ${Number(c.unread_count) > 0 ? `<span class="c-badge">${num(c.unread_count)}</span>` : ''}
-        </div>`).join('') : '<div class="empty"><i class="fa-regular fa-comments"></i>אין שיחות</div>';
+        </div>`).join('') : `<div class="empty"><i class="fa-regular fa-comments"></i>${S.chatFilter === 'unread' ? 'אין שיחות שממתינות לתשובה 🎉' : 'אין שיחות'}</div>`;
 }
 
 function updateUnreadBadge() {
-    const n = S.convs.reduce((a, c) => a + (Number(c.unread_count) || 0), 0);
+    const n = totalUnread();
+    const bell = $('#notif-count');
+    bell.hidden = !n;
+    bell.textContent = n > 99 ? '99+' : n;
+    updateTitle();
+    if (!$('#notif-panel').hidden) renderNotifs();
     const el = $('#nav-chat-count');
     if (!el) return;
     el.hidden = !n;
@@ -983,7 +1198,10 @@ async function openConv(phone) {
     $('#thread-phone').textContent = phone;
     $('#thread-avatar').outerHTML = avatarHtml(c.user_name).replace('class="avatar', 'id="thread-avatar" class="avatar');
     $('#thread-msgs').innerHTML = '<div class="empty"><i class="fa-solid fa-circle-notch spin"></i></div>';
+    closePopovers();
     renderConvs();
+    renderThreadTags();
+    if (!S.users.length) loadUsers(true).then(renderThreadTags);
     await refreshThread(false);
     $('#composer-input').focus();
 }
@@ -1501,12 +1719,39 @@ function runCmdk(i) {
     it.run();
 }
 
+// ---------- Shortcuts help ----------
+
+function openHelp() {
+    const k = (...keys) => `<span class="keys">${keys.map(x => `<span class="kbd">${esc(x)}</span>`).join('')}</span>`;
+    const rows = [
+        ['חיפוש מהיר ופקודות', k('Ctrl', 'K')],
+        ['חיפוש בתוך המסך', k('/')],
+        ['קיצורי מקלדת', k('?')],
+        ['סגירת חלון / פאנל', k('Esc')],
+        ...availableViews().map(v => [`מעבר ל${v.label}`, k('G', v.key.toUpperCase())]),
+        ['הרצת שאילתת SQL', k('Ctrl', 'Enter')],
+        ['שליחת הודעה בצ׳אט', k('Enter')],
+        ['שורה חדשה בהודעה', k('Shift', 'Enter')],
+    ];
+    $('#help-grid').innerHTML = rows.map(([l, keys]) => `<div><span>${esc(l)}</span>${keys}</div>`).join('');
+    closeCmdk();
+    $('#dialog-scrim').classList.add('open');
+    $('#help').classList.add('open');
+}
+
+function closeHelp() {
+    if (!$('#help').classList.contains('open')) return;
+    $('#help').classList.remove('open');
+    if (!$('#dialog').classList.contains('open')) $('#dialog-scrim').classList.remove('open');
+}
+
 // ---------- Polling ----------
 
 let pollTimers = [];
 
 function startPolling() {
     stopPolling();
+    pollTimers.push(setInterval(updateLive, 15000));
     if (S.mode !== 'admin') return;
     pollTimers.push(setInterval(() => {
         if (document.hidden) return;
@@ -1534,7 +1779,11 @@ const ACTIONS = {
     'toggle-mobile-nav': () => $('#app').classList.toggle('mobile-nav'),
     'open-cmdk': openCmdk,
     'staff-login': () => tryStaff(false),
-    'close-drawer': closeDrawers,
+    'close-drawer': requestCloseDrawers,
+    'toggle-density': () => { const on = document.body.classList.toggle('dense'); setItem('controlDensity', on ? 'dense' : ''); },
+    'open-help': () => openHelp(),
+    'close-help': () => closeHelp(),
+    'toggle-notif': () => { if (togglePopover('notif-panel')) renderNotifs(); },
 
     'refresh-overview': () => loadOverview(),
     'refresh-users': () => loadUsers(),
@@ -1547,14 +1796,33 @@ const ACTIONS = {
     'disconnect': el => disconnect(el.dataset.token),
     'disconnect-all': () => disconnect(''),
     'delete-user': deleteUser,
-    'ud-chat': () => { const p = S.editingUser; closeDrawers(); openConv(p); },
+    'ud-chat': async () => { const p = S.editingUser; await requestCloseDrawers(); if (!$('#user-drawer').classList.contains('open')) openConv(p); },
+    'bulk-set': el => bulkSet(el.dataset.value === '1'),
+    'bulk-export': bulkExport,
+    'bulk-clear': () => { S.selected.clear(); renderUsers(); },
 
     'refresh-security': () => loadSecurity(),
     'logs-filter': el => { S.logsLevel = el.dataset.filter; renderSecurity(); },
     'unblock': unblock,
+    'quick-block': quickBlock,
     'clean-logs': cleanLogs,
 
-    'open-conv': el => openConv(el.dataset.phone),
+    'open-conv': el => { closePopovers(); openConv(el.dataset.phone); },
+    'chat-filter': el => { S.chatFilter = el.dataset.filter; renderConvs(); },
+    'toggle-qr': () => { if (togglePopover('qr-panel')) renderQuickReplies(); },
+    'qr-use': el => {
+        const t = quickReplies()[+el.dataset.i]; if (!t) return;
+        const input = $('#composer-input');
+        input.value = input.value.trim() ? `${input.value.trim()} ${t}` : t;
+        closePopovers(); input.focus(); input.dispatchEvent(new Event('input'));
+    },
+    'qr-del': (el, ev) => { ev.stopPropagation(); const l = quickReplies(); l.splice(+el.dataset.i, 1); setItem('controlQuickReplies', JSON.stringify(l)); renderQuickReplies(); },
+    'qr-add': () => {
+        const t = $('#composer-input').value.trim();
+        if (!t) { toast('כתוב קודם את הטקסט בתיבת ההודעה', 'info'); return; }
+        const l = quickReplies(); if (!l.includes(t)) l.unshift(t);
+        setItem('controlQuickReplies', JSON.stringify(l.slice(0, 30))); renderQuickReplies(); toast('התשובה נשמרה');
+    },
     'close-thread': closeThread,
     'thread-profile': () => {
         const u = S.users.find(x => x.phone === S.activePhone);
@@ -1587,6 +1855,8 @@ const ACTIONS = {
 
 function bindEvents() {
     document.addEventListener('click', ev => {
+        if (!ev.target.closest('.pop-wrap')) closePopovers();
+        if (ev.target.closest('.col-check')) return;
         const el = ev.target.closest('[data-action]');
         if (!el || el.disabled) return;
         const fn = ACTIONS[el.dataset.action];
@@ -1601,8 +1871,31 @@ function bindEvents() {
     $('#ad-form').addEventListener('submit', saveAd);
     $('#email-form').addEventListener('submit', sendEmail);
 
-    $('#scrim').addEventListener('click', closeDrawers);
-    $('#dialog-scrim').addEventListener('click', () => { closeCmdk(); closeDialog(null); });
+    $('#scrim').addEventListener('click', requestCloseDrawers);
+    $('#ud-form').addEventListener('input', () => { $('#ud-dirty').hidden = !userDirty(); });
+    $('#ud-form').addEventListener('change', () => { $('#ud-dirty').hidden = !userDirty(); });
+
+    $('#users-body').addEventListener('change', e => {
+        if (!e.target.classList.contains('user-check')) return;
+        const p = e.target.dataset.phone;
+        e.target.checked ? S.selected.add(p) : S.selected.delete(p);
+        renderUsers();
+    });
+    $('#users-check-all').addEventListener('change', e => {
+        (S.usersPageList || []).forEach(p => e.target.checked ? S.selected.add(p) : S.selected.delete(p));
+        renderUsers();
+    });
+
+    const nd = $('#notif-desktop');
+    nd.checked = getItem('controlNotify') === '1';
+    nd.addEventListener('change', async () => {
+        if (nd.checked && 'Notification' in window && Notification.permission === 'default') {
+            try { await Notification.requestPermission(); } catch (e) {}
+        }
+        setItem('controlNotify', nd.checked ? '1' : '');
+        if (nd.checked) { playChime(); toast('התראות הופעלו: צליל, והתראת דפדפן כשהחלון ברקע'); }
+    });
+    $('#dialog-scrim').addEventListener('click', () => { closeCmdk(); closeHelp(); closeDialog(null); });
 
     $('#ud-tabs').addEventListener('click', ev => { const b = ev.target.closest('.drawer-tab'); if (b) switchUserTab(b.dataset.tab); });
     $('#ud-is-admin').addEventListener('change', e => { $('#ud-perms').hidden = !e.target.checked; });
@@ -1658,8 +1951,10 @@ function bindEvents() {
     document.addEventListener('keydown', e => {
         if (e.key === 'Escape') {
             if ($('#dialog').classList.contains('open')) closeDialog(null);
+            else if ($('#help').classList.contains('open')) closeHelp();
             else if ($('#cmdk').classList.contains('open')) closeCmdk();
-            else closeDrawers();
+            else if ($$('.popover').some(p => !p.hidden)) closePopovers();
+            else requestCloseDrawers();
             return;
         }
         if ($('#app').hidden) return;
@@ -1669,6 +1964,7 @@ function bindEvents() {
         }
         const t = e.target;
         if (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
+        if (e.key === '?') { e.preventDefault(); openHelp(); return; }
         if (e.key === '/') {
             const s = $(`#view-${S.view} .search input`);
             if (s) { e.preventDefault(); s.focus(); }

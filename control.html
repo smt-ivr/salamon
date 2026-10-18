@@ -79,6 +79,18 @@
                 <button class="icon-btn desktop-only" data-action="toggle-sidebar" aria-label="כווץ תפריט"><i class="fa-solid fa-table-columns"></i></button>
                 <div class="crumbs"><span>Control</span><i class="fa-solid fa-chevron-left" style="font-size:10px;"></i><b id="crumb">סקירה</b></div>
                 <button class="cmd-trigger" data-action="open-cmdk"><i class="fa-solid fa-magnifying-glass"></i><span>חיפוש מהיר ופקודות…</span><span class="kbd">Ctrl K</span></button>
+                <span class="live desktop-only" id="live" title="הנתונים מתעדכנים אוטומטית"><span class="live-dot"></span><span id="live-text">מחובר</span></span>
+                <div class="pop-wrap">
+                    <button class="icon-btn" data-action="toggle-notif" aria-label="התראות" title="התראות" id="notif-btn"><i class="fa-regular fa-bell"></i><b class="notif-dot" id="notif-count" hidden></b></button>
+                    <div class="popover notif-panel" id="notif-panel" hidden>
+                        <div class="pop-head"><b>התראות</b><div class="spacer"></div>
+                            <label class="check" title="התראות שולחן עבודה וצליל בהודעה חדשה"><input type="checkbox" id="notif-desktop"> התראות דפדפן</label>
+                        </div>
+                        <ul class="feed" id="notif-list"></ul>
+                    </div>
+                </div>
+                <button class="icon-btn desktop-only" data-action="toggle-density" aria-label="תצוגה צפופה" title="תצוגה צפופה / מרווחת"><i class="fa-solid fa-table-list"></i></button>
+                <button class="icon-btn desktop-only" data-action="open-help" aria-label="קיצורי מקלדת" title="קיצורי מקלדת (?)"><i class="fa-regular fa-keyboard"></i></button>
                 <button class="icon-btn" data-action="toggle-theme" aria-label="ערכת צבעים" title="ערכת צבעים"><i class="fa-solid fa-circle-half-stroke"></i></button>
                 <button class="icon-btn danger" data-action="logout" aria-label="התנתקות" title="התנתקות"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
             </header>
@@ -131,9 +143,24 @@
                             <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="users-search" placeholder="חיפוש לפי שם, טלפון או אימייל…"></div>
                             <div class="chips" id="users-chips"></div>
                         </div>
+                        <div class="bulk-bar" id="users-bulk" hidden>
+                            <b id="bulk-count">0 נבחרו</b>
+                            <div class="spacer"></div>
+                            <select class="input" id="bulk-field" style="width:150px; height:32px;">
+                                <option value="canListen">האזנה</option>
+                                <option value="canTzintuk">צינתוקים</option>
+                                <option value="canUpload">העלאת קבצים</option>
+                                <option value="canRecord">הקלטה</option>
+                            </select>
+                            <button class="btn btn-sm" data-action="bulk-set" data-value="1"><i class="fa-solid fa-check"></i> הפעלה</button>
+                            <button class="btn btn-sm btn-danger" data-action="bulk-set" data-value="0"><i class="fa-solid fa-ban"></i> חסימה</button>
+                            <button class="btn btn-sm" data-action="bulk-export"><i class="fa-solid fa-file-arrow-down"></i> ייצוא</button>
+                            <button class="icon-btn sm" data-action="bulk-clear" title="ניקוי בחירה"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
                         <div class="table-wrap">
                             <table class="tbl">
                                 <thead><tr>
+                                    <th class="col-check"><input type="checkbox" id="users-check-all" aria-label="בחירת כל העמוד"></th>
                                     <th class="sortable" data-sort="name">משתמש</th>
                                     <th class="sortable" data-sort="phone">טלפון</th>
                                     <th class="sortable" data-sort="yemotActive">ימות המשיח</th>
@@ -186,7 +213,7 @@
                             <div class="chips" id="logs-chips"></div>
                         </div>
                         <div class="table-wrap" style="max-height:560px;">
-                            <table class="tbl"><thead><tr><th>#</th><th>זמן</th><th>רמה</th><th>פעולה</th><th>טלפון</th><th>IP</th><th>פירוט</th></tr></thead><tbody id="logs-body"></tbody></table>
+                            <table class="tbl"><thead><tr><th>#</th><th>זמן</th><th>רמה</th><th>פעולה</th><th>טלפון</th><th>IP</th><th>פירוט</th><th></th></tr></thead><tbody id="logs-body"></tbody></table>
                         </div>
                     </div>
                 </section>
@@ -202,7 +229,10 @@
                     </div>
                     <div class="card inbox" id="inbox">
                         <div class="inbox-list">
-                            <div class="toolbar"><div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="chat-search" placeholder="חיפוש שיחה…"></div></div>
+                            <div class="toolbar">
+                                <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="chat-search" placeholder="חיפוש שיחה…"></div>
+                                <div class="chips" id="chat-chips"></div>
+                            </div>
                             <div class="conv-scroll" id="conv-list"></div>
                         </div>
                         <div class="thread" id="thread">
@@ -211,12 +241,20 @@
                                 <button class="icon-btn mobile-only" data-action="close-thread" aria-label="חזרה"><i class="fa-solid fa-arrow-right"></i></button>
                                 <div class="avatar" id="thread-avatar"></div>
                                 <div class="who"><b id="thread-name"></b><small class="ltr" id="thread-phone"></small></div>
+                                <div class="row desktop-only" id="thread-tags" style="gap:6px;"></div>
                                 <div class="spacer"></div>
                                 <button class="btn btn-sm" data-action="thread-profile"><i class="fa-solid fa-user-gear"></i> פרופיל</button>
                             </div>
                             <div class="thread-msgs" id="thread-msgs" hidden></div>
                             <form class="composer" id="composer" hidden>
                                 <textarea class="input" id="composer-input" placeholder="כתוב תשובה… (Enter לשליחה, Shift+Enter לשורה חדשה)" required></textarea>
+                                <div class="pop-wrap">
+                                    <button type="button" class="icon-btn" data-action="toggle-qr" title="תשובות מהירות"><i class="fa-solid fa-bolt"></i></button>
+                                    <div class="popover qr-panel" id="qr-panel" hidden>
+                                        <div class="pop-head"><b>תשובות מהירות</b><div class="spacer"></div><button type="button" class="btn btn-sm" data-action="qr-add"><i class="fa-solid fa-plus"></i> שמור את הטקסט הנוכחי</button></div>
+                                        <div id="qr-list"></div>
+                                    </div>
+                                </div>
                                 <div class="opts">
                                     <label class="check" title="שלח עותק למייל של הלקוח"><input type="checkbox" id="composer-email"> <i class="fa-solid fa-envelope"></i></label>
                                 </div>
@@ -363,6 +401,7 @@
         <div class="drawer-foot">
             <button type="button" class="btn btn-danger" data-action="delete-user"><i class="fa-solid fa-trash-can"></i> מחיקת חשבון</button>
             <div class="spacer"></div>
+            <span class="badge warn" id="ud-dirty" hidden><span class="dot"></span> שינויים שלא נשמרו</span>
             <button type="button" class="btn" data-action="close-drawer">ביטול</button>
             <button type="submit" form="ud-form" class="btn btn-primary" id="ud-save"><i class="fa-solid fa-check"></i> שמירה</button>
         </div>
@@ -486,6 +525,12 @@
         <div class="cmdk-input"><i class="fa-solid fa-magnifying-glass"></i><input id="cmdk-input" placeholder="חפש משתמש, מסך או פעולה…" autocomplete="off"><span class="kbd">Esc</span></div>
         <div class="cmdk-list" id="cmdk-list"></div>
         <div class="cmdk-foot"><span><span class="kbd">↑↓</span> ניווט</span><span><span class="kbd">Enter</span> בחירה</span><span><span class="kbd">G</span> ואז אות — קפיצה למסך</span></div>
+    </div>
+
+    <!-- ===== Shortcuts help ===== -->
+    <div class="dialog help-dialog" id="help" role="dialog" aria-modal="true" aria-labelledby="help-title">
+        <div class="row" style="margin-bottom:12px;"><h3 id="help-title" style="margin:0;">קיצורי מקלדת</h3><div class="spacer"></div><button class="icon-btn sm" data-action="close-help" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button></div>
+        <div class="help-grid" id="help-grid"></div>
     </div>
 
     <div class="toasts" id="toasts"></div>

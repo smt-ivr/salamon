@@ -62,10 +62,10 @@ export default {
         if (path === '/salamon' || path === '/salamon/unsubscribe') {
             return new Response(htmlContent, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
         }
-        if (path === '/salamon/admin') {
-            return Response.redirect(`${url.origin}/salamon/control`, 301);
-        }
         if (path === '/salamon/control') {
+            return Response.redirect(`${url.origin}/salamon/admin`, 301);
+        }
+        if (path === '/salamon/admin') {
             return new Response(controlHtml, { headers: { 'Content-Type': 'text/html; charset=utf-8', ...CONTROL_HEADERS } });
         }
         if (PUBLIC_FILES[url.pathname]) {
