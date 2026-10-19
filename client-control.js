@@ -1647,10 +1647,46 @@ async function newChat() {
 async function loadSettings() {
     $('#set-me').innerHTML = '<div class="skeleton" style="width:60%"></div>';
     $('#sess-list').innerHTML = '<li><div class="skeleton" style="width:70%"></div></li>'.repeat(2);
-    const [acc, sess, st] = await Promise.all([api('/admin/account'), api('/admin/sessions'), api('/admin/settings')]);
+    const [acc, sess, st, v2] = await Promise.all([api('/admin/account'), api('/admin/sessions'), api('/admin/settings'), api('/admin/v2/settings')]);
+    if (v2.ok) fillV2(v2.data);
     if (acc.ok) renderAccount(acc.data.account);
     if (sess.ok) renderSessionsList(sess.data.sessions || []);
     if (st.ok) fillSettings(st.data.settings);
+}
+
+// הגדרות האתר החדש (גרסה 2) ונתוני שימוש
+function fillV2(d) {
+    const s = d.settings, u = d.usage;
+    $('#v2-mode').value = s.v2_mode;
+    $('#v2-off').value = s.v2_off_message || '';
+    $('#v2-switch').checked = s.v2_show_switch === '1';
+    $('#v2-banner').value = s.v2_banner || '';
+    $('#v2-tone').value = s.v2_banner_tone || 'info';
+    $('#v2-theme').value = s.v2_default_theme;
+    $('#v2-accent').value = s.v2_default_accent;
+    $('#v2-welcome').value = s.v2_chat_welcome || '';
+    const dark = (u.themes.dark || 0), total = Object.values(u.themes).reduce((a, b) => a + b, 0);
+    $('#v2-usage').innerHTML = [
+        kpi('fa-user-check', 'good', 'השתמשו השבוע', num(u.week), `${num(u.month)} בחודש האחרון`),
+        kpi('fa-users', '', 'סך הכל ניסו', num(u.total), `${num(u.opens)} כניסות`),
+        kpi('fa-moon', 'info', 'בחרו מצב כהה', total ? Math.round(dark / total * 100) + '%' : '—', `${num(dark)} מתוך ${num(total)}`),
+    ].join('');
+    $('#v2-recent').textContent = u.recent.length ? `אחרונים: ${u.recent.slice(0, 5).map(r => { const x = S.users.find(y => y.phone === r.phone); return x && x.name ? x.name : r.phone; }).join(', ')}` : '';
+}
+
+async function saveV2(e) {
+    e.preventDefault();
+    const btn = $('#v2-save');
+    busy(btn, true);
+    const r = await api('/admin/v2/settings', { settings: {
+        v2_mode: $('#v2-mode').value, v2_off_message: $('#v2-off').value.trim(), v2_show_switch: $('#v2-switch').checked,
+        v2_banner: $('#v2-banner').value.trim(), v2_banner_tone: $('#v2-tone').value,
+        v2_default_theme: $('#v2-theme').value, v2_default_accent: $('#v2-accent').value, v2_chat_welcome: $('#v2-welcome').value.trim(),
+    } });
+    busy(btn, false);
+    if (!r.ok) { toast(r.error || 'שגיאה בשמירה', 'bad'); return; }
+    fillV2(r.data);
+    toast('הגדרות האתר החדש נשמרו');
 }
 
 function renderAccount(a) {
@@ -2603,6 +2639,7 @@ function renderVoiceAudience() {
             ${kpi('fa-user-clock', 'warn', 'עוד לא שמעו', num(d.notHeard.length), 'מספר הטלפונים ובעלי החשבון')}
         </div>
         ${telNote}
+        ${d.raw !== undefined && d.phone.available ? `<details class="card raw-file"><summary><i class="fa-solid fa-file-lines"></i> הקובץ המקורי מימות המשיח (נתוני ההאזנה)</summary><pre class="ltr mono">${esc(d.raw || '(ריק)')}</pre></details>` : ''}
         <div class="card">
             <div class="card-head" style="flex-wrap:wrap; gap:8px;">
                 <div class="chips">${VA_FILTERS.map(([k, l]) => `<button class="chip ${f === k ? 'active' : ''}" data-action="va-filter" data-filter="${k}">${l} <span class="n">${num(counts[k])}</span></button>`).join('')}</div>
@@ -3386,6 +3423,7 @@ function bindEvents() {
     $('#block-form').addEventListener('submit', submitBlock);
     $('#composer').addEventListener('submit', sendMsg);
     $('#ad-form').addEventListener('submit', saveAd);
+    $('#v2-form').addEventListener('submit', saveV2);
 
     $('#scrim').addEventListener('click', requestCloseDrawers);
     $('#ud-form').addEventListener('input', () => { $('#ud-dirty').hidden = !userDirty(); });
