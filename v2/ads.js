@@ -86,16 +86,24 @@ function renderToast() {
     }, 1500);
 }
 
+// הודעה נעוצה בראש ההודעות (כמו "הודעה נעוצה" בוואטסאפ). לחיצה פותחת את מסך העדכונים
 App.renderFeedAnn = box => {
+    const list = A.list.filter(x => x.placement === 'sidebar');
+    const m = list.find(x => !isClosed(x.id));
+    const side = $('#side-ann');
+    if (side) side.innerHTML = list.slice(0, 2).map(x => card(x)).join('');
+    if (list.length) { const f = list[0]; App.setPreview('updates', { text: f.title, icon: 'fa-thumbtack' }); }
+    else App.setPreview('updates', { text: 'אין עדכונים חדשים' });
     if (!box) return;
-    const m = A.list.find(x => x.placement === 'sidebar' && !isClosed(x.id));
-    box.innerHTML = m ? card(m, { closable: true }) : '';
+    if (!m) { box.innerHTML = ''; return; }
+    const tmp = document.createElement('div'); tmp.innerHTML = m.htmlContent || '';
+    box.innerHTML = `<div class="pinned" data-act="tab" data-tab="updates" role="button" tabindex="0"><i class="fa-solid fa-thumbtack"></i><div class="pin-text"><b>${esc(m.title)}</b><span>${esc(tmp.textContent.trim().slice(0, 120))}</span></div>${list.length > 1 ? `<span class="badge">+${list.length - 1}</span>` : ''}<button class="icon-btn sm" data-act="ad-close" data-id="${esc(m.id)}" aria-label="הסתרה"><i class="fa-solid fa-xmark"></i></button></div>`;
 };
 
 function renderUpdates() {
-    const list = A.list.filter(m => m.placement !== 'banner' || true);
-    A.root.innerHTML = `<div class="view-inner">
-        <div class="hero"><h2>עדכונים</h2><p>הודעות והכרזות מצוות עכשיו סלומון</p></div>
+    const list = A.list;
+    A.root.innerHTML = `<div class="wall-inner">
+        <div class="day"><span>הודעות והכרזות מצוות עכשיו סלומון</span></div>
         <div class="upd-list">${list.length ? list.map(m => card(m)).join('') : '<div class="empty"><i class="fa-regular fa-bell"></i><b>אין עדכונים חדשים</b>כשיהיה משהו חדש, הוא יופיע כאן</div>'}</div>
     </div>`;
 }
@@ -144,6 +152,8 @@ Object.assign(App.actions, {
 });
 
 App.views.updates = {
+    actions: () => App.mobileActions(['updates']),
+    subtitle: () => A.list.length ? `${A.list.length} עדכונים` : '',
     init(root) { A.root = root; renderUpdates(); },
     enter() { renderUpdates(); A.list.filter(m => m.placement === 'sidebar').forEach(m => remember(m.id)); App.setBadge('updates', 0); App.renderFeedAnn($('#feed-ann')); },
 };

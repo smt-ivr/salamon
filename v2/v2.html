@@ -40,7 +40,7 @@
         <div class="auth-art" aria-hidden="true">
             <div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div>
             <div class="auth-art-copy">
-                <div class="auth-badge"><i class="fa-solid fa-sparkles fa-wand-magic-sparkles"></i> הגרסה החדשה</div>
+                <div class="auth-badge"><i class="fa-solid fa-wand-magic-sparkles"></i> הגרסה החדשה</div>
                 <h2>כל ההודעות.<br>כל הקולות.<br>בכיס שלך.</h2>
                 <ul>
                     <li><i class="fa-solid fa-headphones"></i> השמעה רציפה עם מהירות ודילוגים</li>
@@ -74,34 +74,41 @@
         </div>
     </section>
 
-    <!-- ===== האפליקציה ===== -->
+    <!-- ===== האפליקציה (בסגנון וואטסאפ) ===== -->
     <div class="app" id="app" hidden>
-        <nav class="rail" id="rail" aria-label="ניווט ראשי">
-            <div class="rail-brand"><img src="https://smt-tel-manager.netlify.app/salamon-logo.png" alt="" draggable="false"><b>עכשיו סלומון</b></div>
-            <div class="rail-links" id="rail-links"></div>
-            <button class="rail-record" data-act="record" id="rail-record"><i class="fa-solid fa-microphone"></i><span>הקלטה חדשה</span></button>
-            <div class="rail-foot" id="rail-foot"></div>
-        </nav>
+        <aside class="side" id="side" aria-label="ניווט">
+            <header class="side-head">
+                <button class="side-me" data-act="tab" data-tab="settings" id="side-me" aria-label="החשבון שלי"></button>
+                <div class="side-actions" id="side-actions">
+                    <a class="icon-btn" href="/salamon" title="לגרסה הקלאסית" aria-label="לגרסה הקלאסית"><i class="fa-solid fa-clock-rotate-left"></i></a>
+                    <button class="icon-btn" data-act="tab" data-tab="settings" title="הגדרות" aria-label="הגדרות"><i class="fa-solid fa-gear"></i></button>
+                    <button class="icon-btn" data-act="set-logout" title="יציאה" aria-label="יציאה"><i class="fa-solid fa-arrow-right-from-bracket"></i></button>
+                </div>
+            </header>
+            <div class="side-list" id="side-list"></div>
+            <div class="side-ann" id="side-ann"></div>
+        </aside>
 
-        <div class="main-col">
+        <section class="pane" id="pane">
             <header class="topbar" id="topbar">
-                <button class="tb-avatar" data-act="tab" data-tab="settings" aria-label="החשבון שלי" id="tb-avatar"></button>
-                <div class="tb-title"><b id="tb-title">הודעות</b><small id="tb-sub"></small></div>
+                <button class="icon-btn back" data-act="back" id="tb-back" aria-label="חזרה" hidden><i class="fa-solid fa-arrow-right"></i></button>
+                <span class="tb-avatar" id="tb-avatar"></span>
+                <div class="tb-title"><b id="tb-title">עכשיו סלומון</b><small id="tb-sub"></small></div>
                 <div class="tb-actions" id="tb-actions"></div>
             </header>
             <div class="global-banner" id="global-banner" hidden></div>
             <div class="ad-banner-slot" id="ad-banner-slot"></div>
+            <div class="player" id="player" hidden></div>
 
             <main class="views" id="main" tabindex="-1">
-                <section class="view" id="view-feed" data-view="feed"></section>
-                <section class="view" id="view-updates" data-view="updates"></section>
+                <section class="view wall" id="view-feed" data-view="feed"></section>
+                <section class="view wall" id="view-updates" data-view="updates"></section>
                 <section class="view" id="view-chat" data-view="chat"></section>
                 <section class="view" id="view-settings" data-view="settings"></section>
             </main>
 
-            <div class="player" id="player" hidden></div>
-            <nav class="tabbar" id="tabbar" aria-label="ניווט"></nav>
-        </div>
+            <footer class="composer" id="composer" hidden></footer>
+        </section>
     </div>
 
     <!-- גיליונות, דיאלוגים והודעות קופצות -->

@@ -211,6 +211,24 @@ async function tzintuk(btn) {
     setTimeout(() => { if (R.el && R.el.isConnected) App.closeSheet(); }, 3500);
 }
 
+// כניסות מהשורה התחתונה: האזנה לפני שליחה, שליחה מיידית וקובץ מצורף
+function sheetFor(title) {
+    cleanup();
+    R.el = App.openSheet({ title, body: '<div class="rec" id="rec"></div>', onClose: cleanup });
+}
+App.reviewRecording = (blob, name, type, secs) => { sheetFor('האזנה לפני שליחה'); R.seconds = secs || 0; review(blob, name, type); };
+App.recordFile = file => {
+    if (!canUpload()) { App.toast('אין לך הרשאה להעלות קבצים', 'bad'); return; }
+    sheetFor('שליחת קובץ שמע');
+    review(file, file.name, 'file');
+};
+App.uploadRecording = (blob, name, type, secs) => {
+    sheetFor('שולח הודעה');
+    R.seconds = secs || 0;
+    review(blob, name, type);
+    send($('#rec-send'));
+};
+
 Object.assign(App.actions, {
     'record': open,
     'rec-start': start,
@@ -222,4 +240,103 @@ Object.assign(App.actions, {
     'rec-send': el => send(el),
     'rec-tzintuk': el => tzintuk(el),
 });
+})();
+
+// ---------- הקלטה בתוך שורת ההקלטה (כמו וואטסאפ) ----------
+(() => {
+'use strict';
+const { $, esc } = App;
+const I = { stream: null, rec: null, chunks: [], seconds: 0, timer: null, ctx: null, raf: null, cancelled: false, sending: false };
+
+function stopAll() {
+    clearInterval(I.timer); cancelAnimationFrame(I.raf);
+    if (I.stream) I.stream.getTracks().forEach(t => t.stop());
+    if (I.ctx) try { I.ctx.close(); } catch (e) {}
+    Object.assign(I, { stream: null, ctx: null });
+}
+
+async function startInline() {
+    if (!App.user || !App.user.canRecord) { App.toast('אין לך הרשאה להקליט הודעות', 'bad'); return; }
+    if (I.rec) return;
+    const feedAudio = $('#audio'); if (feedAudio && !feedAudio.paused) feedAudio.pause();
+    try {
+        I.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+    } catch (e) {
+        App.toast('אין גישה למיקרופון. יש לאשר אותה בהגדרות הדפדפן', 'bad', { ms: 6000 });
+        return;
+    }
+    const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || '';
+    I.rec = new MediaRecorder(I.stream, mime ? { mimeType: mime } : undefined);
+    I.chunks = []; I.seconds = 0; I.cancelled = false; I.sending = false;
+    I.rec.ondataavailable = e => { if (e.data.size) I.chunks.push(e.data); };
+    I.rec.onstop = () => {
+        const type = I.rec.mimeType || mime || 'audio/webm';
+        const blob = new Blob(I.chunks, { type });
+        const ext = type.includes('mp4') ? 'mp4' : type.includes('ogg') ? 'ogg' : 'webm';
+        const send = I.sending, cancelled = I.cancelled, secs = I.seconds;
+        stopAll();
+        I.rec = null;
+        App.renderComposer();
+        if (cancelled) return;
+        if (blob.size < 800) { App.toast('ההקלטה קצרה מדי', 'bad'); return; }
+        if (send) App.uploadRecording(blob, `recording.${ext}`, 'record', secs);
+        else App.reviewRecording(blob, `recording.${ext}`, 'record', secs);
+    };
+    I.rec.start(250);
+    App.sound('start'); App.haptic(20);
+    $('#composer').innerHTML = `<div class="cmp rec-on">
+        <div class="cmp-pill rec-pill">
+            <button class="cmp-ic danger" data-act="ri-cancel" aria-label="מחיקת ההקלטה"><i class="fa-solid fa-trash"></i></button>
+            <span class="ri-dot"></span><span class="ri-time" id="ri-time">0:00</span>
+            <canvas id="ri-wave" width="400" height="60" aria-hidden="true"></canvas>
+            <button class="cmp-ic" data-act="ri-pause" id="ri-pause" aria-label="השהיה"><i class="fa-solid fa-pause"></i></button>
+            <button class="cmp-ic" data-act="ri-review" aria-label="עצירה והאזנה"><i class="fa-solid fa-stop"></i></button>
+        </div>
+        <button class="cmp-mic send" data-act="ri-send" aria-label="שליחה"><i class="fa-solid fa-paper-plane"></i></button>
+    </div>`;
+    I.timer = setInterval(() => { if (I.rec && I.rec.state === 'recording') { I.seconds++; const t = $('#ri-time'); if (t) t.textContent = App.clock(I.seconds); } }, 1000);
+    wave();
+}
+
+function wave() {
+    let an;
+    try {
+        I.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        an = I.ctx.createAnalyser(); an.fftSize = 256;
+        I.ctx.createMediaStreamSource(I.stream).connect(an);
+    } catch (e) { return; }
+    const c = $('#ri-wave'), g = c.getContext('2d');
+    const data = new Uint8Array(an.frequencyBinCount);
+    const hist = new Array(48).fill(3);
+    const color = getComputedStyle(document.documentElement).getPropertyValue('--wa-green').trim() || '#00a884';
+    let f = 0;
+    const draw = () => {
+        I.raf = requestAnimationFrame(draw);
+        if (!c.isConnected) return;
+        if (I.rec && I.rec.state === 'recording' && ++f % 3 === 0) {
+            an.getByteTimeDomainData(data);
+            let sum = 0; for (const v of data) sum += ((v - 128) / 128) ** 2;
+            hist.push(Math.max(3, Math.min(1, Math.sqrt(sum / data.length) * 3.2) * c.height * 0.9)); hist.shift();
+        }
+        g.clearRect(0, 0, c.width, c.height);
+        const w = c.width / hist.length;
+        g.fillStyle = color;
+        hist.forEach((h, i) => { const x = c.width - (i + 1) * w; g.fillRect(x + w * 0.25, (c.height - h) / 2, w * 0.5, h); });
+    };
+    draw();
+}
+
+Object.assign(App.actions, {
+    'rec-inline': startInline,
+    'ri-cancel': () => { I.cancelled = true; if (I.rec && I.rec.state !== 'inactive') I.rec.stop(); App.haptic(15); },
+    'ri-send': () => { I.sending = true; if (I.rec && I.rec.state !== 'inactive') I.rec.stop(); App.sound('stop'); },
+    'ri-review': () => { if (I.rec && I.rec.state !== 'inactive') I.rec.stop(); App.sound('stop'); },
+    'ri-pause': el => {
+        if (!I.rec) return;
+        if (I.rec.state === 'recording') { I.rec.pause(); el.innerHTML = '<i class="fa-solid fa-microphone"></i>'; el.setAttribute('aria-label', 'המשך הקלטה'); $('#composer .rec-pill').classList.add('paused'); }
+        else if (I.rec.state === 'paused') { I.rec.resume(); el.innerHTML = '<i class="fa-solid fa-pause"></i>'; el.setAttribute('aria-label', 'השהיה'); $('#composer .rec-pill').classList.remove('paused'); }
+        App.haptic();
+    },
+});
+document.addEventListener('logout', () => { if (I.rec) { I.cancelled = true; try { I.rec.stop(); } catch (e) {} } stopAll(); });
 })();

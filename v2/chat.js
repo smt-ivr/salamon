@@ -12,18 +12,16 @@ const C = { root: null, messages: [], pending: [], hash: '', hasMore: false, loa
 
 function shell() {
     C.root.innerHTML = `<div class="chat">
-        <div class="chat-head">
-            <span class="avatar" style="position:relative;overflow:visible;"><img src="${App.LOGO}" alt="" style="border-radius:14px;"><i class="status-dot" id="c-dot"></i></span>
-            <div class="chat-who"><b>צוות עכשיו סלומון</b><small id="c-status">נחזור אליך בהקדם</small></div>
-        </div>
-        <div class="chat-scroll" id="c-scroll"><div class="chat-inner" id="c-msgs"></div></div>
+        <div class="chat-scroll wall" id="c-scroll"><div class="chat-inner" id="c-msgs"></div></div>
         <button class="c-fab" id="c-fab" data-act="c-bottom" aria-label="לסוף השיחה"><i class="fa-solid fa-chevron-down"></i></button>
         <div class="c-composer">
             <div class="c-replybar" id="c-replybar" hidden><div><b id="c-rb-who"></b><span id="c-rb-text"></span></div><button class="icon-btn sm" data-act="c-reply-cancel" aria-label="ביטול ציטוט"><i class="fa-solid fa-xmark"></i></button></div>
             <div class="c-emoji" id="c-emoji" hidden>${EMOJIS.map(e => `<button type="button" data-act="c-emoji-pick" data-e="${e}">${e}</button>`).join('')}</div>
             <div class="c-composer-inner">
-                <button class="icon-btn" data-act="c-emoji" aria-label="סמלים"><i class="fa-regular fa-face-smile"></i></button>
-                <textarea class="c-input" id="c-input" rows="1" maxlength="${MAX_LEN}" placeholder="כתבו הודעה…" aria-label="הודעה"></textarea>
+                <div class="c-field">
+                    <button class="icon-btn" data-act="c-emoji" aria-label="סמלים"><i class="fa-regular fa-face-smile"></i></button>
+                    <textarea class="c-input" id="c-input" rows="1" maxlength="${MAX_LEN}" placeholder="הקלד הודעה" aria-label="הודעה"></textarea>
+                </div>
                 <button class="c-send" id="c-send" data-act="c-send" aria-label="שליחה" disabled><i class="fa-solid fa-paper-plane"></i></button>
             </div>
         </div>
@@ -47,12 +45,18 @@ function shell() {
 
 function grow() { const i = $('#c-input'); i.style.height = 'auto'; i.style.height = Math.min(140, i.scrollHeight) + 'px'; }
 
+function statusText() { return C.adminTyping ? 'מקליד/ה…' : C.admin.online ? 'מחובר/ת עכשיו' : 'נחזור אליך בהקדם האפשרי'; }
 function status() {
-    const el = $('#c-status'); if (!el) return;
-    if (C.adminTyping) { el.textContent = 'מקליד/ה…'; el.className = 'typing'; }
-    else { el.textContent = C.admin.online ? 'מחובר/ת עכשיו' : 'נחזור אליך בהקדם האפשרי'; el.className = ''; }
-    $('#c-dot').classList.toggle('on', !!C.admin.online);
-    App.setSubtitle && App.tab === 'chat' && App.setSubtitle(C.adminTyping ? 'מקליד/ה…' : C.admin.online ? 'הצוות מחובר עכשיו' : '');
+    if (App.tab !== 'chat') return;
+    App.setSubtitle(statusText());
+    const sub = $('#tb-sub'); if (sub) sub.classList.toggle('typing', !!C.adminTyping);
+    const av = $('#tb-avatar .avatar'); if (av) av.classList.toggle('online', !!C.admin.online);
+}
+function preview() {
+    const all = C.messages;
+    const last = all[all.length - 1];
+    if (last) App.setPreview('chat', { text: `${last.sender === 'user' ? 'את/ה: ' : ''}${last.isDeleted ? 'ההודעה נמחקה' : last.text}`, time: App.time(last.createdAt) });
+    else App.setPreview('chat', { text: 'כתבו לנו, אנחנו כאן לעזור' });
 }
 
 function bubble(m, prev) {
@@ -114,6 +118,7 @@ async function fetchChat({ bottom = false } = {}) {
         if (fresh.length) { App.sound('msg'); App.haptic(15); if (document.hidden && App.prefs.notifyChat) App.notify('תשובה חדשה מצוות עכשיו סלומון', fresh[fresh.length - 1].text, { tag: 'salamon-chat', onClick: () => App.go('chat') }); }
         C.hash = hash;
         C.messages = merged;
+        preview();
         if (merged.length === msgs.length) C.hasMore = !!r.data.hasMore;
         render({ bottom });
     } else if (typingChanged) render();
@@ -135,6 +140,7 @@ async function checkUnread() {
     if (!r.ok) return;
     C.unread = r.data.unreadCount || 0;
     App.setBadge('chat', C.visible ? 0 : C.unread);
+    if (r.data.lastUnread && !C.messages.length) App.setPreview('chat', { text: r.data.lastUnread.text });
     const last = r.data.lastUnread;
     if (C.baseline === null) { C.baseline = last ? last.id : 0; return; }
     if (last && last.id > C.baseline) {
@@ -224,7 +230,8 @@ App.views.chat = {
         status();
     },
     leave() { C.visible = false; typing(false); },
-    subtitle: () => C.admin.online ? 'הצוות מחובר עכשיו' : '',
+    actions: () => App.mobileActions(['chat']),
+    subtitle: () => statusText(),
 };
 
 // בדיקת תשובות חדשות גם כשהצ'אט לא פתוח, ודיווח נוכחות (כמו באתר הוותיק)
