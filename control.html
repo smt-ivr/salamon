@@ -472,6 +472,32 @@
                         </div>
 
                         <div class="card span-2">
+                            <div class="card-head"><h3><i class="fa-solid fa-wand-magic-sparkles"></i> האתר החדש (גרסה 2)</h3><div class="tools"><a class="btn btn-sm" href="/salamon/v2" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-up-right-from-square"></i> פתיחה</a></div></div>
+                            <form class="card-body stack" id="v2-form">
+                                <div class="kpis" id="v2-usage" style="margin:0;"></div>
+                                <div class="grid-2">
+                                    <div class="field"><label>מי יכול להשתמש בגרסה החדשה</label><select id="v2-mode" class="input"><option value="all">כל המשתמשים</option><option value="staff">רק אנשי צוות (בדיקה לפני השקה)</option><option value="off">אף אחד (כבוי)</option></select></div>
+                                    <div class="field"><label>הודעה כשהגרסה כבויה</label><input id="v2-off" class="input" maxlength="300" placeholder="הגרסה החדשה בשדרוג, נחזור בקרוב"></div>
+                                </div>
+                                <div class="setting-group">
+                                    <div class="setting"><div class="s-text"><div class="s-title">כפתור "לגרסה החדשה" באתר הרגיל</div><div class="s-desc">כפתור קטן בסרגל אחרי ההתחברות. מופיע רק למי שמורשה להשתמש בגרסה החדשה.</div></div><label class="switch"><input type="checkbox" id="v2-switch"><span></span></label></div>
+                                </div>
+                                <div class="section-title">הודעה בראש האתר החדש</div>
+                                <div class="grid-2">
+                                    <div class="field"><label>טקסט (ריק = בלי הודעה)</label><input id="v2-banner" class="input" maxlength="300" placeholder="ברוכים הבאים לגרסה החדשה! ספרו לנו מה דעתכם בצ׳אט"></div>
+                                    <div class="field"><label>סוג</label><select id="v2-tone" class="input"><option value="info">מידע (כחול)</option><option value="good">חיובי (ירוק)</option><option value="warn">אזהרה (כתום)</option></select></div>
+                                </div>
+                                <div class="section-title">ברירות מחדל למשתמשים חדשים</div>
+                                <div class="grid-2">
+                                    <div class="field"><label>ערכת צבעים</label><select id="v2-theme" class="input"><option value="system">לפי המכשיר</option><option value="light">בהיר</option><option value="dark">כהה</option></select></div>
+                                    <div class="field"><label>צבע מבטא</label><select id="v2-accent" class="input"><option value="green">ירוק</option><option value="blue">כחול</option><option value="violet">סגול</option><option value="rose">ורוד</option><option value="orange">כתום</option><option value="teal">טורקיז</option><option value="slate">אפור</option></select></div>
+                                </div>
+                                <div class="field"><label>הודעת פתיחה בצ'אט של האתר החדש</label><input id="v2-welcome" class="input" maxlength="300" placeholder="כתבו לנו כאן וצוות עכשיו סלומון יחזור אליכם בהקדם."></div>
+                                <div class="row wrap"><span class="hint muted" id="v2-recent"></span><div class="spacer"></div><button type="submit" class="btn btn-primary" id="v2-save"><i class="fa-solid fa-check"></i> שמירה</button></div>
+                            </form>
+                        </div>
+
+                        <div class="card span-2">
                             <div class="card-head"><h3><i class="fa-solid fa-bell"></i> התראות צ'אט במייל</h3></div>
                             <form class="card-body stack" id="chat-settings-form">
                                 <div class="setting-group">
