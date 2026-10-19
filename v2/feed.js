@@ -62,10 +62,11 @@ async function load({ more = false, silent = false } = {}) {
     F.loading = true;
     const page = more ? F.page + 1 : 1;
     if (!silent && !more) renderSkeleton();
+    if (more) { const b = $('#feed-more .older-btn'); if (b) b.innerHTML = '<i class="fa-solid fa-circle-notch spin"></i> טוען…'; }
     const r = await api('/messages/list', { filesLimit: PAGE, page });
     F.loading = false;
     if (!r.ok) {
-        if (!silent && !F.items.length) $('#feed-list').innerHTML = `<div class="empty"><i class="fa-solid fa-wifi"></i><b>לא הצלחנו לטעון הודעות</b>${esc(r.error)}<br><br><button class="btn soft" data-act="feed-reload"><i class="fa-solid fa-rotate-right"></i> נסו שוב</button></div>`;
+        if (!silent && !F.items.length) $('#feed-list').innerHTML = `<div class="sys-note">לא הצלחנו לטעון הודעות: ${esc(r.error)}<br><button class="older-btn" data-act="feed-reload" style="margin-top:8px;"><i class="fa-solid fa-rotate-right"></i> נסו שוב</button></div>`;
         return;
     }
     const list = r.data.messages || [];
@@ -82,8 +83,9 @@ async function load({ more = false, silent = false } = {}) {
         F.hasMore = list.length >= Math.min(PAGE, 10);
     }
     list.forEach(m => F.knownIds.add(idOf(m)));
+    const first = !F.loaded;
     F.loaded = true;
-    render();
+    render(more ? { keep: true } : first ? { bottom: true } : {});
     queueStats(list.map(idOf));
 }
 
@@ -100,9 +102,9 @@ function mergeFresh(list) {
     if (oldestFirst) F.items = F.items.filter(m => firstIds.has(idOf(m)) || Number(idOf(m)) < Number(oldestFirst));
     if (!fresh.length) return;
     const incoming = fresh.filter(m => !m.isOutgoing);
-    const scrolled = F.root && F.root.scrollTop > 160;
-    if (scrolled) {
+    if (!nearBottom() && App.tab === 'feed') {
         F.pendingNew = fresh.concat(F.pendingNew.filter(p => !fresh.some(f => idOf(f) === idOf(p))));
+        const c = $('#fab-count'); if (c) { c.hidden = false; c.textContent = F.pendingNew.length; }
     } else {
         F.items = fresh.concat(F.items);
     }
@@ -144,7 +146,7 @@ async function pumpStats() {
     F.statsBusy = false;
 }
 
-// ---------- תצוגה ----------
+// ---------- תצוגה (בסגנון וואטסאפ: הישנות למעלה, החדשות למטה) ----------
 
 function filtered() {
     const q = F.search.trim().toLowerCase();
@@ -160,108 +162,103 @@ function filtered() {
         }
     });
 }
+// סדר התצוגה: מהישנה לחדשה
+const displayList = () => filtered().slice().reverse();
 
-function greeting() {
-    const h = new Date().getHours();
-    return h < 5 ? 'לילה טוב' : h < 12 ? 'בוקר טוב' : h < 17 ? 'צהריים טובים' : h < 21 ? 'ערב טוב' : 'לילה טוב';
-}
+const nearBottom = () => !F.root || F.root.scrollHeight - F.root.scrollTop - F.root.clientHeight < 140;
+const toBottom = (smooth) => { if (F.root) F.root.scrollTo({ top: F.root.scrollHeight, behavior: smooth ? 'smooth' : 'auto' }); };
 
 function shell() {
-    const u = App.user || {};
-    F.root.innerHTML = `<div class="ptr" id="ptr"><i class="fa-solid fa-arrow-down"></i></div>
-    <div class="view-inner">
-        <div class="hero"><h2>${esc(greeting())}, ${esc(String(u.name || '').split(' ')[0] || 'חבר')} 👋</h2><p id="feed-hero-sub">כל ההודעות הקוליות במקום אחד</p></div>
-        <div class="stat-strip" id="feed-stats"></div>
-        <div id="feed-ann"></div>
-        <div class="feed-tools">
-            <div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="feed-search" type="search" placeholder="חיפוש לפי שם או מספר הודעה" autocomplete="off"></div>
+    F.root.innerHTML = `<div class="feed-bar" id="feed-bar">
+            <div class="search-row" id="search-row" hidden><div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="feed-search" type="search" placeholder="חיפוש לפי שם או מספר הודעה" autocomplete="off"></div></div>
             <div class="chips" id="feed-chips"></div>
+            <div id="feed-ann"></div>
         </div>
-        <div class="new-pill" id="new-pill"></div>
-        <div id="feed-list"></div>
-        <div class="feed-more" id="feed-more"></div>
-    </div>`;
-    $('#feed-search').addEventListener('input', App.debounce(e => { F.search = e.target.value; render(); }, 160));
-    const sentinel = $('#feed-more');
-    new IntersectionObserver(es => { if (es[0].isIntersecting && F.loaded && F.hasMore && !F.loading && !F.search) load({ more: true }); }, { root: F.root, rootMargin: '600px' }).observe(sentinel);
-    bindPullToRefresh();
-    renderStats();
+        <div class="wall-inner">
+            <div class="load-older" id="feed-more"></div>
+            <div class="bubbles" id="feed-list"></div>
+        </div>
+        <button class="fab-down" id="fab-down" data-act="feed-bottom" aria-label="להודעות האחרונות" hidden><i class="fa-solid fa-chevron-down"></i><b id="fab-count" hidden></b></button>`;
+    $('#feed-search').addEventListener('input', App.debounce(e => { F.search = e.target.value; render({ bottom: true }); }, 160));
+    F.root.addEventListener('scroll', () => {
+        const away = !nearBottom();
+        $('#fab-down').hidden = !away;
+        if (!away && F.pendingNew.length) App.actions['feed-show-new']();
+        if (F.root.scrollTop < 300 && F.loaded && F.hasMore && !F.loading && !F.search) load({ more: true });
+    }, { passive: true });
+    renderComposer();
     App.renderFeedAnn && App.renderFeedAnn($('#feed-ann'));
 }
 
 function renderSkeleton() {
-    $('#feed-list').innerHTML = Array.from({ length: 5 }, () => `<div class="msg"><span class="skeleton" style="width:44px;height:44px;border-radius:15px;"></span><div class="msg-body"><span class="skeleton" style="height:14px;width:40%;"></span><span class="skeleton" style="height:40px;"></span></div></div>`).join('');
+    $('#feed-list').innerHTML = [1, 0, 1, 0, 0].map(out => `<div class="bub ${out ? 'out' : 'in'} skel"><span class="skeleton" style="height:12px;width:40%;"></span><span class="skeleton" style="height:36px;margin-top:8px;"></span></div>`).join('');
 }
 
-function renderStats() {
-    const box = $('#feed-stats');
-    if (!box) return;
+function statsLine() {
     const s = F.members;
-    const unheard = unheardCount();
-    box.innerHTML = `
-        <div class="stat"><b>${s ? App.num(s.total) : '–'}</b><small><i class="fa-solid fa-users"></i> משתתפים</small></div>
-        <div class="stat"><b>${s ? App.num(s.active) : '–'}</b><small><i class="fa-solid fa-phone-volume"></i> מקבלים צינתוק</small></div>
-        <div class="stat"><b>${F.loaded ? App.num(unheard) : '–'}</b><small><i class="fa-solid fa-circle" style="color:var(--a)"></i> לא שמעת</small></div>`;
+    return s ? `סה״כ ${App.num(s.total)} משתתפים · ${App.num(s.active)} מקבלים צינתוק · ${App.num(s.blocked)} מנותקים` : 'טוען משתתפים…';
+}
+function renderStats() {
+    if (App.tab === 'feed') App.setSubtitle(statsLine());
+    const last = F.items[0];
+    if (last) App.setPreview('feed', { text: `${last.valName || 'מערכת'}: הודעה קולית (${last.durationStr || ''})`, icon: 'fa-microphone', time: App.time(last.mtime) });
 }
 
 function renderChips() {
     const f = F.filter || App.prefs.feedFilter || 'all';
-    const c = {
-        all: F.items.length, unheard: unheardCount(), mine: F.items.filter(m => m.isOutgoing).length,
-        web: F.items.filter(m => m.fromWebType).length, phone: F.items.filter(m => !m.fromWebType).length,
-    };
+    const c = { all: F.items.length, unheard: unheardCount(), mine: F.items.filter(m => m.isOutgoing).length, web: F.items.filter(m => m.fromWebType).length, phone: F.items.filter(m => !m.fromWebType).length };
     const chips = [['all', 'הכל'], ['unheard', 'לא שמעתי'], ['mine', 'שלי'], ['phone', 'מהטלפון'], ['web', 'מהאתר']];
-    $('#feed-chips').innerHTML = chips.map(([k, l]) => `<button class="chip ${f === k ? 'on' : ''}" data-act="feed-filter" data-f="${k}">${l}${c[k] ? ` <span class="n">${App.num(c[k])}</span>` : ''}</button>`).join('');
+    $('#feed-chips').innerHTML = chips.map(([k, l]) => `<button class="chip ${f === k ? 'on' : ''}" data-act="feed-filter" data-f="${k}">${l}${c[k] && k !== 'all' ? ` <span class="n">${App.num(c[k])}</span>` : ''}</button>`).join('');
 }
 
 function statHtml(id) {
     const s = F.stats[id];
     const admin = App.user && App.user.isSuperAdmin;
-    const inner = s ? `<i class="fa-solid fa-globe"></i>${App.num(s.webListens)}<span class="sep">|</span><i class="fa-solid fa-phone"></i>${App.num(s.phoneListens)}` : '<i class="fa-solid fa-circle-notch spin"></i>';
-    return `<button class="stat-btn ${admin ? 'clickable' : ''}" data-act="${admin ? 'audience' : 'stats-info'}" data-id="${esc(id)}" title="${admin ? 'מי שמע ומי ראה' : 'האזנות באתר ובטלפון'}">${inner}${admin ? ' <i class="fa-solid fa-chevron-left" style="font-size:.6rem;opacity:.6"></i>' : ''}</button>`;
+    const inner = s ? `<i class="fa-solid fa-globe"></i> ${App.num(s.webListens)}<span class="sep">|</span><i class="fa-solid fa-phone"></i> ${App.num(s.phoneListens)}` : '<i class="fa-solid fa-circle-notch spin"></i>';
+    return `<button class="stat-btn ${admin ? 'clickable' : ''}" data-act="${admin ? 'audience' : 'stats-info'}" data-id="${esc(id)}" title="${admin ? 'מי שמע ומי ראה' : 'האזנות באתר ובטלפון'}">${inner}</button>`;
 }
 
 function paintStats(id) {
     const el = F.root && F.root.querySelector(`[data-stats="${CSS.escape(id)}"]`);
     if (el) el.innerHTML = statHtml(id);
+    const tick = F.root && F.root.querySelector(`[data-tick="${CSS.escape(id)}"]`);
+    const s = F.stats[id];
+    if (tick && s) tick.classList.toggle('read', (s.webListens + s.phoneListens) > 0);
 }
 
 function cardHtml(m) {
     const id = idOf(m);
     const src = sourceOf(m);
-    const d = App.parseDate(m.mtime);
     const unheard = !m.isOutgoing && !m.heardByMe;
     const name = m.valName || 'מערכת';
-    return `<article class="msg ${m.isOutgoing ? 'mine' : ''} ${unheard ? 'unheard' : ''} ${F.current === id ? 'playing' : ''}" data-msg="${esc(id)}">
-        <div class="msg-av">${App.avatar(name, name)}<span class="msg-src" title="${SRC[src][1]}"><i class="fa-solid ${SRC[src][0]}"></i></span></div>
-        <div class="msg-body">
-            <div class="msg-head"><b>${esc(name)}</b>${unheard ? '<span class="badge a new">חדש</span>' : ''}${m.isOutgoing ? '<span class="badge">שלי</span>' : ''}<time datetime="${esc(m.mtime || '')}" title="${esc(m.mtime || '')}">${d ? esc(App.time(m.mtime)) : ''}</time></div>
-            <div class="msg-play">
-                <button class="play" data-act="play" data-id="${esc(id)}" aria-label="השמעה"><i class="fa-solid ${F.current === id && !F.audio.paused ? 'fa-pause' : 'fa-play'}"></i></button>
-                ${waveHtml(id)}
-                <span class="msg-dur" data-dur="${esc(id)}">${esc(m.durationStr || '')}</span>
-            </div>
-            <div class="msg-foot">
-                ${App.prefs.showStats ? `<span data-stats="${esc(id)}">${statHtml(id)}</span>` : ''}
-                ${m.heardByMe && !m.isOutgoing ? `<span class="heard"><i class="fa-solid fa-check-double"></i> שמעת${m.myListens > 1 ? ` ${m.myListens} פעמים` : ''}</span>` : ''}
-                <span class="spacer"></span>
-                <span class="muted mono" style="font-size:.74rem;">#${esc(Number(id))}</span>
-                <button class="icon-btn sm" data-act="msg-menu" data-id="${esc(id)}" aria-label="אפשרויות"><i class="fa-solid fa-ellipsis"></i></button>
-            </div>
+    const playing = F.current === id;
+    const s = F.stats[id];
+    return `<div class="bub ${m.isOutgoing ? 'out' : 'in'} ${unheard ? 'unheard' : ''} ${playing ? 'playing' : ''}" data-msg="${esc(id)}">
+        <div class="b-head"><b class="b-name" style="color:${App.colorFor(name)}">${esc(name)}</b><span class="b-src" title="${SRC[src][1]}"><i class="fa-solid ${SRC[src][0]}"></i></span><span class="b-id">#${esc(Number(id))}</span>
+            <button class="b-menu" data-act="msg-menu" data-id="${esc(id)}" aria-label="אפשרויות"><i class="fa-solid fa-chevron-down"></i></button></div>
+        <div class="vn">
+            <span class="vn-side">${playing ? `<button class="rate-pill" data-act="pl-rate" aria-label="מהירות">${App.prefs.playbackRate}×</button>` : `${App.avatar(name, name, 'vn-av')}<i class="fa-solid fa-microphone vn-mic"></i>`}</span>
+            <button class="play" data-act="play" data-id="${esc(id)}" aria-label="השמעה"><i class="fa-solid ${playing && !F.audio.paused ? 'fa-pause' : 'fa-play'}"></i></button>
+            <div class="vn-wave">${waveHtml(id, 34)}</div>
         </div>
-    </article>`;
+        <div class="b-foot">
+            <span class="vn-dur" data-dur="${esc(id)}">${esc(m.durationStr || '')}</span>
+            ${App.prefs.showStats ? `<span data-stats="${esc(id)}">${statHtml(id)}</span>` : ''}
+            <span class="b-time">${esc(App.time(m.mtime))}${m.isOutgoing ? ` <i class="fa-solid fa-check-double tick ${s && s.webListens + s.phoneListens > 0 ? 'read' : ''}" data-tick="${esc(id)}" title="כחול = מישהו כבר שמע"></i>` : ''}</span>
+        </div>
+    </div>`;
 }
 
-function render() {
+function render({ keep = false, bottom = false } = {}) {
     if (!F.root || !$('#feed-list')) return;
     renderChips();
     renderStats();
-    const list = filtered();
-    const pill = $('#new-pill');
-    pill.innerHTML = F.pendingNew.length ? `<button data-act="feed-show-new"><i class="fa-solid fa-arrow-up"></i> ${F.pendingNew.length > 1 ? `${F.pendingNew.length} הודעות חדשות` : 'הודעה חדשה'}</button>` : '';
+    const wasBottom = nearBottom();
+    const prevH = F.root.scrollHeight, prevTop = F.root.scrollTop;
+    const list = displayList();
     if (!list.length) {
         const f = F.filter || App.prefs.feedFilter || 'all';
-        $('#feed-list').innerHTML = F.loaded ? `<div class="empty"><i class="fa-solid ${F.search ? 'fa-magnifying-glass' : f === 'unheard' ? 'fa-circle-check' : 'fa-inbox'}"></i><b>${F.search ? 'לא נמצאו הודעות' : f === 'unheard' ? 'שמעת את כל ההודעות 🎉' : 'אין הודעות כאן עדיין'}</b>${F.search ? 'נסו חיפוש אחר' : ''}</div>` : '';
+        $('#feed-list').innerHTML = F.loaded ? `<div class="sys-note">${F.search ? '🔍 לא נמצאו הודעות לחיפוש הזה' : f === 'unheard' ? '🎉 שמעת את כל ההודעות' : 'אין הודעות כאן עדיין'}</div>` : '';
         $('#feed-more').innerHTML = '';
         return;
     }
@@ -273,10 +270,29 @@ function render() {
         html += cardHtml(m);
     }
     $('#feed-list').innerHTML = html;
-    $('#feed-more').innerHTML = F.search ? '' : F.hasMore ? '<span class="muted"><i class="fa-solid fa-circle-notch spin"></i> טוען עוד…</span>' : `<span class="muted"><i class="fa-solid fa-check"></i> הגעת לסוף (${App.num(F.items.length)} הודעות)</span>`;
+    $('#feed-more').innerHTML = F.search ? '' : F.hasMore ? `<button class="older-btn" data-act="feed-older">${F.loading ? '<i class="fa-solid fa-circle-notch spin"></i> טוען…' : '<i class="fa-solid fa-clock-rotate-left"></i> טעינת הודעות קודמות'}</button>` : '<span class="sys-note">🔒 אלה כל ההודעות</span>';
+    if (keep) F.root.scrollTop = F.root.scrollHeight - prevH + prevTop;
+    else if (bottom || wasBottom) toBottom();
+    else F.root.scrollTop = prevTop;
     if (F.current) syncProgress(true);
     App.setBadge('feed', App.tab === 'feed' ? 0 : unheardCount());
 }
+
+// שורת ההקלטה בתחתית, כמו באתר הרגיל
+function renderComposer() {
+    const u = App.user || {};
+    const box = $('#composer');
+    if (!u.canRecord && !u.canUpload) { box.innerHTML = '<div class="cmp-note"><i class="fa-solid fa-lock"></i> אין לך הרשאה להקליט או להעלות הודעות</div>'; box.hidden = App.tab !== 'feed'; return; }
+    box.innerHTML = `<div class="cmp" id="cmp">
+        <div class="cmp-pill"><span class="cmp-text">${u.canRecord ? 'הקלט או בחר קובץ להעלאה' : 'בחר קובץ שמע להעלאה'}</span>
+            ${u.canUpload ? '<label class="cmp-ic" title="בחירת קובץ" aria-label="בחירת קובץ שמע"><i class="fa-solid fa-paperclip"></i><input type="file" accept="audio/*,.wav,.mp3,.m4a,.ogg,.webm" id="cmp-file" hidden></label>' : ''}</div>
+        ${u.canRecord ? '<button class="cmp-mic" data-act="rec-inline" aria-label="הקלטת הודעה"><i class="fa-solid fa-microphone"></i></button>' : ''}
+    </div>`;
+    box.hidden = App.tab !== 'feed';
+    const f = $('#cmp-file');
+    if (f) f.addEventListener('change', e => { const file = e.target.files[0]; e.target.value = ''; if (file && App.recordFile) App.recordFile(file); });
+}
+App.renderComposer = renderComposer;
 
 // ---------- נגן ----------
 
@@ -317,9 +333,10 @@ function play(id, { from } = {}) {
     }).catch(err => playError(err));
     renderPlayer();
     mediaSession(m);
-    $$('.msg.playing').forEach(el => el.classList.remove('playing'));
+    // הבועה שמתנגנת: כפתור מהירות במקום התמונה (כמו בוואטסאפ)
+    $$('.bub.playing').forEach(el => { el.classList.remove('playing'); const mm = itemById(el.dataset.msg); if (mm) el.outerHTML = cardHtml(mm); });
     const card = F.root.querySelector(`[data-msg="${CSS.escape(id)}"]`);
-    if (card) { card.classList.add('playing'); card.classList.remove('unheard'); }
+    if (card) card.outerHTML = cardHtml(m);
 }
 
 function playError(err) {
@@ -329,7 +346,7 @@ function playError(err) {
 }
 
 function next(dir = 1) {
-    const list = filtered();
+    const list = displayList();
     const i = list.findIndex(m => idOf(m) === F.current);
     const n = list[i + dir];
     if (n) play(idOf(n), { from: 0 }); else if (dir > 0) App.toast('אין הודעות נוספות', 'info');
@@ -446,7 +463,7 @@ function bindAudio() {
         const p = positions(); delete p[id]; App.store.set('v2.pos', p);
         setButtons();
         if (App.prefs.autoplayNext) {
-            const list = filtered();
+            const list = displayList();
             const i = list.findIndex(m => idOf(m) === id);
             if (list[i + 1]) { App.toast('ממשיכים להודעה הבאה', 'info', { ms: 2000 }); setTimeout(() => play(idOf(list[i + 1]), { from: 0 }), 600); }
         }
@@ -493,32 +510,6 @@ document.addEventListener('keydown', e => {
     else if (e.key === 'ArrowLeft' && F.current && !e.target.closest('.wave')) F.audio.currentTime += App.prefs.skipSeconds;
     else if (e.key === 'ArrowRight' && F.current && !e.target.closest('.wave')) F.audio.currentTime = Math.max(0, F.audio.currentTime - App.prefs.skipSeconds);
 });
-
-// משיכה למטה לרענון (בטלפון)
-function bindPullToRefresh() {
-    let y0 = null, dy = 0;
-    const ptr = $('#ptr');
-    F.root.addEventListener('touchstart', e => { if (F.root.scrollTop <= 0) y0 = e.touches[0].clientY; }, { passive: true });
-    F.root.addEventListener('touchmove', e => {
-        if (y0 === null) return;
-        dy = Math.min(90, Math.max(0, e.touches[0].clientY - y0));
-        ptr.style.height = `${dy * .7}px`;
-        ptr.firstElementChild.style.transform = `rotate(${dy > 70 ? 180 : 0}deg)`;
-    }, { passive: true });
-    F.root.addEventListener('touchend', async () => {
-        if (y0 === null) return;
-        const go = dy > 70;
-        y0 = null; dy = 0;
-        if (go) {
-            ptr.innerHTML = '<i class="fa-solid fa-circle-notch spin"></i>';
-            App.haptic(15);
-            await Promise.all([load({ silent: true }), loadMembers()]);
-            F.pendingNew = [];
-            ptr.innerHTML = '<i class="fa-solid fa-arrow-down"></i>';
-        }
-        ptr.style.height = '0';
-    });
-}
 
 // ---------- קהל ההודעה (מנהל-העל) ----------
 
@@ -593,9 +584,12 @@ App.feed = { load, reload: () => load(), play, items: () => F.items };
 
 Object.assign(App.actions, {
     'play': el => play(el.dataset.id),
-    'feed-filter': el => { F.filter = el.dataset.f; App.setPref('feedFilter', el.dataset.f); render(); F.root.scrollTop = 0; App.haptic(); },
+    'feed-filter': el => { F.filter = el.dataset.f; App.setPref('feedFilter', el.dataset.f); render({ bottom: true }); App.haptic(); },
+    'feed-older': () => load({ more: true }),
+    'feed-bottom': () => { if (F.pendingNew.length) App.actions['feed-show-new'](); toBottom(true); },
+    'feed-search': () => { const r = $('#search-row'); r.hidden = !r.hidden; if (!r.hidden) $('#feed-search').focus(); else if (F.search) { F.search = ''; $('#feed-search').value = ''; render({ bottom: true }); } },
     'feed-reload': () => load(),
-    'feed-show-new': () => { F.items = F.pendingNew.concat(F.items); F.pendingNew = []; render(); F.root.scrollTo({ top: 0, behavior: 'smooth' }); },
+    'feed-show-new': () => { F.items = F.pendingNew.concat(F.items); F.pendingNew = []; const c = $('#fab-count'); if (c) c.hidden = true; render({ bottom: true }); },
     'feed-refresh': async el => { App.busy(el, true); await Promise.all([load({ silent: true }), loadMembers()]); App.busy(el, false); F.pendingNew.length && App.actions['feed-show-new'](); },
     'msg-menu': el => openMenu(el.dataset.id),
     'audience': el => openAudience(el.dataset.id),
@@ -604,9 +598,9 @@ Object.assign(App.actions, {
     'pl-skip': el => { const d = Number(el.dataset.d) * App.prefs.skipSeconds; F.audio.currentTime = Math.max(0, Math.min(F.audio.duration || 1e9, F.audio.currentTime + d)); App.haptic(); },
     'pl-next': () => next(1),
     'pl-prev': () => next(-1),
-    'pl-rate': el => { const i = RATES.indexOf(App.prefs.playbackRate); const r = RATES[(i + 1) % RATES.length]; App.setPref('playbackRate', r); F.audio.playbackRate = r; el.textContent = `${r}×`; App.haptic(); },
+    'pl-rate': () => { const QUICK = [1, 1.5, 2]; const i = QUICK.indexOf(App.prefs.playbackRate); const r = QUICK[(i + 1) % QUICK.length]; App.setPref('playbackRate', r); F.audio.playbackRate = r; $$('[data-act="pl-rate"]').forEach(b => { b.textContent = `${r}×`; }); App.haptic(); },
     'np-rate': el => { const r = Number(el.dataset.r); App.setPref('playbackRate', r); F.audio.playbackRate = r; $$('#np-rates button').forEach(b => b.classList.toggle('on', b === el)); const pr = $('[data-act="pl-rate"]'); if (pr) pr.textContent = `${r}×`; },
-    'pl-close': () => { F.audio.pause(); if (F.current) savePos(F.current, F.audio.currentTime); F.current = null; F.audio.removeAttribute('src'); renderPlayer(); $$('.msg.playing').forEach(e => e.classList.remove('playing')); },
+    'pl-close': () => { F.audio.pause(); const was = F.current; if (was) savePos(was, F.audio.currentTime); F.current = null; F.audio.removeAttribute('src'); renderPlayer(); const el = F.root && F.root.querySelector(`[data-msg="${CSS.escape(was || '')}"]`); const mm = was && itemById(was); if (el && mm) el.outerHTML = cardHtml(mm); },
     'np-open': openNowPlaying,
 });
 
@@ -620,9 +614,9 @@ App.views.feed = {
         App.every(30000, () => load({ silent: true }), { hiddenMs: 60000 });
         App.every(120000, loadMembers);
     },
-    enter() { App.setBadge('feed', 0); if (F.loaded) render(); },
-    actions: () => '<button class="icon-btn" data-act="feed-refresh" aria-label="רענון"><i class="fa-solid fa-rotate-right"></i></button>',
-    subtitle: () => F.members ? `${App.num(F.members.total)} משתתפים · ${App.num(F.members.active)} פעילים` : '',
+    enter() { App.setBadge('feed', 0); renderComposer(); if (F.loaded) render(); },
+    actions: () => `<button class="icon-btn" data-act="feed-search" aria-label="חיפוש" title="חיפוש"><i class="fa-solid fa-magnifying-glass"></i></button>${App.mobileActions()}<button class="icon-btn" data-act="feed-refresh" aria-label="רענון" title="רענון"><i class="fa-solid fa-rotate-right"></i></button>`,
+    subtitle: () => statsLine(),
 };
 
 document.addEventListener('DOMContentLoaded', () => { bindAudio(); bindWaveSeek(); });

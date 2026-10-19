@@ -383,6 +383,7 @@ document.addEventListener('change', e => {
 });
 
 App.views.settings = {
+    actions: () => App.mobileActions(['settings']),
     init(root) { S.root = root; },
     enter() { show(S.page === 'home' ? 'home' : S.page); },
     leave() { if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; } },

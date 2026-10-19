@@ -11,12 +11,7 @@ async function loadUser() {
     return App.user;
 }
 
-function renderMe() {
-    const u = App.user;
-    $('#tb-avatar').innerHTML = App.avatar(u.name, u.phone, '', u.profilePictureUrl);
-    $('#rail-foot').innerHTML = `<button class="rail-link" data-act="tab" data-tab="settings">${App.avatar(u.name, u.phone, 'sm', u.profilePictureUrl)}<span style="display:flex;flex-direction:column;line-height:1.2;text-align:start;"><b>${esc(u.name)}</b><small class="muted ltr" style="font-weight:400;">${esc(u.phone)}</small></span></button>
-        <a class="rail-link" href="/salamon" data-classic><i class="fa-solid fa-clock-rotate-left"></i><span>לגרסה הקלאסית</span></a>`;
-}
+function renderMe() { App.renderNav(); }
 
 function renderBanner() {
     const b = App.config && App.config.banner;
@@ -57,7 +52,6 @@ App.enter = async () => {
     App.loadPrefs(prefs.ok ? prefs.data.prefs : {}, App.config.defaults || {});
 
     renderMe();
-    App.renderNav();
     renderBanner();
     $('#auth').hidden = true;
     $('#blocked').hidden = true;

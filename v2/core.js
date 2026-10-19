@@ -291,24 +291,47 @@ App.busy = (btn, on, label) => {
 // ---------- ניווט ----------
 
 App.TABS = [
-    { id: 'feed', label: 'הודעות', icon: 'fa-headphones', title: 'הודעות' },
-    { id: 'updates', label: 'עדכונים', icon: 'fa-bullhorn', title: 'עדכונים' },
-    { id: 'chat', label: 'צ׳אט', icon: 'fa-comments', title: 'צ׳אט עם הצוות' },
-    { id: 'settings', label: 'הגדרות', icon: 'fa-sliders', title: 'הגדרות' },
+    { id: 'feed', title: 'עכשיו סלומון', list: 'הודעות קוליות', icon: 'fa-headphones' },
+    { id: 'chat', title: 'צוות עכשיו סלומון', list: 'צוות עכשיו סלומון', icon: 'fa-headset' },
+    { id: 'updates', title: 'עדכונים', list: 'עדכונים והכרזות', icon: 'fa-bullhorn' },
+    { id: 'settings', title: 'הגדרות', list: 'הגדרות', icon: 'fa-gear' },
 ];
 
+// רשימת ה"שיחות" בצד (כמו וואטסאפ ווב): כל מסך הוא שורה עם תצוגה מקדימה ומונה
+const previews = {};
+App.setPreview = (tab, preview) => { previews[tab] = { ...(previews[tab] || {}), ...preview }; renderSide(); };
+function sideAvatar(t) {
+    if (t.id === 'feed' || t.id === 'chat') return `<span class="avatar logo"><img src="${LOGO}" alt=""></span>`;
+    return `<span class="avatar ic-${t.id}"><i class="fa-solid ${t.icon}"></i></span>`;
+}
+function renderSide() {
+    const box = $('#side-list');
+    if (!box) return;
+    box.innerHTML = App.TABS.filter(t => t.id !== 'settings').map(t => {
+        const p = previews[t.id] || {};
+        return `<button class="chat-item ${App.tab === t.id ? 'on' : ''}" data-act="tab" data-tab="${t.id}">
+            ${sideAvatar(t)}
+            <span class="ci-main"><span class="ci-top"><b>${App.esc(t.list)}</b><time>${App.esc(p.time || '')}</time></span>
+            <span class="ci-bottom"><span class="ci-prev">${p.icon ? `<i class="fa-solid ${p.icon}"></i> ` : ''}${App.esc(p.text || '')}</span><b class="dot" data-badge="${t.id}" ${p.badge ? '' : 'hidden'}>${p.badge > 99 ? '99+' : p.badge || ''}</b></span></span>
+        </button>`;
+    }).join('');
+}
+
 App.renderNav = () => {
-    const tab = t => `<button class="tab" data-act="tab" data-tab="${t.id}" aria-label="${t.label}"><i class="fa-solid ${t.icon}"></i><span>${t.label}</span><b class="dot" data-badge="${t.id}" hidden></b></button>`;
-    const canRecord = App.user && (App.user.canRecord || App.user.canUpload);
-    $('#tabbar').innerHTML = tab(App.TABS[0]) + tab(App.TABS[1])
-        + (canRecord ? '<button class="tab-fab" data-act="record" aria-label="הקלטה חדשה"><span><i class="fa-solid fa-microphone"></i></span></button>' : '')
-        + tab(App.TABS[2]) + tab(App.TABS[3]);
-    $('#rail-links').innerHTML = App.TABS.map(t => `<button class="rail-link" data-act="tab" data-tab="${t.id}"><i class="fa-solid ${t.icon}"></i><span>${t.title}</span><b class="dot" data-badge="${t.id}" hidden></b></button>`).join('');
-    $('#rail-record').hidden = !canRecord;
+    const u = App.user;
+    $('#side-me').innerHTML = `${App.avatar(u.name, u.phone, '', u.profilePictureUrl)}<span class="sm-text"><b>${App.esc(u.name)}</b><small class="ltr">${App.esc(u.phone)}</small></span>`;
+    renderSide();
 };
 
 App.setBadge = (tab, count) => {
+    previews[tab] = { ...(previews[tab] || {}), badge: count || 0 };
     $$(`[data-badge="${tab}"]`).forEach(b => { b.hidden = !count; b.textContent = count > 99 ? '99+' : count; });
+};
+
+App.setHeader = ({ avatar, title, sub } = {}) => {
+    if (avatar !== undefined) $('#tb-avatar').innerHTML = avatar;
+    if (title !== undefined) $('#tb-title').textContent = title;
+    if (sub !== undefined) $('#tb-sub').textContent = sub || '';
 };
 
 App.go = (tab, { replace } = {}) => {
@@ -317,10 +340,10 @@ App.go = (tab, { replace } = {}) => {
     App.tab = tab;
     document.body.dataset.tab = tab;
     $$('.view').forEach(v => v.classList.toggle('on', v.dataset.view === tab));
-    $$('[data-act="tab"]').forEach(b => { b.classList.toggle('on', b.dataset.tab === tab); b.setAttribute('aria-current', b.dataset.tab === tab ? 'page' : 'false'); });
     const t = App.TABS.find(x => x.id === tab);
-    $('#tb-title').textContent = t.title;
-    document.title = `${t.title} · עכשיו סלומון`;
+    $('#tb-back').hidden = tab === 'feed';
+    App.setHeader({ avatar: tab === 'feed' || tab === 'chat' ? `<span class="avatar logo"><img src="${LOGO}" alt=""></span>` : `<span class="avatar ic-${tab}"><i class="fa-solid ${t.icon}"></i></span>`, title: t.title, sub: '' });
+    document.title = `${t.title === 'עכשיו סלומון' ? 'הודעות' : t.title} · עכשיו סלומון`;
     const url = `#${tab}`;
     if (location.hash !== url) { try { history[replace ? 'replaceState' : 'pushState']({ tab }, '', url); } catch (e) {} }
     if (prev && App.views[prev] && App.views[prev].leave) App.views[prev].leave();
@@ -329,17 +352,23 @@ App.go = (tab, { replace } = {}) => {
         if (!v._init) { v._init = true; v.init && v.init($(`#view-${tab}`)); }
         v.enter && v.enter();
         App.renderTopActions(v.actions ? v.actions() : '');
-        $('#tb-sub').textContent = v.subtitle ? v.subtitle() : '';
+        if (v.subtitle) $('#tb-sub').textContent = v.subtitle() || '';
     }
-    $('#topbar').classList.remove('scrolled');
+    $('#composer').hidden = tab !== 'feed' || !$('#composer').innerHTML;
+    renderSide();
 };
 window.addEventListener('hashchange', () => {
-    const tab = location.hash.replace('#', '');
-    if (App.user && tab && tab !== App.tab && App.TABS.some(t => t.id === tab)) App.go(tab, { replace: true });
+    const tab = location.hash.replace('#', '') || 'feed';
+    if (App.user && tab !== App.tab && App.TABS.some(t => t.id === tab)) App.go(tab, { replace: true });
 });
 
 App.renderTopActions = html => { $('#tb-actions').innerHTML = html || ''; };
 App.setSubtitle = text => { $('#tb-sub').textContent = text || ''; };
+
+// כפתורים שמשותפים לכל המסכים בטלפון: צ'אט עם הצוות, עדכונים והגדרות
+App.mobileActions = (exclude = []) => [
+    ['updates', 'fa-bullhorn', 'עדכונים'], ['chat', 'fa-headset', 'צ׳אט עם הצוות'], ['settings', 'fa-gear', 'הגדרות'],
+].filter(([id]) => !exclude.includes(id)).map(([id, icon, label]) => `<button class="icon-btn m-only" data-act="tab" data-tab="${id}" aria-label="${label}" title="${label}"><i class="fa-solid ${icon}"></i><b class="dot" data-badge="${id}" ${(previews[id] || {}).badge ? '' : 'hidden'}>${(previews[id] || {}).badge || ''}</b></button>`).join('');
 
 // ---------- פעולות (event delegation) ----------
 
@@ -353,6 +382,7 @@ document.addEventListener('click', e => {
 });
 Object.assign(App.actions, {
     'tab': el => { App.haptic(); App.go(el.dataset.tab); },
+    'back': () => App.go('feed'),
     'sheet-close': () => App.closeSheet(),
 });
 document.addEventListener('keydown', e => {
@@ -360,8 +390,6 @@ document.addEventListener('keydown', e => {
 });
 document.addEventListener('DOMContentLoaded', () => {
     $('#scrim').addEventListener('click', () => { const s = sheets[sheets.length - 1]; if (s && s.closable) App.closeSheet(); });
-    // צל לסרגל העליון כשגוללים
-    $('#main').addEventListener('scroll', e => { $('#topbar').classList.toggle('scrolled', e.target.scrollTop > 4); }, true);
 });
 
 // ---------- מתזמן (רק כשמחוברים) ----------
