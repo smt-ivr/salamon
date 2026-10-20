@@ -5,10 +5,11 @@
 'use strict';
 const { $, esc, api } = App;
 const MAX_LEN = 2000;
+const MAX_FILE = 20 * 1024 * 1024;
 const EMOJIS = ['😊', '🙏', '👍', '❤️', '😂', '🙂', '😅', '🤔', '😮', '😢', '🎉', '✅', '❌', '🔥', '👏', '💪', '📞', '🎧', '⏳', '📩', '🙌', '😉', '🤝', '⭐'];
 const TOPICS = ['יש לי בעיה עם הצינתוקים', 'שאלה על החשבון שלי', 'בעיה בהשמעת הודעות', 'משהו אחר'];
 
-const C = { root: null, messages: [], pending: [], hash: '', hasMore: false, loadingOlder: false, fetching: false, adminTyping: false, admin: { online: false }, replyTo: null, typingAt: 0, baseline: null, visible: false, unread: 0, emoji: false };
+const C = { root: null, messages: [], pending: [], hash: '', hasMore: false, loadingOlder: false, fetching: false, adminTyping: false, admin: { online: false }, replyTo: null, typingAt: 0, baseline: null, visible: false, unread: 0, emoji: false, attach: null };
 
 function shell() {
     C.root.innerHTML = `<div class="chat">
@@ -16,18 +17,27 @@ function shell() {
         <button class="c-fab" id="c-fab" data-act="c-bottom" aria-label="לסוף השיחה"><i class="fa-solid fa-chevron-down"></i></button>
         <div class="c-composer">
             <div class="c-replybar" id="c-replybar" hidden><div><b id="c-rb-who"></b><span id="c-rb-text"></span></div><button class="icon-btn sm" data-act="c-reply-cancel" aria-label="ביטול ציטוט"><i class="fa-solid fa-xmark"></i></button></div>
+            <div class="c-replybar c-attachbar" id="c-attachbar" hidden><i class="fa-solid fa-file" id="c-ab-icon"></i><div><b id="c-ab-name"></b><span id="c-ab-size"></span></div><button class="icon-btn sm" data-act="c-attach-cancel" aria-label="הסרת הקובץ"><i class="fa-solid fa-xmark"></i></button></div>
             <div class="c-emoji" id="c-emoji" hidden>${EMOJIS.map(e => `<button type="button" data-act="c-emoji-pick" data-e="${e}">${e}</button>`).join('')}</div>
             <div class="c-composer-inner">
                 <div class="c-field">
                     <button class="icon-btn" data-act="c-emoji" aria-label="סמלים"><i class="fa-regular fa-face-smile"></i></button>
                     <textarea class="c-input" id="c-input" rows="1" maxlength="${MAX_LEN}" placeholder="הקלד הודעה" aria-label="הודעה"></textarea>
+                    <button class="icon-btn" data-act="c-attach" aria-label="צירוף קובץ" title="צירוף קובץ"><i class="fa-solid fa-paperclip"></i></button>
+                    <input type="file" id="c-file" hidden>
                 </div>
                 <button class="c-send" id="c-send" data-act="c-send" aria-label="שליחה" disabled><i class="fa-solid fa-paper-plane"></i></button>
             </div>
         </div>
     </div>`;
     const input = $('#c-input');
-    input.addEventListener('input', () => { grow(); $('#c-send').disabled = !input.value.trim(); if (input.value.trim()) typing(true); });
+    input.addEventListener('input', () => { grow(); sendState(); if (input.value.trim()) typing(true); });
+    input.addEventListener('paste', e => { const f = [...((e.clipboardData && e.clipboardData.files) || [])][0]; if (f) { e.preventDefault(); attach(f); } });
+    $('#c-file').addEventListener('change', e => attach(e.target.files && e.target.files[0]));
+    const chat = C.root.querySelector('.chat');
+    chat.addEventListener('dragover', e => { if ([...e.dataTransfer.types].includes('Files')) { e.preventDefault(); chat.classList.add('drag'); } });
+    chat.addEventListener('dragleave', e => { if (!chat.contains(e.relatedTarget)) chat.classList.remove('drag'); });
+    chat.addEventListener('drop', e => { chat.classList.remove('drag'); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) { e.preventDefault(); attach(f); } });
     input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !('ontouchstart' in window)) { e.preventDefault(); send(); } });
     input.addEventListener('blur', () => typing(false));
     $('#c-scroll').addEventListener('scroll', () => {
@@ -43,6 +53,66 @@ function shell() {
     });
 }
 
+function sendState() { $('#c-send').disabled = !$('#c-input').value.trim() && !C.attach; }
+
+function fileSize(n) {
+    if (!n) return '';
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+    return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+function fileIcon(type, name) {
+    const t = String(type || ''), n = String(name || '').toLowerCase();
+    if (t.startsWith('image/')) return 'fa-file-image';
+    if (t.startsWith('audio/')) return 'fa-file-audio';
+    if (t.startsWith('video/')) return 'fa-file-video';
+    if (t === 'application/pdf') return 'fa-file-pdf';
+    if (/\.(docx?|odt|rtf)$/.test(n)) return 'fa-file-word';
+    if (/\.(xlsx?|ods|csv)$/.test(n)) return 'fa-file-excel';
+    if (/\.(zip|rar|7z|gz)$/.test(n)) return 'fa-file-zipper';
+    return 'fa-file-lines';
+}
+// קובץ מצורף בבועה: תמונה / נגן / כרטיס הורדה. local = קובץ שעדיין עולה ('failed' = ההעלאה נכשלה)
+function fileHtml(f, local) {
+    if (!f) return '';
+    const t = String(f.type || '');
+    if (!local && /^image\/(png|jpe?g|gif|webp|avif|bmp)$/.test(t)) return `<a class="c-img" href="${esc(f.url)}" target="_blank" rel="noopener"><img src="${esc(f.url)}" alt="${esc(f.name)}" loading="lazy"></a>`;
+    if (!local && t.startsWith('audio/')) return `<audio class="c-audio" controls preload="none" src="${esc(f.url)}"></audio>`;
+    if (!local && /^video\/(mp4|webm|ogg|quicktime)$/.test(t)) return `<video class="c-video" controls preload="metadata" src="${esc(f.url)}"></video>`;
+    const inner = `<i class="fa-solid ${fileIcon(t, f.name)}"></i><span><b>${esc(f.name)}</b><small>${local ? (local === 'failed' ? 'לא נשלח · לחץ לשליחה חוזרת' : '<i class="fa-solid fa-circle-notch spin"></i> מעלה…') : esc(fileSize(f.size))}</small></span>${local ? '' : '<i class="fa-solid fa-download c-dl"></i>'}`;
+    return local ? `<div class="c-file">${inner}</div>` : `<a class="c-file" href="${esc(f.url)}?dl=1" target="_blank" rel="noopener" download>${inner}</a>`;
+}
+
+function attach(file) {
+    if (file && file.size > MAX_FILE) { App.toast(`הקובץ גדול מדי (עד ${MAX_FILE / 1024 / 1024}MB)`, 'bad'); file = null; }
+    C.attach = file || null;
+    const bar = $('#c-attachbar'); if (!bar) return;
+    bar.hidden = !C.attach;
+    $('#c-file').value = '';
+    if (C.attach) {
+        $('#c-ab-icon').className = `fa-solid ${fileIcon(C.attach.type, C.attach.name)}`;
+        $('#c-ab-name').textContent = C.attach.name;
+        $('#c-ab-size').textContent = `${fileSize(C.attach.size)} · אפשר להוסיף הודעה ולשלוח`;
+        $('#c-input').focus();
+    }
+    sendState();
+}
+
+async function upload(path, file, fields) {
+    const fd = new FormData();
+    fd.append('userToken', App.token);
+    for (const [k, v] of Object.entries(fields)) if (v !== undefined && v !== null) fd.append(k, v);
+    fd.append('file', file, file.name);
+    try {
+        const res = await fetch(App.API + path, { method: 'POST', body: fd });
+        let data = {};
+        try { data = await res.json(); } catch (e) {}
+        const ok = res.ok && data.success !== false;
+        if (res.status === 401 && App.token) App.sessionExpired();
+        return { ok, status: res.status, data, error: ok ? null : (data.message || data.error || 'הקובץ לא נשלח') };
+    } catch (e) { return { ok: false, status: 0, data: {}, error: navigator.onLine ? 'אין תקשורת עם השרת' : 'אין חיבור לאינטרנט' }; }
+}
+
 function grow() { const i = $('#c-input'); i.style.height = 'auto'; i.style.height = Math.min(140, i.scrollHeight) + 'px'; }
 
 function statusText() { return C.adminTyping ? 'מקליד/ה…' : C.admin.online ? 'מחובר/ת עכשיו' : 'נחזור אליך בהקדם האפשרי'; }
@@ -55,7 +125,7 @@ function status() {
 function preview() {
     const all = C.messages;
     const last = all[all.length - 1];
-    if (last) App.setPreview('chat', { text: `${last.sender === 'user' ? 'את/ה: ' : ''}${last.isDeleted ? 'ההודעה נמחקה' : last.text}`, time: App.time(last.createdAt) });
+    if (last) App.setPreview('chat', { text: `${last.sender === 'user' ? 'את/ה: ' : ''}${last.isDeleted ? 'ההודעה נמחקה' : last.text || (last.file ? `📎 ${last.file.name}` : '')}`, time: App.time(last.createdAt) });
     else App.setPreview('chat', { text: 'כתבו לנו, אנחנו כאן לעזור' });
 }
 
@@ -66,7 +136,7 @@ function bubble(m, prev) {
     let ticks = '';
     if (me && !m.isDeleted) ticks = m.failed ? '<i class="fa-solid fa-circle-exclamation" style="color:#fecaca" title="לא נשלח, לחצו לשליחה חוזרת"></i>' : m.pending ? '<i class="fa-regular fa-clock"></i>' : `<i class="fa-solid fa-check-double ${m.isRead ? 'read' : ''}"></i>`;
     return `<div class="c-row ${me ? 'me' : 'them'} ${same ? '' : 'gap'} ${m.failed ? 'failed' : ''}" data-id="${esc(m.id)}" ${m.localId ? `data-local="${esc(m.localId)}"` : ''}>
-        <div class="c-bub ${m.isDeleted ? 'deleted' : ''}">${quote}<div class="c-text">${m.isDeleted ? '🚫 ההודעה נמחקה' : App.richText(m.text)}</div>
+        <div class="c-bub ${m.isDeleted ? 'deleted' : ''} ${m.file && !m.isDeleted ? 'has-file' : ''}">${quote}${!m.isDeleted ? fileHtml(m.file, m.failed ? 'failed' : m.pending) : ''}${m.isDeleted || m.text ? `<div class="c-text">${m.isDeleted ? '🚫 ההודעה נמחקה' : App.richText(m.text)}</div>` : ''}
         <div class="c-meta">${m.edited ? '<span>נערך ·</span>' : ''}<span>${esc(App.time(m.createdAt))}</span>${ticks}</div></div>
         ${!m.isDeleted && !m.pending && !m.failed ? `<button class="c-reply" data-reply="${esc(m.id)}" aria-label="ציטוט"><i class="fa-solid fa-reply"></i></button>` : ''}
     </div>`;
@@ -115,7 +185,7 @@ async function fetchChat({ bottom = false } = {}) {
     if (hash !== C.hash) {
         const before = new Set(C.messages.map(m => m.id));
         const fresh = C.messages.length ? msgs.filter(m => !before.has(m.id) && m.sender === 'admin' && !m.isDeleted) : [];
-        if (fresh.length) { App.sound('msg'); App.haptic(15); if (document.hidden && App.prefs.notifyChat) App.notify('תשובה חדשה מצוות עכשיו סלומון', fresh[fresh.length - 1].text, { tag: 'salamon-chat', onClick: () => App.go('chat') }); }
+        if (fresh.length) { App.sound('msg'); App.haptic(15); const lf = fresh[fresh.length - 1]; if (document.hidden && App.prefs.notifyChat) App.notify('תשובה חדשה מצוות עכשיו סלומון', lf.text || (lf.file ? `📎 ${lf.file.name}` : ''), { tag: 'salamon-chat', onClick: () => App.go('chat') }); }
         C.hash = hash;
         C.messages = merged;
         preview();
@@ -161,7 +231,8 @@ function typing(on) {
 async function deliver(p) {
     p.pending = true; p.failed = false;
     render({ bottom: true });
-    const r = await api('/chat/send', { text: p.text, replyTo: p.replyTo ? p.replyTo.id : undefined });
+    const replyTo = p.replyTo ? p.replyTo.id : undefined;
+    const r = p.upload ? await upload('/chat/send-file', p.upload, { text: p.text, replyTo }) : await api('/chat/send', { text: p.text, replyTo });
     if (!r.ok) { p.pending = false; p.failed = true; render(); App.toast(r.error || 'ההודעה לא נשלחה', 'bad'); return; }
     App.sound('sent');
     C.pending = C.pending.filter(x => x !== p);
@@ -172,11 +243,12 @@ async function deliver(p) {
 function send() {
     const input = $('#c-input');
     const text = input.value.trim();
-    if (!text) return;
+    const file = C.attach;
+    if (!text && !file) return;
     if (text.length > MAX_LEN) { App.toast(`ההודעה ארוכה מדי (עד ${MAX_LEN} תווים)`, 'bad'); return; }
-    const p = { localId: 'l' + Date.now(), id: 'local', sender: 'user', text, createdAt: new Date().toLocaleString('sv-SE').replace('T', ' '), replyTo: C.replyTo };
+    const p = { localId: 'l' + Date.now(), id: 'local', sender: 'user', text, upload: file, file: file ? { name: file.name, type: file.type, size: file.size } : null, createdAt: new Date().toLocaleString('sv-SE').replace('T', ' '), replyTo: C.replyTo };
     C.pending.push(p);
-    input.value = ''; grow(); $('#c-send').disabled = true;
+    input.value = ''; grow(); attach(null); $('#c-send').disabled = true;
     C.replyTo = null; replyBar();
     C.typingAt = 0;
     $('#c-emoji').hidden = true;
@@ -187,7 +259,7 @@ function send() {
 function reply(id) {
     const m = C.messages.find(x => String(x.id) === String(id));
     if (!m) return;
-    C.replyTo = { id: m.id, sender: m.sender, text: m.text };
+    C.replyTo = { id: m.id, sender: m.sender, text: m.text || (m.file ? `📎 ${m.file.name}` : '') };
     replyBar();
     $('#c-input').focus();
 }
@@ -212,6 +284,8 @@ Object.assign(App.actions, {
     'c-older': loadOlder,
     'c-bottom': () => { const b = $('#c-scroll'); b.scrollTo({ top: b.scrollHeight, behavior: 'smooth' }); },
     'c-reply-cancel': () => { C.replyTo = null; replyBar(); },
+    'c-attach': () => $('#c-file').click(),
+    'c-attach-cancel': () => attach(null),
     'c-emoji': () => { C.emoji = !C.emoji; $('#c-emoji').hidden = !C.emoji; },
     'c-emoji-pick': el => { const i = $('#c-input'); i.setRangeText(el.dataset.e, i.selectionStart, i.selectionEnd, 'end'); i.focus(); $('#c-send').disabled = false; },
 });
@@ -250,5 +324,5 @@ window.addEventListener('pagehide', () => {
     if (!App.token) return;
     try { navigator.sendBeacon(`${App.API}/chat/presence`, new Blob([JSON.stringify({ userToken: App.token, state: 'offline' })], { type: 'text/plain' })); } catch (e) {}
 });
-document.addEventListener('logout', () => { Object.assign(C, { messages: [], pending: [], hash: '', baseline: null, visible: false }); if (App.views.chat) App.views.chat._init = false; });
+document.addEventListener('logout', () => { Object.assign(C, { messages: [], pending: [], hash: '', baseline: null, visible: false, attach: null }); if (App.views.chat) App.views.chat._init = false; });
 })();
