@@ -86,37 +86,201 @@ async function postFile(path, file, fields = {}) {
     return { ok: res.ok && data.success !== false, status: res.status, data };
 }
 
-function fileSize(n) {
-    if (!n) return '';
-    if (n < 1024) return `${n} B`;
-    if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
-    return `${(n / 1024 / 1024).toFixed(1)} MB`;
-}
+// ---------- קבצים בצ'אט ----------
+// אין לקבצים קישור ציבורי: כל קובץ נטען בבקשה מאומתת (עם הטוקן של המחובר) ומוצג מתוך הזיכרון של הדף.
+// קובץ שהמנהל הגביל (צפייה חד-פעמית / מספר צפיות / תוקף) לא נטען אוטומטית, וכל פתיחה שלו נספרת.
 
-function fileIcon(type, name) {
-    const t = String(type || ''), n = String(name || '').toLowerCase();
-    if (t.startsWith('image/')) return 'fa-file-image';
-    if (t.startsWith('audio/')) return 'fa-file-audio';
-    if (t.startsWith('video/')) return 'fa-file-video';
-    if (t === 'application/pdf') return 'fa-file-pdf';
-    if (/\.(docx?|odt|rtf)$/.test(n)) return 'fa-file-word';
-    if (/\.(xlsx?|ods|csv)$/.test(n)) return 'fa-file-excel';
-    if (/\.(zip|rar|7z|gz)$/.test(n)) return 'fa-file-zipper';
-    return 'fa-file-lines';
-}
+// api: פונקציה שמחזירה את כתובת ה-API, auth: פונקציה שמחזירה את הטוקן לבקשה
+function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
+    const cache = new Map();
+    const loading = new Map();
+    const IMG = /^image\/(png|jpe?g|gif|webp|avif|bmp)$/;
+    const VID = /^video\/(mp4|webm|ogg|quicktime)$/;
+    const kind = t => IMG.test(t) ? 'img' : String(t).startsWith('audio/') ? 'audio' : VID.test(t) ? 'video' : (t === 'application/pdf' || t === 'text/plain') ? 'doc' : 'file';
 
-// קובץ מצורף בבועה: תמונה / נגן / כרטיס הורדה. local = קובץ שעדיין עולה ('failed' = ההעלאה נכשלה)
-function fileHtml(f, local) {
-    if (!f) return '';
-    const t = String(f.type || '');
-    if (!local && /^image\/(png|jpe?g|gif|webp|avif|bmp)$/.test(t)) {
-        return `<a class="sc-img" href="${esc(f.url)}" target="_blank" rel="noopener"><img src="${esc(f.url)}" alt="${esc(f.name)}" loading="lazy"></a>`;
+    function size(n) {
+        if (!n) return '';
+        if (n < 1024) return `${n} B`;
+        if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+        return `${(n / 1024 / 1024).toFixed(1)} MB`;
     }
-    if (!local && t.startsWith('audio/')) return `<audio class="sc-audio" controls preload="none" src="${esc(f.url)}"></audio>`;
-    if (!local && /^video\/(mp4|webm|ogg|quicktime)$/.test(t)) return `<video class="sc-video" controls preload="metadata" src="${esc(f.url)}"></video>`;
-    const inner = `<i class="fa-solid ${fileIcon(t, f.name)}"></i><span><b>${esc(f.name)}</b><small>${local ? (local === 'failed' ? 'לא נשלח · לחץ לשליחה חוזרת' : '<i class="fa-solid fa-circle-notch fa-spin"></i> מעלה…') : esc(fileSize(f.size))}</small></span>${local ? '' : '<i class="fa-solid fa-download sc-dl"></i>'}`;
-    return local ? `<div class="sc-file">${inner}</div>` : `<a class="sc-file" href="${esc(f.url)}?dl=1" target="_blank" rel="noopener" download>${inner}</a>`;
+    function icon(type, name) {
+        const t = String(type || ''), n = String(name || '').toLowerCase();
+        if (t.startsWith('image/')) return 'fa-file-image';
+        if (t.startsWith('audio/')) return 'fa-file-audio';
+        if (t.startsWith('video/')) return 'fa-file-video';
+        if (t === 'application/pdf') return 'fa-file-pdf';
+        if (/\.(docx?|odt|rtf)$/.test(n)) return 'fa-file-word';
+        if (/\.(xlsx?|ods|csv)$/.test(n)) return 'fa-file-excel';
+        if (/\.(zip|rar|7z|gz)$/.test(n)) return 'fa-file-zipper';
+        return 'fa-file-lines';
+    }
+    function when(str) {
+        const d = str ? new Date(String(str).replace(' ', 'T')) : null;
+        return d && !isNaN(d) ? d.toLocaleString('he-IL', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    }
+    function limitText(f) {
+        const parts = [];
+        if (f.maxViews === 1) parts.push(viewer === 'admin' ? `צפייה חד-פעמית · ${f.views ? 'נצפה' : 'לא נצפה'}` : 'צפייה חד-פעמית');
+        else if (f.maxViews !== null && f.maxViews !== undefined) parts.push(viewer === 'admin' ? `נצפה ${f.views}/${f.maxViews}` : `נותרו ${Math.max(0, f.maxViews - f.views)} צפיות`);
+        else if (viewer === 'admin' && f.views) parts.push(`נצפה ${f.views} פעמים`);
+        if (f.expiresAt) parts.push(`עד ${when(f.expiresAt)}`);
+        return parts.join(' · ');
+    }
+    const BLOCKED = { expired: 'פג תוקף הקובץ', used: 'הקובץ כבר נצפה', revoked: 'הגישה לקובץ בוטלה' };
+
+    async function fetchBlob(id, download) {
+        let res;
+        try {
+            res = await fetch(`${api()}/chat/file`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...auth(), messageId: Number(id), download: !!download }) });
+        } catch (e) { throw new Error('שגיאת תקשורת מול השרת'); }
+        if (!res.ok) {
+            let d = {};
+            try { d = await res.json(); } catch (e) {}
+            const err = new Error(d.error || 'לא ניתן לפתוח את הקובץ');
+            err.status = res.status;
+            throw err;
+        }
+        return res.blob();
+    }
+    // קבצים בלי הגבלה נשמרים בזיכרון הדף, כדי שרענון השיחה לא יטען אותם שוב
+    function load(id) {
+        if (cache.has(id)) return Promise.resolve(cache.get(id));
+        if (!loading.has(id)) {
+            loading.set(id, fetchBlob(id).then(b => { const u = URL.createObjectURL(b); cache.set(id, u); return u; }).finally(() => loading.delete(id)));
+        }
+        return loading.get(id);
+    }
+
+    function card(cls, ic, name, sub, attrs = '', tail = '') {
+        return `<div class="cf-card ${cls}" ${attrs}><i class="fa-solid ${ic}"></i><span><b>${esc(name)}</b><small>${sub}</small></span>${tail}</div>`;
+    }
+
+    // state: 'up' (עולה), 'failed' (ההעלאה נכשלה), או ריק להודעה שנשמרה
+    function html(f, id, state) {
+        if (!f) return '';
+        const t = String(f.type || ''), k = kind(t), key = String(id);
+        if (state) return card('', icon(t, f.name), f.name, state === 'failed' ? 'לא נשלח · לחץ לשליחה חוזרת' : '<i class="fa-solid fa-circle-notch fa-spin"></i> מעלה…');
+        const lim = f.limited || (viewer === 'admin' && f.views) ? limitText(f) : '';
+        const badge = viewer === 'admin' && lim ? `<div class="cf-limit ${f.blocked ? 'off' : ''}"><i class="fa-solid fa-${f.blocked ? 'ban' : 'eye'}"></i> ${esc(lim)}${f.blocked ? ` · ${esc(BLOCKED[f.blocked] || '')}` : ''}</div>` : '';
+        if (viewer === 'user' && !f.available) return card('off', 'fa-lock', f.name, esc(BLOCKED[f.blocked] || 'הקובץ אינו זמין'));
+        if (viewer === 'user' && f.limited) return card('locked', 'fa-lock', f.name, `${esc(lim)} · לחץ לפתיחה`, `role="button" tabindex="0" data-file-open="${esc(key)}"`, '<i class="fa-solid fa-eye cf-act"></i>');
+        if (k === 'img') {
+            const u = cache.get(key);
+            return `<button type="button" class="cf-img" data-file-open="${esc(key)}" aria-label="${esc(f.name)}">${u ? `<img src="${u}" alt="">` : `<img data-hydrate="${esc(key)}" alt="">`}</button>${badge}`;
+        }
+        const play = k === 'audio' || k === 'video';
+        return card('', play ? (k === 'audio' ? 'fa-circle-play' : 'fa-film') : icon(t, f.name), f.name, esc(size(f.size)) + (play ? ' · לחץ להשמעה' : ''),
+            `role="button" tabindex="0" data-file-open="${esc(key)}"`, `<i class="fa-solid ${play ? 'fa-play' : 'fa-download'} cf-act"></i>`) + badge;
+    }
+
+    // טעינת תמונות (בלי הגבלה) אחרי ציור ההודעות
+    function hydrate(root) {
+        if (!root) return;
+        root.querySelectorAll('img[data-hydrate]').forEach(el => {
+            load(el.dataset.hydrate).then(u => { el.src = u; el.removeAttribute('data-hydrate'); })
+                .catch(() => { el.closest('.cf-img')?.classList.add('broken'); });
+        });
+    }
+
+    function saveBlob(url, name) {
+        const a = document.createElement('a');
+        a.href = url; a.download = name || 'file';
+        document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    function viewerOpen(url, f, { temp, canSave }) {
+        const k = kind(f.type);
+        const ov = document.createElement('div');
+        ov.className = 'cf-viewer';
+        ov.innerHTML = `<div class="cf-v-bar"><b>${esc(f.name)}</b>${canSave ? '<button type="button" class="cf-v-btn" data-v="save" aria-label="שמירה"><i class="fa-solid fa-download"></i></button>' : ''}<button type="button" class="cf-v-btn" data-v="close" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button></div>
+            <div class="cf-v-body">${k === 'img' ? `<img src="${url}" alt="">` : k === 'video' ? `<video src="${url}" controls autoplay playsinline></video>` : `<audio src="${url}" controls autoplay></audio>`}</div>
+            ${f.limited && viewer === 'user' ? `<div class="cf-v-note"><i class="fa-solid fa-lock"></i> ${esc(limitText(f))}</div>` : ''}`;
+        const close = () => { ov.remove(); document.removeEventListener('keydown', onKey, true); if (temp) URL.revokeObjectURL(url); };
+        const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+        ov.addEventListener('click', e => {
+            const b = e.target.closest('[data-v]');
+            if (b && b.dataset.v === 'save') { saveBlob(url, f.name); return; }
+            if (b || e.target === ov || e.target.classList.contains('cf-v-body')) close();
+        });
+        ov.addEventListener('contextmenu', e => { if (!canSave) e.preventDefault(); });
+        document.addEventListener('keydown', onKey, true);
+        document.body.appendChild(ov);
+    }
+
+    async function open(id, f) {
+        if (!f) return;
+        const key = String(id), k = kind(f.type);
+        const limited = viewer === 'user' && f.limited;
+        // לקובץ PDF/טקסט פותחים לשונית מיד, כדי שהדפדפן לא יחסום אותה אחרי הטעינה
+        const tab = k === 'doc' ? window.open('', '_blank') : null;
+        try {
+            let url, temp = false;
+            if (limited || k === 'doc' || k === 'file') { url = URL.createObjectURL(await fetchBlob(key, k === 'file')); temp = true; }
+            else url = await load(key);
+            if (k === 'doc') {
+                if (tab) tab.location.href = url; else window.open(url, '_blank');
+                setTimeout(() => URL.revokeObjectURL(url), 60000);
+            } else if (k === 'file') {
+                saveBlob(url, f.name);
+                setTimeout(() => URL.revokeObjectURL(url), 10000);
+            } else viewerOpen(url, f, { temp, canSave: !limited });
+        } catch (e) {
+            if (tab) tab.close();
+            toast(e.message);
+        }
+        if (limited && onChange) onChange();
+    }
+
+    function clear() {
+        for (const u of cache.values()) URL.revokeObjectURL(u);
+        cache.clear();
+    }
+
+    return { html, hydrate, open, clear, size, icon, limitText };
 }
+
+function injectChatFileStyles() {
+    if (document.getElementById('cf-styles')) return;
+    const css = document.createElement('style');
+    css.id = 'cf-styles';
+    css.textContent = `
+    .cf-card { display: flex; align-items: center; gap: 10px; min-width: 210px; max-width: 290px; padding: 9px 11px; margin: 1px 0 4px; border-radius: 9px; background: rgba(127,127,127,.13); color: inherit; text-align: start; }
+    .cf-card[data-file-open] { cursor: pointer; }
+    .cf-card[data-file-open]:hover { background: rgba(127,127,127,.2); }
+    .cf-card > i:first-child { font-size: 1.6rem; color: #3b82f6; flex-shrink: 0; }
+    .cf-card.locked > i:first-child { color: #f59e0b; }
+    .cf-card.off { opacity: .75; }
+    .cf-card.off > i:first-child { color: #94a3b8; }
+    .cf-card span { flex: 1; min-width: 0; line-height: 1.3; }
+    .cf-card b { display: block; font-size: .86rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cf-card small { font-size: .73rem; opacity: .75; }
+    .cf-card .cf-act { opacity: .7; }
+    .cf-img { display: block; padding: 0; border: none; background: none; cursor: zoom-in; margin: 0 0 4px; border-radius: 8px; overflow: hidden; }
+    .cf-img img { display: block; max-width: min(300px, 100%); max-height: 280px; object-fit: cover; }
+    .cf-img img:not([src]) { width: 220px; height: 150px; background: rgba(127,127,127,.15); }
+    .cf-img.broken img { width: 220px; height: 60px; }
+    .cf-limit { font-size: .72rem; opacity: .85; margin: -1px 0 4px; }
+    .cf-limit.off { color: #ef4444; opacity: 1; }
+    .cf-viewer { position: fixed; inset: 0; z-index: 3000; display: flex; flex-direction: column; background: rgba(2,6,23,.97); color: #fff; direction: rtl; font-family: inherit; animation: cfFade .15s ease; }
+    @keyframes cfFade { from { opacity: 0; } }
+    .cf-v-bar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; }
+    .cf-v-bar b { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .95rem; }
+    .cf-v-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(255,255,255,.12); color: #fff; cursor: pointer; font-size: 1rem; }
+    .cf-v-btn:hover { background: rgba(255,255,255,.22); }
+    .cf-v-body { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 10px; }
+    .cf-v-body img, .cf-v-body video { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px; }
+    .cf-v-body audio { width: min(460px, 100%); }
+    .cf-v-note { text-align: center; padding: 10px 14px 16px; font-size: .85rem; color: #fcd34d; }
+    `;
+    document.head.appendChild(css);
+}
+
+const F = createChatFiles({
+    api: () => API_BASE_URL, auth: () => ({ userToken: state.userToken }), esc,
+    toast: msg => { if (typeof showToast === 'function') showToast(msg, 'error'); },
+    onChange: () => { C.fetching = false; C.hash = ''; fetchChat(); },
+});
 
 // ---------- UI ----------
 
@@ -234,16 +398,6 @@ function injectStyles() {
     .sc-preview-card p { color: #64748b; font-size: .88rem; margin: 14px 0; }
     .sc-preview-card button { width: 100%; border: none; border-radius: 12px; padding: 12px; background: #16a34a; color: #fff; font-weight: 700; font-size: .95rem; cursor: pointer; font-family: inherit; }
 
-    .sc-file { display: flex; align-items: center; gap: 10px; min-width: 200px; max-width: 280px; padding: 9px 11px; margin: 1px 0 4px; border-radius: 8px; background: rgba(0,0,0,.05); color: inherit; text-decoration: none; }
-    .sc-file > i:first-child { font-size: 1.7rem; color: #2563eb; flex-shrink: 0; }
-    .sc-file span { flex: 1; min-width: 0; line-height: 1.3; }
-    .sc-file b { display: block; font-size: .86rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .sc-file small { font-size: .72rem; color: #667781; }
-    .sc-file .sc-dl { color: #54656f; }
-    .sc-img { display: block; margin: -2px -5px 4px; }
-    .sc-img img { display: block; max-width: 100%; max-height: 280px; border-radius: 8px; object-fit: cover; background: rgba(0,0,0,.05); }
-    .sc-audio { display: block; width: 250px; max-width: 100%; height: 40px; margin: 2px 0 4px; }
-    .sc-video { display: block; max-width: 100%; max-height: 280px; border-radius: 8px; margin: 0 0 4px; background: #000; }
     .sc-attachbar { display: none; align-items: center; gap: 10px; padding: 8px 12px; background: #f0f2f5; border-top: 1px solid #e2e8f0; }
     .sc-attachbar.show { display: flex; }
     .sc-attachbar > i { font-size: 1.5rem; color: #2563eb; }
@@ -258,6 +412,7 @@ function injectStyles() {
     @media (prefers-reduced-motion: reduce) { .sc-overlay *, .sc-overlay { animation: none !important; } }
     `;
     document.head.appendChild(css);
+    injectChatFileStyles();
 }
 
 function injectModal() {
@@ -331,7 +486,7 @@ function bubbleHtml(m, prev) {
     return `<div class="${cls}" data-id="${esc(m.id)}" ${m.localId ? `data-local="${esc(m.localId)}"` : ''}>
         <div class="sc-bubble ${m.isDeleted ? 'deleted' : ''}">
             ${quote}
-            ${!m.isDeleted ? fileHtml(m.file, m.failed ? 'failed' : m.pending) : ''}
+            ${!m.isDeleted ? F.html(m.file, m.id, m.failed ? 'failed' : m.pending ? 'up' : '') : ''}
             ${m.isDeleted || m.text ? `<div class="sc-text">${m.isDeleted ? '🚫 ההודעה נמחקה' : richText(m.text)}</div>` : ''}
             <div class="sc-meta">${ticks}<span>${esc(timeOf(m.createdAt))}</span>${m.edited ? '<span>· נערך</span>' : ''}</div>
         </div>
@@ -367,6 +522,7 @@ function render({ keepPosition = false, forceBottom = false } = {}) {
     });
     if (C.adminTyping) html += '<div class="sc-row them gap"><div class="sc-typing" aria-label="מקליד/ה"><i></i><i></i><i></i></div></div>';
     box.innerHTML = html;
+    F.hydrate(box);
 
     if (keepPosition) box.scrollTop = box.scrollHeight - prevHeight + prevTop;
     else if (forceBottom || atBottom) box.scrollTop = box.scrollHeight;
@@ -568,9 +724,9 @@ function setAttach(file) {
     $('#sc-attachbar').classList.toggle('show', !!C.attach);
     $('#sc-file').value = '';
     if (C.attach) {
-        $('#sc-ab-icon').className = `fa-solid ${fileIcon(C.attach.type, C.attach.name)}`;
+        $('#sc-ab-icon').className = `fa-solid ${F.icon(C.attach.type, C.attach.name)}`;
         $('#sc-ab-name').textContent = C.attach.name;
-        $('#sc-ab-size').textContent = fileSize(C.attach.size) + ' · אפשר להוסיף הודעה ולשלוח';
+        $('#sc-ab-size').textContent = F.size(C.attach.size) + ' · אפשר להוסיף הודעה ולשלוח';
         $('#sc-input').focus();
     }
     autoGrow();
@@ -661,6 +817,8 @@ function bind() {
     $('#sc-msgs').addEventListener('click', e => {
         const reply = e.target.closest('[data-reply]');
         if (reply) { startReply(reply.dataset.reply); return; }
+        const file = e.target.closest('[data-file-open]');
+        if (file) { const m = C.messages.find(x => String(x.id) === file.dataset.fileOpen); if (m) F.open(m.id, m.file); return; }
         const jump = e.target.closest('[data-jump]');
         if (jump) { jumpTo(jump.dataset.jump); return; }
         const topic = e.target.closest('[data-topic]');
@@ -859,6 +1017,7 @@ document.addEventListener('DOMContentLoaded', () => {
             hadToken = false;
             C.messages = []; C.pending = []; C.hash = '';
             setAttach(null);
+            F.clear();
             if (C.open) closeChat();
             updateBadge(0);
         }

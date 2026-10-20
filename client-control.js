@@ -265,7 +265,7 @@ function toast(text, type = 'good') {
 
 let dialogResolve = null;
 
-function dialog({ title, text = '', icon = 'warn', buttons, input = null }) {
+function dialog({ title, text = '', icon = 'warn', buttons, input = null, extra = '' }) {
     return new Promise(resolve => {
         dialogResolve = resolve;
         $('#dialog-title').textContent = title;
@@ -273,6 +273,9 @@ function dialog({ title, text = '', icon = 'warn', buttons, input = null }) {
         const ic = $('#dialog-icon');
         ic.className = 'd-icon' + (icon === 'info' ? ' info' : '');
         ic.innerHTML = icon === 'info' ? '<i class="fa-solid fa-circle-info"></i>' : '<i class="fa-solid fa-triangle-exclamation"></i>';
+        const ex = $('#dialog-extra');
+        ex.innerHTML = extra;
+        ex.hidden = !extra;
         const inp = $('#dialog-input');
         inp.hidden = !input;
         inp.value = (input && input.value) || '';
@@ -288,7 +291,7 @@ function dialog({ title, text = '', icon = 'warn', buttons, input = null }) {
                 if (b.value && input && input.expect !== undefined && inp.value.trim() !== input.expect) {
                     inp.focus(); inp.style.borderColor = 'var(--bad)'; return;
                 }
-                closeDialog(b.value ? { value: b.value, input: inp.value.trim() } : null);
+                closeDialog(b.value ? { value: b.value, input: inp.value.trim(), extra: dialogExtraValues() } : null);
             });
             actions.appendChild(btn);
         });
@@ -296,6 +299,12 @@ function dialog({ title, text = '', icon = 'warn', buttons, input = null }) {
         $('#dialog').classList.add('open');
         setTimeout(() => (input ? inp : actions.firstElementChild)?.focus(), 50);
     });
+}
+
+function dialogExtraValues() {
+    const out = {};
+    $$('#dialog-extra [name]').forEach(el => { out[el.name] = el.type === 'checkbox' ? el.checked : el.value; });
+    return out;
 }
 
 function closeDialog(result) {
@@ -365,6 +374,7 @@ function toggleTheme() {
 
 async function boot() {
     applyTheme();
+    injectChatFileStyles();
     if (getItem('controlSidebar') === 'collapsed') $('#app').classList.add('collapsed');
     if (getItem('controlDensity') === 'dense') document.body.classList.add('dense');
 
@@ -1410,34 +1420,237 @@ async function refreshThread(silent = true) {
 
 const MAX_CHAT_FILE = 20 * 1024 * 1024;
 
-function fileSize(n) {
-    if (!n) return '';
-    if (n < 1024) return `${n} B`;
-    if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
-    return `${(n / 1024 / 1024).toFixed(1)} MB`;
+// ---------- קבצים בצ'אט ----------
+// אין לקבצים קישור ציבורי: כל קובץ נטען בבקשה מאומתת (עם הטוקן של המחובר) ומוצג מתוך הזיכרון של הדף.
+// קובץ שהמנהל הגביל (צפייה חד-פעמית / מספר צפיות / תוקף) לא נטען אוטומטית, וכל פתיחה שלו נספרת.
+
+// api: פונקציה שמחזירה את כתובת ה-API, auth: פונקציה שמחזירה את הטוקן לבקשה
+function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
+    const cache = new Map();
+    const loading = new Map();
+    const IMG = /^image\/(png|jpe?g|gif|webp|avif|bmp)$/;
+    const VID = /^video\/(mp4|webm|ogg|quicktime)$/;
+    const kind = t => IMG.test(t) ? 'img' : String(t).startsWith('audio/') ? 'audio' : VID.test(t) ? 'video' : (t === 'application/pdf' || t === 'text/plain') ? 'doc' : 'file';
+
+    function size(n) {
+        if (!n) return '';
+        if (n < 1024) return `${n} B`;
+        if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+        return `${(n / 1024 / 1024).toFixed(1)} MB`;
+    }
+    function icon(type, name) {
+        const t = String(type || ''), n = String(name || '').toLowerCase();
+        if (t.startsWith('image/')) return 'fa-file-image';
+        if (t.startsWith('audio/')) return 'fa-file-audio';
+        if (t.startsWith('video/')) return 'fa-file-video';
+        if (t === 'application/pdf') return 'fa-file-pdf';
+        if (/\.(docx?|odt|rtf)$/.test(n)) return 'fa-file-word';
+        if (/\.(xlsx?|ods|csv)$/.test(n)) return 'fa-file-excel';
+        if (/\.(zip|rar|7z|gz)$/.test(n)) return 'fa-file-zipper';
+        return 'fa-file-lines';
+    }
+    function when(str) {
+        const d = str ? new Date(String(str).replace(' ', 'T')) : null;
+        return d && !isNaN(d) ? d.toLocaleString('he-IL', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+    }
+    function limitText(f) {
+        const parts = [];
+        if (f.maxViews === 1) parts.push(viewer === 'admin' ? `צפייה חד-פעמית · ${f.views ? 'נצפה' : 'לא נצפה'}` : 'צפייה חד-פעמית');
+        else if (f.maxViews !== null && f.maxViews !== undefined) parts.push(viewer === 'admin' ? `נצפה ${f.views}/${f.maxViews}` : `נותרו ${Math.max(0, f.maxViews - f.views)} צפיות`);
+        else if (viewer === 'admin' && f.views) parts.push(`נצפה ${f.views} פעמים`);
+        if (f.expiresAt) parts.push(`עד ${when(f.expiresAt)}`);
+        return parts.join(' · ');
+    }
+    const BLOCKED = { expired: 'פג תוקף הקובץ', used: 'הקובץ כבר נצפה', revoked: 'הגישה לקובץ בוטלה' };
+
+    async function fetchBlob(id, download) {
+        let res;
+        try {
+            res = await fetch(`${api()}/chat/file`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...auth(), messageId: Number(id), download: !!download }) });
+        } catch (e) { throw new Error('שגיאת תקשורת מול השרת'); }
+        if (!res.ok) {
+            let d = {};
+            try { d = await res.json(); } catch (e) {}
+            const err = new Error(d.error || 'לא ניתן לפתוח את הקובץ');
+            err.status = res.status;
+            throw err;
+        }
+        return res.blob();
+    }
+    // קבצים בלי הגבלה נשמרים בזיכרון הדף, כדי שרענון השיחה לא יטען אותם שוב
+    function load(id) {
+        if (cache.has(id)) return Promise.resolve(cache.get(id));
+        if (!loading.has(id)) {
+            loading.set(id, fetchBlob(id).then(b => { const u = URL.createObjectURL(b); cache.set(id, u); return u; }).finally(() => loading.delete(id)));
+        }
+        return loading.get(id);
+    }
+
+    function card(cls, ic, name, sub, attrs = '', tail = '') {
+        return `<div class="cf-card ${cls}" ${attrs}><i class="fa-solid ${ic}"></i><span><b>${esc(name)}</b><small>${sub}</small></span>${tail}</div>`;
+    }
+
+    // state: 'up' (עולה), 'failed' (ההעלאה נכשלה), או ריק להודעה שנשמרה
+    function html(f, id, state) {
+        if (!f) return '';
+        const t = String(f.type || ''), k = kind(t), key = String(id);
+        if (state) return card('', icon(t, f.name), f.name, state === 'failed' ? 'לא נשלח · לחץ לשליחה חוזרת' : '<i class="fa-solid fa-circle-notch fa-spin"></i> מעלה…');
+        const lim = f.limited || (viewer === 'admin' && f.views) ? limitText(f) : '';
+        const badge = viewer === 'admin' && lim ? `<div class="cf-limit ${f.blocked ? 'off' : ''}"><i class="fa-solid fa-${f.blocked ? 'ban' : 'eye'}"></i> ${esc(lim)}${f.blocked ? ` · ${esc(BLOCKED[f.blocked] || '')}` : ''}</div>` : '';
+        if (viewer === 'user' && !f.available) return card('off', 'fa-lock', f.name, esc(BLOCKED[f.blocked] || 'הקובץ אינו זמין'));
+        if (viewer === 'user' && f.limited) return card('locked', 'fa-lock', f.name, `${esc(lim)} · לחץ לפתיחה`, `role="button" tabindex="0" data-file-open="${esc(key)}"`, '<i class="fa-solid fa-eye cf-act"></i>');
+        if (k === 'img') {
+            const u = cache.get(key);
+            return `<button type="button" class="cf-img" data-file-open="${esc(key)}" aria-label="${esc(f.name)}">${u ? `<img src="${u}" alt="">` : `<img data-hydrate="${esc(key)}" alt="">`}</button>${badge}`;
+        }
+        const play = k === 'audio' || k === 'video';
+        return card('', play ? (k === 'audio' ? 'fa-circle-play' : 'fa-film') : icon(t, f.name), f.name, esc(size(f.size)) + (play ? ' · לחץ להשמעה' : ''),
+            `role="button" tabindex="0" data-file-open="${esc(key)}"`, `<i class="fa-solid ${play ? 'fa-play' : 'fa-download'} cf-act"></i>`) + badge;
+    }
+
+    // טעינת תמונות (בלי הגבלה) אחרי ציור ההודעות
+    function hydrate(root) {
+        if (!root) return;
+        root.querySelectorAll('img[data-hydrate]').forEach(el => {
+            load(el.dataset.hydrate).then(u => { el.src = u; el.removeAttribute('data-hydrate'); })
+                .catch(() => { el.closest('.cf-img')?.classList.add('broken'); });
+        });
+    }
+
+    function saveBlob(url, name) {
+        const a = document.createElement('a');
+        a.href = url; a.download = name || 'file';
+        document.body.appendChild(a); a.click(); a.remove();
+    }
+
+    function viewerOpen(url, f, { temp, canSave }) {
+        const k = kind(f.type);
+        const ov = document.createElement('div');
+        ov.className = 'cf-viewer';
+        ov.innerHTML = `<div class="cf-v-bar"><b>${esc(f.name)}</b>${canSave ? '<button type="button" class="cf-v-btn" data-v="save" aria-label="שמירה"><i class="fa-solid fa-download"></i></button>' : ''}<button type="button" class="cf-v-btn" data-v="close" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button></div>
+            <div class="cf-v-body">${k === 'img' ? `<img src="${url}" alt="">` : k === 'video' ? `<video src="${url}" controls autoplay playsinline></video>` : `<audio src="${url}" controls autoplay></audio>`}</div>
+            ${f.limited && viewer === 'user' ? `<div class="cf-v-note"><i class="fa-solid fa-lock"></i> ${esc(limitText(f))}</div>` : ''}`;
+        const close = () => { ov.remove(); document.removeEventListener('keydown', onKey, true); if (temp) URL.revokeObjectURL(url); };
+        const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+        ov.addEventListener('click', e => {
+            const b = e.target.closest('[data-v]');
+            if (b && b.dataset.v === 'save') { saveBlob(url, f.name); return; }
+            if (b || e.target === ov || e.target.classList.contains('cf-v-body')) close();
+        });
+        ov.addEventListener('contextmenu', e => { if (!canSave) e.preventDefault(); });
+        document.addEventListener('keydown', onKey, true);
+        document.body.appendChild(ov);
+    }
+
+    async function open(id, f) {
+        if (!f) return;
+        const key = String(id), k = kind(f.type);
+        const limited = viewer === 'user' && f.limited;
+        // לקובץ PDF/טקסט פותחים לשונית מיד, כדי שהדפדפן לא יחסום אותה אחרי הטעינה
+        const tab = k === 'doc' ? window.open('', '_blank') : null;
+        try {
+            let url, temp = false;
+            if (limited || k === 'doc' || k === 'file') { url = URL.createObjectURL(await fetchBlob(key, k === 'file')); temp = true; }
+            else url = await load(key);
+            if (k === 'doc') {
+                if (tab) tab.location.href = url; else window.open(url, '_blank');
+                setTimeout(() => URL.revokeObjectURL(url), 60000);
+            } else if (k === 'file') {
+                saveBlob(url, f.name);
+                setTimeout(() => URL.revokeObjectURL(url), 10000);
+            } else viewerOpen(url, f, { temp, canSave: !limited });
+        } catch (e) {
+            if (tab) tab.close();
+            toast(e.message);
+        }
+        if (limited && onChange) onChange();
+    }
+
+    function clear() {
+        for (const u of cache.values()) URL.revokeObjectURL(u);
+        cache.clear();
+    }
+
+    return { html, hydrate, open, clear, size, icon, limitText };
 }
 
-function fileIcon(type, name) {
-    const t = String(type || ''), n = String(name || '').toLowerCase();
-    if (t.startsWith('image/')) return 'fa-file-image';
-    if (t.startsWith('audio/')) return 'fa-file-audio';
-    if (t.startsWith('video/')) return 'fa-file-video';
-    if (t === 'application/pdf') return 'fa-file-pdf';
-    if (/\.(docx?|odt|rtf)$/.test(n)) return 'fa-file-word';
-    if (/\.(xlsx?|ods|csv)$/.test(n)) return 'fa-file-excel';
-    if (/\.(zip|rar|7z|gz)$/.test(n)) return 'fa-file-zipper';
-    return 'fa-file-lines';
+function injectChatFileStyles() {
+    if (document.getElementById('cf-styles')) return;
+    const css = document.createElement('style');
+    css.id = 'cf-styles';
+    css.textContent = `
+    .cf-card { display: flex; align-items: center; gap: 10px; min-width: 210px; max-width: 290px; padding: 9px 11px; margin: 1px 0 4px; border-radius: 9px; background: rgba(127,127,127,.13); color: inherit; text-align: start; }
+    .cf-card[data-file-open] { cursor: pointer; }
+    .cf-card[data-file-open]:hover { background: rgba(127,127,127,.2); }
+    .cf-card > i:first-child { font-size: 1.6rem; color: #3b82f6; flex-shrink: 0; }
+    .cf-card.locked > i:first-child { color: #f59e0b; }
+    .cf-card.off { opacity: .75; }
+    .cf-card.off > i:first-child { color: #94a3b8; }
+    .cf-card span { flex: 1; min-width: 0; line-height: 1.3; }
+    .cf-card b { display: block; font-size: .86rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cf-card small { font-size: .73rem; opacity: .75; }
+    .cf-card .cf-act { opacity: .7; }
+    .cf-img { display: block; padding: 0; border: none; background: none; cursor: zoom-in; margin: 0 0 4px; border-radius: 8px; overflow: hidden; }
+    .cf-img img { display: block; max-width: min(300px, 100%); max-height: 280px; object-fit: cover; }
+    .cf-img img:not([src]) { width: 220px; height: 150px; background: rgba(127,127,127,.15); }
+    .cf-img.broken img { width: 220px; height: 60px; }
+    .cf-limit { font-size: .72rem; opacity: .85; margin: -1px 0 4px; }
+    .cf-limit.off { color: #ef4444; opacity: 1; }
+    .cf-viewer { position: fixed; inset: 0; z-index: 3000; display: flex; flex-direction: column; background: rgba(2,6,23,.97); color: #fff; direction: rtl; font-family: inherit; animation: cfFade .15s ease; }
+    @keyframes cfFade { from { opacity: 0; } }
+    .cf-v-bar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; }
+    .cf-v-bar b { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .95rem; }
+    .cf-v-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(255,255,255,.12); color: #fff; cursor: pointer; font-size: 1rem; }
+    .cf-v-btn:hover { background: rgba(255,255,255,.22); }
+    .cf-v-body { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 10px; }
+    .cf-v-body img, .cf-v-body video { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px; }
+    .cf-v-body audio { width: min(460px, 100%); }
+    .cf-v-note { text-align: center; padding: 10px 14px 16px; font-size: .85rem; color: #fcd34d; }
+    `;
+    document.head.appendChild(css);
 }
 
-// קובץ מצורף בהודעה: תמונה / נגן / כרטיס הורדה. local = קובץ שעדיין עולה
-function fileHtml(f, local) {
-    if (!f) return '';
-    const t = String(f.type || '');
-    if (!local && /^image\/(png|jpe?g|gif|webp|avif|bmp)$/.test(t)) return `<a class="m-img" href="${esc(f.url)}" target="_blank" rel="noopener"><img src="${esc(f.url)}" alt="${esc(f.name)}" loading="lazy"></a>`;
-    if (!local && t.startsWith('audio/')) return `<audio class="m-audio" controls preload="none" src="${esc(f.url)}"></audio>`;
-    if (!local && /^video\/(mp4|webm|ogg|quicktime)$/.test(t)) return `<video class="m-video" controls preload="metadata" src="${esc(f.url)}"></video>`;
-    const inner = `<i class="fa-solid ${fileIcon(t, f.name)}"></i><span><b>${esc(f.name)}</b><small>${local ? '<i class="fa-solid fa-circle-notch spin"></i> מעלה…' : esc(fileSize(f.size))}</small></span>${local ? '' : '<i class="fa-solid fa-download"></i>'}`;
-    return local ? `<div class="m-file">${inner}</div>` : `<a class="m-file" href="${esc(f.url)}?dl=1" target="_blank" rel="noopener" download>${inner}</a>`;
+const F = createChatFiles({
+    api: () => API_BASE_URL, auth: () => ({ adminToken: S.adminToken }), esc, viewer: 'admin',
+    toast: msg => toast(msg, 'bad'),
+});
+
+// צירוף הקובץ למייל אפשרי רק לקובץ בלי הגבלות ועד 10MB, כדי שהמייל לא יעקוף את ההגבלה
+function syncAttachOpts() {
+    const limited = !!($('#attach-views').value || $('#attach-expiry').value);
+    const big = S.attach && S.attach.size > 10 * 1024 * 1024;
+    const opt = $('#attach-email').querySelector('option[value="attach"]');
+    opt.disabled = limited || big;
+    opt.textContent = limited ? 'במייל: לצרף (לא זמין לקובץ מוגבל)' : big ? 'במייל: לצרף (מעל 10MB)' : 'במייל: לצרף את הקובץ';
+    if (opt.disabled) $('#attach-email').value = 'link';
+}
+
+async function editFileLimits(id) {
+    const m = (S.threadMsgs || []).find(x => String(x.id) === String(id));
+    if (!m || !m.file) return;
+    const f = m.file;
+    const r = await dialog({
+        title: 'הגבלות הקובץ ללקוח', icon: 'info',
+        text: `${f.name}${F.limitText(f) ? ` · ${F.limitText(f)}` : ''}. הצפיות שלך לא נספרות.`,
+        extra: `<label class="dialog-field">מספר צפיות ללקוח<select class="input" name="views">
+                <option value="">ללא הגבלה</option>${[1, 2, 3, 5, 10].map(n => `<option value="${n}" ${f.maxViews === n ? 'selected' : ''}>${n === 1 ? 'צפייה חד-פעמית' : `עד ${n} צפיות`}</option>`).join('')}
+            </select></label>
+            <label class="dialog-field">תוקף<select class="input" name="expiry">
+                <option value="keep">${f.expiresAt ? 'ללא שינוי' : 'ללא תוקף'}</option>${f.expiresAt ? '<option value="">ביטול התוקף</option>' : ''}
+                <option value="60">שעה מעכשיו</option><option value="1440">24 שעות מעכשיו</option><option value="10080">7 ימים מעכשיו</option><option value="43200">30 ימים מעכשיו</option>
+            </select></label>
+            <label class="dialog-check"><input type="checkbox" name="reset"> איפוס ספירת הצפיות (${f.views || 0} עד עכשיו)</label>`,
+        buttons: [{ label: 'ביטול' }, { label: 'חסימת גישה עכשיו', value: 'revoke', cls: 'btn-danger' }, { label: 'שמירה', value: 'ok', cls: 'btn-primary' }],
+    });
+    if (!r) return;
+    const x = r.extra || {};
+    const body = r.value === 'revoke' ? { revoke: true }
+        : { maxViews: x.views === '' ? null : Number(x.views), expiresMinutes: x.expiry === 'keep' || x.expiry === '' ? null : Number(x.expiry), keepExpiry: x.expiry === 'keep', resetViews: !!x.reset };
+    const res = await api('/admin/chat/file-limits', { messageId: Number(id), ...body });
+    if (!res.ok) { toast(res.error || 'שגיאה בעדכון ההגבלות', 'bad'); return; }
+    toast(r.value === 'revoke' ? 'הגישה של הלקוח לקובץ נחסמה' : 'ההגבלות עודכנו', 'good');
+    S.activeHash = '';
+    refreshThread();
 }
 
 function setAttach(file) {
@@ -1446,9 +1659,11 @@ function setAttach(file) {
     $('#attach-bar').hidden = !S.attach;
     $('#composer-file').value = '';
     if (!S.attach) return;
-    $('#attach-icon').className = `fa-solid ${fileIcon(S.attach.type, S.attach.name)}`;
+    $('#attach-icon').className = `fa-solid ${F.icon(S.attach.type, S.attach.name)}`;
     $('#attach-name').textContent = S.attach.name;
-    $('#attach-size').textContent = `${fileSize(S.attach.size)} · אפשר להוסיף הודעה ולשלוח`;
+    $('#attach-size').textContent = `${F.size(S.attach.size)} · אפשר להוסיף הודעה ולשלוח`;
+    $('#attach-views').value = ''; $('#attach-expiry').value = ''; $('#attach-email').value = 'link';
+    syncAttachOpts();
     $('#composer-input').focus();
 }
 
@@ -1473,13 +1688,14 @@ function renderThread(msgs, forceBottom) {
         </div>` : `<div class="m-actions">
             <button class="icon-btn" data-action="reply-msg" data-id="${esc(m.id)}" title="ציטוט ותשובה"><i class="fa-solid fa-reply"></i></button>
             ${out ? `<button class="icon-btn" data-action="edit-msg" data-id="${esc(m.id)}" title="עריכה"><i class="fa-solid fa-pen"></i></button>` : ''}
+            ${out && m.file ? `<button class="icon-btn" data-action="file-limits" data-id="${esc(m.id)}" title="הגבלות צפייה ותוקף לקובץ"><i class="fa-solid fa-lock"></i></button>` : ''}
             <button class="icon-btn danger" data-action="delete-msg" data-id="${esc(m.id)}" title="מחיקה"><i class="fa-solid fa-trash-can"></i></button>
         </div>`;
         const picked = sel && S.msgSel.has(String(m.id));
         html += `<div class="msg ${out ? 'out' : 'in'} ${deleted ? 'deleted' : ''} ${sel ? 'selectable' : ''} ${picked ? 'picked' : ''}" data-msg="${esc(m.id)}"${sel ? ` data-action="pick-msg" data-id="${esc(m.id)}"` : ''}>
             ${sel ? `<span class="m-check"><i class="fa-solid fa-check"></i></span>` : ''}
             ${quote}
-            ${deleted ? (m.file_name ? `<div class="m-file-gone"><i class="fa-solid fa-paperclip"></i> ${esc(m.file_name)}</div>` : '') : fileHtml(m.file)}
+            ${deleted ? (m.file_name ? `<div class="m-file-gone"><i class="fa-solid fa-paperclip"></i> ${esc(m.file_name)}</div>` : '') : F.html(m.file, m.id)}
             ${deleted || m.message_text ? `<div class="m-text">${deleted ? `🚫 ההודעה נמחקה${m.deleted_at ? ` · ${esc(chatTime(m.deleted_at))}` : ''}` : esc(m.message_text)}</div>` : ''}
             ${deleted && m.deleted_text ? `<details class="m-deleted"><summary>הצגת התוכן שנמחק (רק אתה רואה)</summary><div>${esc(m.deleted_text)}</div></details>` : ''}
             ${m.email ? `<div class="m-email" title="${m.email.openedAt ? `נפתח ב-${esc(fmtDate(m.email.openedAt))}${m.email.openedIp ? ` מ-${esc(m.email.openedIp)}` : ''}` : 'הלקוח עוד לא פתח את הקישור'}"><i class="fa-solid fa-envelope${m.email.openedAt ? '-open' : ''}"></i> ${m.email.ok ? 'נשלח במייל' : 'שליחת המייל נכשלה'}${m.email.openedAt ? ` · נפתח ${esc(chatTime(m.email.openedAt))}` : ''}</div>` : ''}
@@ -1488,6 +1704,7 @@ function renderThread(msgs, forceBottom) {
         </div>`;
     });
     box.innerHTML = html;
+    F.hydrate(box);
     if (S.focusMsgId) { jumpToMessage(S.focusMsgId); S.focusMsgId = null; return; }
     box.scrollTop = (atBottom || forceBottom) ? box.scrollHeight : prevTop;
 }
@@ -1545,7 +1762,7 @@ async function sendMsg(e) {
     const box = $('#thread-msgs');
     const tmp = document.createElement('div');
     tmp.className = 'msg out pending';
-    tmp.innerHTML = `${S.replyTo ? `<div class="m-quote"><b>${S.replyTo.sender === 'admin' ? 'אתה' : 'הלקוח'}</b>${esc(S.replyTo.text)}</div>` : ''}${file ? fileHtml({ name: file.name, type: file.type, size: file.size }, true) : ''}${text ? `<div class="m-text">${esc(text)}</div>` : ''}<div class="m-meta"><i class="fa-regular fa-clock"></i></div>`;
+    tmp.innerHTML = `${S.replyTo ? `<div class="m-quote"><b>${S.replyTo.sender === 'admin' ? 'אתה' : 'הלקוח'}</b>${esc(S.replyTo.text)}</div>` : ''}${file ? F.html({ name: file.name, type: file.type, size: file.size }, 'tmp', 'up') : ''}${text ? `<div class="m-text">${esc(text)}</div>` : ''}<div class="m-meta"><i class="fa-regular fa-clock"></i></div>`;
     box.querySelector('.empty')?.remove();
     box.appendChild(tmp);
     box.scrollTop = box.scrollHeight;
@@ -1558,8 +1775,9 @@ async function sendMsg(e) {
     btn.disabled = true;
     const mail = $('#composer-email');
     const withEmail = mail.checked && !mail.disabled;
+    const limits = file ? { maxViews: $('#attach-views').value || undefined, expiresMinutes: $('#attach-expiry').value || undefined, emailFile: $('#attach-email').value } : {};
     const r = file
-        ? await apiUpload('/admin/chat/send-file', file, { targetPhone: S.activePhone, text, replyTo: replyTo ? replyTo.id : undefined, sendEmail: withEmail ? '1' : undefined })
+        ? await apiUpload('/admin/chat/send-file', file, { targetPhone: S.activePhone, text, replyTo: replyTo ? replyTo.id : undefined, sendEmail: withEmail ? '1' : undefined, ...limits })
         : await api('/admin/chat/send', { targetPhone: S.activePhone, text, replyTo: replyTo ? replyTo.id : undefined, sendEmail: withEmail });
     btn.disabled = false;
     if (!r.ok) { tmp.remove(); input.value = text; S.replyTo = replyTo; renderReplyBar(); if (file) setAttach(file); toast(r.error || 'שגיאה בשליחת ההודעה', 'bad'); return; }
@@ -3377,6 +3595,7 @@ const ACTIONS = {
         else { loadUsers(true).then(() => { const x = S.users.find(y => y.phone === S.activePhone); x && x.hasWebAccount ? openUser(x.phone) : toast('למנוי זה אין חשבון אתר', 'info'); }); }
     },
     'delete-msg': el => deleteMsg(el.dataset.id),
+    'file-limits': el => editFileLimits(el.dataset.id),
     'purge-msg': el => purgeMsg(el.dataset.id),
     'restore-msg': el => restoreMsg(el.dataset.id),
     'pick-msg': el => pickMsg(el.dataset.id),
@@ -3566,6 +3785,14 @@ function bindEvents() {
     composer.addEventListener('blur', () => sendTyping(false));
     composer.addEventListener('paste', e => { const f = [...((e.clipboardData && e.clipboardData.files) || [])][0]; if (f) { e.preventDefault(); setAttach(f); } });
     $('#composer-file').addEventListener('change', e => setAttach(e.target.files && e.target.files[0]));
+    $('#attach-views').addEventListener('change', syncAttachOpts);
+    $('#attach-expiry').addEventListener('change', syncAttachOpts);
+    $('#thread-msgs').addEventListener('click', e => {
+        const fo = !S.selectMode && e.target.closest('[data-file-open]');
+        if (!fo) return;
+        const m = (S.threadMsgs || []).find(x => String(x.id) === fo.dataset.fileOpen);
+        if (m) F.open(m.id, m.file);
+    });
     const thread = $('#thread');
     thread.addEventListener('dragover', e => { if (S.activePhone && [...e.dataTransfer.types].includes('Files')) { e.preventDefault(); thread.classList.add('drag'); } });
     thread.addEventListener('dragleave', e => { if (!thread.contains(e.relatedTarget)) thread.classList.remove('drag'); });
