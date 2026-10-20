@@ -528,15 +528,6 @@ table.tbl { width: 100%; border-collapse: separate; border-spacing: 0; }
 .msg.flash { animation: flash 1.2s ease; }
 @keyframes flash { 0%, 40% { box-shadow: 0 0 0 3px var(--accent); } 100% { box-shadow: none; } }
 .msg.pending { opacity: .7; }
-.m-file { display: flex; align-items: center; gap: 10px; min-width: 220px; max-width: 300px; padding: 9px 11px; margin-bottom: 4px; border-radius: 10px; background: rgba(127,127,127,.14); color: inherit; text-decoration: none; }
-.m-file > i:first-child { font-size: 26px; flex-shrink: 0; opacity: .9; }
-.m-file span { flex: 1; min-width: 0; line-height: 1.3; }
-.m-file b { display: block; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.m-file small { font-size: 11.5px; opacity: .75; }
-.m-img { display: block; margin-bottom: 4px; }
-.m-img img { display: block; max-width: min(320px, 100%); max-height: 300px; border-radius: 10px; object-fit: cover; background: rgba(127,127,127,.12); }
-.m-audio { display: block; width: 280px; max-width: 100%; height: 40px; margin-bottom: 4px; }
-.m-video { display: block; max-width: min(320px, 100%); max-height: 300px; border-radius: 10px; margin-bottom: 4px; background: #000; }
 .m-file-gone { font-size: 12px; opacity: .8; margin-bottom: 4px; }
 .attach-bar > i { font-size: 22px; }
 .thread.drag { outline: 3px dashed var(--accent); outline-offset: -8px; }
@@ -945,3 +936,13 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 }
 .raw-file summary { padding: 12px 16px; cursor: pointer; font-weight: 600; color: var(--text-2); }
 .raw-file pre { margin: 0; padding: 12px 16px; max-height: 260px; overflow: auto; border-top: 1px solid var(--border); font-size: 12px; white-space: pre-wrap; text-align: left; }
+
+.attach-bar { flex-wrap: wrap; }
+.attach-opts { display: flex; gap: 6px; flex-wrap: wrap; }
+.attach-opts select { width: auto; height: 32px; padding: 0 8px; font-size: 12.5px; }
+.dialog-extra { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 14px; text-align: start; }
+.dialog-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--text-2); }
+.dialog-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-2); }
+.msg.out .cf-card { background: rgba(255,255,255,.16); }
+.msg.out .cf-card > i:first-child { color: #fff; }
+.msg.out .cf-limit.off { color: #fecaca; }
