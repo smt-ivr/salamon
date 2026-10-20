@@ -73,6 +73,7 @@ const VIEWS = [
     { id: 'names', label: 'ספר טלפונים', icon: 'fa-address-book', group: 'תוכן', key: 'n' },
     { id: 'sql', label: 'מסוף נתונים', icon: 'fa-database', group: 'מערכת', key: 'd' },
     { id: 'audit', label: 'יומן צוות', icon: 'fa-clipboard-list', group: 'מערכת', key: 'l' },
+    { id: 'master', label: 'התחברות מאסטר', icon: 'fa-user-secret', group: 'מערכת', key: 'm' },
     { id: 'settings', label: 'הגדרות', icon: 'fa-gear', group: 'מערכת', key: 't' },
 ];
 
@@ -569,6 +570,7 @@ function loadView(id) {
         case 'names': return loadNames();
         case 'sql': return loadTables();
         case 'audit': return loadAudit();
+        case 'master': return loadMaster();
         case 'settings': return loadSettings();
     }
 }
@@ -1431,8 +1433,12 @@ function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
     const loading = new Map();
     const PDFJS = '/salamon/vendor/pdf.min.js';
     const PDFJS_WORKER = '/salamon/vendor/pdf.worker.min.js';
-    const kind = type => {
+    const VIDEO_EXT = /\.(mp4|m4v|mov|3gp|mkv|avi|webm)$/i;
+    const kind = (type, name) => {
         const t = String(type || '');
+        // יש טלפונים שמסמנים סרטון mp4 כקובץ שמע
+        if (t.startsWith('audio/') && /\.(mp4|m4v|mov|3gp|mkv|avi)$/i.test(String(name || ''))) return 'video';
+        if ((!t || t === 'application/octet-stream') && VIDEO_EXT.test(String(name || ''))) return 'video';
         if (/^image\/(png|jpe?g|gif|webp|avif|bmp)$/.test(t)) return 'img';
         if (t.startsWith('video/')) return 'video';
         if (t.startsWith('audio/')) return 'audio';
@@ -1475,10 +1481,16 @@ function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
     const OPEN_TEXT = { img: 'לחץ לצפייה', video: 'לחץ לצפייה', audio: 'לחץ להשמעה', pdf: 'לחץ לפתיחה', text: 'לחץ לפתיחה', file: 'לחץ לפתיחה' };
     const OPEN_ICON = { video: 'fa-circle-play', audio: 'fa-circle-play' };
 
-    async function fetchBlob(id, type) {
+    function duration(sec) {
+        if (!sec) return '';
+        const s = Math.round(sec), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), r = String(s % 60).padStart(2, '0');
+        return h ? `${h}:${String(m).padStart(2, '0')}:${r}` : `${m}:${r}`;
+    }
+
+    async function fetchBlob(id, type, thumb) {
         let res;
         try {
-            res = await fetch(`${api()}/chat/file`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...auth(), messageId: Number(id) }) });
+            res = await fetch(`${api()}/chat/file`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...auth(), messageId: Number(id), thumb: !!thumb }) });
         } catch (e) { throw new Error('שגיאת תקשורת מול השרת'); }
         if (!res.ok) {
             let d = {};
@@ -1492,12 +1504,94 @@ function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
         return type && b.type !== type ? new Blob([b], { type }) : b;
     }
     // קבצים בלי הגבלה נשמרים בזיכרון הדף, כדי שרענון השיחה לא יטען אותם שוב
-    function load(id, type) {
-        if (cache.has(id)) return Promise.resolve(cache.get(id));
-        if (!loading.has(id)) {
-            loading.set(id, fetchBlob(id, type).then(b => { const u = URL.createObjectURL(b); cache.set(id, { url: u, blob: b }); return cache.get(id); }).finally(() => loading.delete(id)));
+    function load(id, type, thumb) {
+        const k = (thumb ? 't:' : '') + id;
+        if (cache.has(k)) return Promise.resolve(cache.get(k));
+        if (!loading.has(k)) {
+            loading.set(k, fetchBlob(id, thumb ? '' : type, thumb).then(b => { const u = URL.createObjectURL(b); cache.set(k, { url: u, blob: b }); return cache.get(k); }).finally(() => loading.delete(k)));
         }
-        return loading.get(id);
+        return loading.get(k);
+    }
+
+    // ---------- תמונה מקדימה ----------
+    // נוצרת בדפדפן של השולח לפני ההעלאה: פריים מהסרטון, העמוד הראשון של PDF, או תמונה מוקטנת
+    const THUMB_MAX = 520;
+    const timeout = (p, ms) => Promise.race([p, new Promise(r => setTimeout(() => r(null), ms))]);
+    const toJpeg = c => new Promise(r => c.toBlob(r, 'image/jpeg', 0.8));
+    function fit(w, h) {
+        const s = Math.min(1, THUMB_MAX / Math.max(w, h));
+        const c = document.createElement('canvas');
+        c.width = Math.max(1, Math.round(w * s)); c.height = Math.max(1, Math.round(h * s));
+        return c;
+    }
+    function once(el, ev) { return new Promise((res, rej) => { el.addEventListener(ev, res, { once: true }); el.addEventListener('error', rej, { once: true }); }); }
+    async function imageThumb(file) {
+        const url = URL.createObjectURL(file);
+        try {
+            const img = new Image(); img.src = url; await once(img, 'load');
+            const meta = { w: img.naturalWidth, h: img.naturalHeight };
+            if (file.size < 120 * 1024) return { thumb: null, meta };
+            const c = fit(meta.w, meta.h); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+            return { thumb: await toJpeg(c), meta };
+        } finally { URL.revokeObjectURL(url); }
+    }
+    async function videoThumb(file) {
+        const url = URL.createObjectURL(file);
+        const v = document.createElement('video');
+        v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = url;
+        try {
+            await once(v, 'loadedmetadata');
+            const meta = { duration: v.duration && isFinite(v.duration) ? v.duration : undefined, w: v.videoWidth || undefined, h: v.videoHeight || undefined };
+            if (!v.videoWidth) return { thumb: null, meta };
+            v.currentTime = Math.min(1, (meta.duration || 0) * 0.25);
+            await timeout(once(v, 'seeked'), 4000);
+            const c = fit(v.videoWidth, v.videoHeight); c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+            return { thumb: await toJpeg(c), meta };
+        } finally { v.removeAttribute('src'); v.load(); URL.revokeObjectURL(url); }
+    }
+    async function pdfThumb(file) {
+        const lib = await loadPdfJs();
+        const doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()), standardFontDataUrl: '/salamon/vendor/standard_fonts/' }).promise;
+        const page = await doc.getPage(1);
+        const base = page.getViewport({ scale: 1 });
+        const vp = page.getViewport({ scale: THUMB_MAX / Math.max(base.width, base.height) });
+        const c = document.createElement('canvas');
+        c.width = Math.round(vp.width); c.height = Math.round(vp.height); c.dir = 'ltr'; c.style.direction = 'ltr';
+        const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+        await page.render({ canvasContext: ctx, viewport: vp }).promise;
+        return { thumb: await toJpeg(c), meta: { pages: doc.numPages, w: Math.round(base.width), h: Math.round(base.height) } };
+    }
+    async function makeThumb(file, type, name) {
+        const k = kind(type || file.type, name || file.name);
+        try {
+            if (k === 'img') return await timeout(imageThumb(file), 8000);
+            if (k === 'video') return await timeout(videoThumb(file), 10000);
+            if (k === 'pdf') return await timeout(pdfThumb(file), 15000);
+        } catch (e) {}
+        return null;
+    }
+    // שדות שמצורפים להעלאה (thumb + meta), מוכנים פעם אחת לכל קובץ
+    const prepared = new WeakMap();
+    function prepare(file) {
+        if (!prepared.has(file)) prepared.set(file, makeThumb(file).then(t => t ? { thumb: t.thumb || undefined, meta: JSON.stringify(t.meta || {}) } : {}).catch(() => ({})));
+        return prepared.get(file);
+    }
+    // קובץ ישן בלי תמונה מקדימה: מכינים אותה מהקובץ שנפתח ושולחים לשרת
+    async function backfill(id, f, blob) {
+        if (f.thumb || !['img', 'video', 'pdf'].includes(kind(f.type, f.name))) return;
+        const t = await makeThumb(blob, f.type, f.name);
+        if (!t || (!t.thumb && !t.meta)) return;
+        const fd = new FormData();
+        for (const [k, v] of Object.entries(auth())) if (v) fd.append(k, v);
+        fd.append('messageId', String(id));
+        fd.append('meta', JSON.stringify(t.meta || {}));
+        if (t.thumb) fd.append('thumb', t.thumb, 'thumb.jpg');
+        const r = await fetch(`${api()}/chat/file-thumb`, { method: 'POST', body: fd }).catch(() => null);
+        if (r && r.ok) {
+            f.meta = f.meta || t.meta;
+            if (t.thumb) { f.thumb = true; cache.set('t:' + id, { url: URL.createObjectURL(t.thumb), blob: t.thumb }); }
+            if (onChange) onChange();
+        }
     }
 
     function card(cls, ic, name, sub, attrs = '', tail = '') {
@@ -1507,25 +1601,34 @@ function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
     // state: 'up' (עולה), 'failed' (ההעלאה נכשלה), או ריק להודעה שנשמרה
     function html(f, id, state) {
         if (!f) return '';
-        const t = String(f.type || ''), k = kind(t), key = String(id);
+        const t = String(f.type || ''), k = kind(t, f.name), key = String(id), meta = f.meta || {};
         if (state) return card('', icon(t, f.name), f.name, state === 'failed' ? 'לא נשלח · לחץ לשליחה חוזרת' : '<i class="fa-solid fa-circle-notch fa-spin"></i> מעלה…');
         const lim = f.limited || (viewer === 'admin' && f.views) ? limitText(f) : '';
         const badge = viewer === 'admin' && lim ? `<div class="cf-limit ${f.blocked ? 'off' : ''}"><i class="fa-solid fa-${f.blocked ? 'ban' : 'eye'}"></i> ${esc(lim)}${f.blocked ? ` · ${esc(BLOCKED[f.blocked] || '')}` : ''}</div>` : '';
         const openAttrs = `role="button" tabindex="0" data-file-open="${esc(key)}"`;
         if (viewer === 'user' && !f.available) return card('off', 'fa-lock', f.name, esc(BLOCKED[f.blocked] || 'הקובץ אינו זמין'));
         if (viewer === 'user' && f.limited && !f.master) return card('locked', 'fa-lock', f.name, `${esc(lim)} · ${OPEN_TEXT[k]}`, openAttrs, '<i class="fa-solid fa-eye cf-act"></i>');
-        if (k === 'img') {
-            const c = cache.get(key);
-            return `<button type="button" class="cf-img" data-file-open="${esc(key)}" aria-label="${esc(f.name)}">${c ? `<img src="${c.url}" alt="">` : `<img data-hydrate="${esc(key)}" data-type="${esc(t)}" alt="">`}</button>${badge}`;
+        const pic = (thumb) => {
+            const c = cache.get((thumb ? 't:' : '') + key) || (thumb ? null : cache.get(key));
+            const ratio = meta.w && meta.h ? ` style="aspect-ratio:${meta.w}/${meta.h}"` : '';
+            return c ? `<img src="${c.url}" alt=""${ratio}>` : `<img data-hydrate="${esc(key)}" data-type="${esc(t)}" ${thumb ? 'data-thumb="1"' : ''} alt=""${ratio}>`;
+        };
+        if (k === 'img') return `<button type="button" class="cf-img" data-file-open="${esc(key)}" aria-label="${esc(f.name)}">${pic(!!f.thumb)}</button>${badge}`;
+        if (k === 'video' && f.thumb) {
+            return `<button type="button" class="cf-img cf-video" data-file-open="${esc(key)}" aria-label="${esc(f.name)}">${pic(true)}<span class="cf-play"><i class="fa-solid fa-play"></i></span>${meta.duration ? `<span class="cf-dur"><i class="fa-solid fa-video"></i> ${esc(duration(meta.duration))}</span>` : ''}</button>${badge}`;
         }
-        return card(k === 'video' || k === 'audio' ? 'media' : '', OPEN_ICON[k] || icon(t, f.name), f.name, `${esc(size(f.size))} · ${OPEN_TEXT[k]}`, openAttrs, `<i class="fa-solid fa-${k === 'video' || k === 'audio' ? 'play' : 'eye'} cf-act"></i>`) + badge;
+        if (k === 'pdf' && f.thumb) {
+            return `<button type="button" class="cf-img cf-doc" data-file-open="${esc(key)}" aria-label="${esc(f.name)}">${pic(true)}<span class="cf-doc-bar"><i class="fa-solid fa-file-pdf"></i><b>${esc(f.name)}</b><small>${meta.pages ? `${meta.pages} עמ' · ` : ''}${esc(size(f.size))}</small></span></button>${badge}`;
+        }
+        const extra = k === 'video' && meta.duration ? `${esc(duration(meta.duration))} · ` : k === 'pdf' && meta.pages ? `${meta.pages} עמ' · ` : '';
+        return card(k === 'video' || k === 'audio' ? 'media' : '', OPEN_ICON[k] || icon(t, f.name), f.name, `${extra}${esc(size(f.size))} · ${OPEN_TEXT[k]}`, openAttrs, `<i class="fa-solid fa-${k === 'video' || k === 'audio' ? 'play' : 'eye'} cf-act"></i>`) + badge;
     }
 
     // טעינת תמונות (בלי הגבלה) אחרי ציור ההודעות
     function hydrate(root) {
         if (!root) return;
         root.querySelectorAll('img[data-hydrate]').forEach(el => {
-            load(el.dataset.hydrate, el.dataset.type).then(c => { el.src = c.url; el.removeAttribute('data-hydrate'); })
+            load(el.dataset.hydrate, el.dataset.type, !!el.dataset.thumb).then(c => { el.src = c.url; el.removeAttribute('data-hydrate'); })
                 .catch(() => { el.closest('.cf-img')?.classList.add('broken'); });
         });
     }
@@ -1576,7 +1679,7 @@ function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
     }
 
     function viewerOpen({ url, blob }, f, temp) {
-        const k = kind(f.type);
+        const k = kind(f.type, f.name);
         const ov = document.createElement('div');
         ov.className = 'cf-viewer';
         ov.innerHTML = `<div class="cf-v-bar"><b>${esc(f.name)}</b><small>${esc(size(f.size))}</small><button type="button" class="cf-v-btn" data-v="save" aria-label="שמירה" title="שמירה למכשיר"><i class="fa-solid fa-download"></i></button><button type="button" class="cf-v-btn" data-v="close" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button></div>
@@ -1592,6 +1695,10 @@ function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
             if (open) body.innerHTML = `<div class="cf-v-file"><i class="fa-solid fa-file-pdf"></i><b>${esc(f.name)}</b><p>לא ניתן להציג את המסמך כאן.</p><button type="button" class="cf-v-dl" data-v="save"><i class="fa-solid fa-download"></i> שמירה למכשיר</button></div>`;
         });
         else body.innerHTML = `<div class="cf-v-file"><i class="fa-solid ${icon(f.type, f.name)}"></i><b>${esc(f.name)}</b><p>${esc(size(f.size))} · אין תצוגה מקדימה לסוג קובץ זה</p><button type="button" class="cf-v-dl" data-v="save"><i class="fa-solid fa-download"></i> שמירה למכשיר</button></div>`;
+        if (k === 'video') body.querySelector('video').addEventListener('loadedmetadata', e => {
+            // הקול מתנגן אבל אין תמונה: הדפדפן לא מכיר את הקידוד של הסרטון (למשל HEVC מחלק מהטלפונים)
+            if (open && !e.target.videoWidth) body.insertAdjacentHTML('beforeend', '<div class="cf-v-warn"><i class="fa-solid fa-circle-info"></i> הדפדפן הזה לא מצליח להציג את התמונה של הסרטון (רק את הקול). אפשר לשמור אותו ולצפות בו בגלריה של המכשיר.</div>');
+        });
         if (k === 'video') body.querySelector('video').addEventListener('error', () => {
             if (open) body.innerHTML = `<div class="cf-v-file"><i class="fa-solid fa-file-video"></i><b>${esc(f.name)}</b><p>הדפדפן הזה לא מצליח להציג את הסרטון. אפשר לשמור אותו ולצפות בו במכשיר.</p><button type="button" class="cf-v-dl" data-v="save"><i class="fa-solid fa-download"></i> שמירה למכשיר</button></div>`;
         });
@@ -1615,7 +1722,11 @@ function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
             if (limited) {
                 const blob = await fetchBlob(key, f.type);
                 viewerOpen({ url: URL.createObjectURL(blob), blob }, f, true);
-            } else viewerOpen(await load(key, f.type), f, false);
+            } else {
+                const c = await load(key, f.type);
+                viewerOpen(c, f, false);
+                backfill(key, f, c.blob).catch(() => {});
+            }
         } catch (e) {
             toast(e.message);
         }
@@ -1627,7 +1738,7 @@ function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
         cache.clear();
     }
 
-    return { html, hydrate, open, clear, size, icon, limitText };
+    return { html, hydrate, open, clear, size, icon, limitText, prepare };
 }
 
 function injectChatFileStyles() {
@@ -1651,6 +1762,18 @@ function injectChatFileStyles() {
     .cf-img img { display: block; max-width: min(300px, 100%); max-height: 280px; object-fit: cover; }
     .cf-img img:not([src]) { width: 220px; height: 150px; background: rgba(127,127,127,.15); }
     .cf-img.broken img { width: 220px; height: 60px; }
+    .cf-img img { background: rgba(127,127,127,.15); }
+    .cf-video, .cf-doc { position: relative; }
+    .cf-video img { min-width: 200px; min-height: 120px; max-height: 300px; }
+    .cf-play { position: absolute; inset: 0; margin: auto; width: 54px; height: 54px; border-radius: 50%; background: rgba(0,0,0,.55); color: #fff; display: grid; place-items: center; font-size: 1.25rem; padding-inline-start: 4px; box-shadow: 0 2px 12px rgba(0,0,0,.35); pointer-events: none; }
+    .cf-dur { position: absolute; bottom: 6px; inset-inline-start: 6px; padding: 2px 7px; border-radius: 6px; background: rgba(0,0,0,.6); color: #fff; font-size: .72rem; direction: ltr; pointer-events: none; }
+    .cf-doc { width: 260px; max-width: 100%; background: rgba(127,127,127,.13); text-align: start; }
+    .cf-doc img { width: 100%; max-width: none; height: 150px; max-height: none; object-fit: cover; object-position: top; background: #fff; }
+    .cf-doc-bar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; color: inherit; }
+    .cf-doc-bar i { color: #ef4444; font-size: 1.3rem; }
+    .cf-doc-bar b { flex: 1; min-width: 0; font-size: .82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cf-doc-bar small { font-size: .7rem; opacity: .75; white-space: nowrap; }
+    .cf-v-warn { position: absolute; bottom: 70px; inset-inline: 16px; margin: auto; max-width: 460px; padding: 10px 14px; border-radius: 10px; background: rgba(15,23,42,.92); color: #fde68a; font-size: .85rem; text-align: center; }
     .cf-limit { font-size: .72rem; opacity: .85; margin: -1px 0 4px; }
     .cf-limit.off { color: #ef4444; opacity: 1; }
     .cf-viewer { position: fixed; inset: 0; z-index: 3000; display: flex; flex-direction: column; background: rgba(2,6,23,.97); color: #fff; direction: rtl; font-family: inherit; animation: cfFade .15s ease; }
@@ -1660,7 +1783,7 @@ function injectChatFileStyles() {
     .cf-v-bar small { opacity: .6; font-size: .78rem; direction: ltr; }
     .cf-v-btn { width: 40px; height: 40px; border-radius: 50%; border: none; background: rgba(255,255,255,.12); color: #fff; cursor: pointer; font-size: 1rem; flex-shrink: 0; }
     .cf-v-btn:hover { background: rgba(255,255,255,.22); }
-    .cf-v-body { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 10px; }
+    .cf-v-body { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 10px; }
     .cf-v-body.doc { flex-direction: column; justify-content: flex-start; gap: 10px; overflow: auto; -webkit-overflow-scrolling: touch; }
     .cf-v-body img, .cf-v-body video { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px; background: #000; }
     .cf-v-body canvas { display: block; max-width: 100%; height: auto; background: #fff; border-radius: 4px; box-shadow: 0 4px 20px rgba(0,0,0,.4); flex-shrink: 0; }
@@ -1681,6 +1804,7 @@ function injectChatFileStyles() {
 const F = createChatFiles({
     api: () => API_BASE_URL, auth: () => ({ adminToken: S.adminToken }), esc, viewer: 'admin',
     toast: msg => toast(msg, 'bad'),
+    onChange: () => { S.activeHash = ''; refreshThread(); },
 });
 
 // צירוף הקובץ למייל אפשרי רק לקובץ בלי הגבלות ועד 10MB, כדי שהמייל לא יעקוף את ההגבלה
@@ -1845,7 +1969,7 @@ async function sendMsg(e) {
     const withEmail = mail.checked && !mail.disabled;
     const limits = file ? { maxViews: $('#attach-views').value || undefined, expiresMinutes: $('#attach-expiry').value || undefined, emailFile: $('#attach-email').value } : {};
     const r = file
-        ? await apiUpload('/admin/chat/send-file', file, { targetPhone: S.activePhone, text, replyTo: replyTo ? replyTo.id : undefined, sendEmail: withEmail ? '1' : undefined, ...limits })
+        ? await apiUpload('/admin/chat/send-file', file, { targetPhone: S.activePhone, text, replyTo: replyTo ? replyTo.id : undefined, sendEmail: withEmail ? '1' : undefined, ...limits, ...(await F.prepare(file)) })
         : await api('/admin/chat/send', { targetPhone: S.activePhone, text, replyTo: replyTo ? replyTo.id : undefined, sendEmail: withEmail });
     btn.disabled = false;
     if (!r.ok) { tmp.remove(); input.value = text; S.replyTo = replyTo; renderReplyBar(); if (file) setAttach(file); toast(r.error || 'שגיאה בשליחת ההודעה', 'bad'); return; }
@@ -3448,6 +3572,95 @@ function exportSql() {
 
 // ---------- Audit ----------
 
+// ---------- Master ----------
+
+const MASTER_LABELS = {
+    LOGIN: ['כניסה', 'accent'], LOGOUT: ['יציאה', ''], LISTEN: ['האזנה להודעה', 'info'], CHAT_SEND: ['הודעה בצ׳אט', 'info'],
+    FILE_OPEN: ['פתיחת קובץ', 'info'], UPLOAD: ['העלאת הקלטה', 'warn'], TZINTUK: ['צינתוק', 'warn'], DELETE_MESSAGE: ['מחיקת הודעה', 'bad'],
+    PROFILE_UPDATE: ['עדכון פרופיל', 'warn'], PASSWORD_CHANGE: ['שינוי סיסמה', 'bad'], SETTINGS: ['שינוי הגדרות מאסטר', ''], SESSION_ENDED: ['חיבור נותק', ''],
+};
+
+async function loadMaster(more = false) {
+    if (!more) { $('#master-log').innerHTML = loadingRows(6, 5); $('#master-sessions').innerHTML = loadingRows(5, 1); }
+    const before = more && S.masterLog && S.masterLog.length ? S.masterLog[S.masterLog.length - 1].id : undefined;
+    const r = await api('/admin/master', { phone: S.masterPhone || undefined, before });
+    if (!r.ok) { $('#master-log').innerHTML = emptyRow(6, r.error, 'fa-circle-exclamation'); return; }
+    S.master = r.data;
+    S.masterLog = more ? (S.masterLog || []).concat(r.data.log || []) : (r.data.log || []);
+    renderMaster();
+}
+
+function renderMaster() {
+    const d = S.master || {}, c = d.config || {};
+    const sessions = d.sessions || [];
+    const week = Date.now() - 7 * 86400000;
+    const logins = (S.masterLog || []).filter(l => l.action === 'LOGIN' && (parseDate(l.createdAt) || 0) >= week).length;
+    $('#master-kpis').innerHTML = [
+        kpi('fa-power-off', c.enabled ? 'good' : 'bad', 'מצב', c.enabled ? 'פעיל' : 'כבוי', c.hasPassword ? 'יש סיסמת מאסטר' : 'לא הוגדרה סיסמה'),
+        kpi('fa-plug', sessions.length ? 'warn' : '', 'חיבורים פעילים', num(sessions.length), sessions.length ? 'מישהו מחובר כמאסטר עכשיו' : 'אין חיבורים'),
+        kpi('fa-right-to-bracket', 'accent', 'כניסות ב-7 ימים', num(logins), `משך חיבור ${c.minutes || 10} דק'`),
+    ].join('');
+    if (!S.masterFormDirty) { $('#master-enabled').checked = !!c.enabled; $('#master-minutes').value = c.minutes || 10; }
+    $('#master-pw-state').innerHTML = c.hasPassword ? '<i class="fa-solid fa-circle-check"></i> מוגדרת סיסמת מאסטר. אפשר להחליף אותה כאן.' : '<i class="fa-solid fa-circle-exclamation"></i> עדיין לא הוגדרה סיסמת מאסטר.';
+    $('#master-sessions').innerHTML = sessions.length ? sessions.map(s => `<tr>
+        <td><b>${esc(s.name || 'לקוח')}</b> <span class="ltr mono muted">${esc(s.phone)}</span></td>
+        <td class="muted nowrap">${esc(fmtDate(s.createdAt))}</td>
+        <td class="muted nowrap">${esc(relTime(s.lastUsedAt))}</td>
+        <td class="muted nowrap">${esc(fmtDate(s.expiresAt))}</td>
+        <td><button class="btn btn-sm btn-danger" data-action="master-end" data-handle="${esc(s.handle)}"><i class="fa-solid fa-power-off"></i> ניתוק</button></td>
+    </tr>`).join('') : emptyRow(5, 'אין חיבורי מאסטר פעילים', 'fa-plug');
+    const log = S.masterLog || [];
+    $('#master-log').innerHTML = log.length ? log.map(l => {
+        const [label, tone] = MASTER_LABELS[l.action] || [l.action, ''];
+        return `<tr>
+            <td class="muted nowrap">${esc(fmtDate(l.createdAt))}</td>
+            <td><span class="badge ${tone}">${esc(label)}</span></td>
+            <td>${l.phone ? `${esc(l.name || '')} <span class="ltr mono muted">${esc(l.phone)}</span>` : '<span class="muted">מרכז השליטה</span>'}</td>
+            <td>${esc(l.details || '')}</td>
+            <td class="muted">${esc(l.device || '')}</td>
+            <td class="ltr mono muted">${esc(l.ip || '')}</td>
+        </tr>`;
+    }).join('') : emptyRow(6, S.masterPhone ? 'אין פעולות מאסטר בחשבון הזה' : 'עדיין לא היו כניסות מאסטר', 'fa-user-secret');
+    $('#master-more').hidden = !d.hasMore;
+}
+
+async function saveMaster(e) {
+    e.preventDefault();
+    const enabled = $('#master-enabled').checked;
+    if (!enabled && S.master && S.master.config.enabled && !(await confirmDanger('כיבוי התחברות מאסטר', 'סיסמת המאסטר תפסיק לעבוד, וכל החיבורים הפעילים ינותקו מיד.', 'כיבוי'))) return;
+    const r = await api('/admin/master/save', { enabled, sessionMinutes: Number($('#master-minutes').value) });
+    if (!r.ok) { toast(r.error || 'שגיאה בשמירה', 'bad'); return; }
+    S.masterFormDirty = false;
+    toast('ההגדרות נשמרו', 'good');
+    loadMaster();
+}
+
+async function saveMasterPassword(e) {
+    e.preventDefault();
+    const pw = $('#master-pw').value, pw2 = $('#master-pw2').value;
+    if (pw !== pw2) { toast('הסיסמאות אינן תואמות', 'bad'); return; }
+    const r = await api('/admin/master/save', { newPassword: pw });
+    if (!r.ok) { toast(r.error || 'שגיאה בהחלפת הסיסמה', 'bad'); return; }
+    $('#master-pw').value = ''; $('#master-pw2').value = '';
+    toast('סיסמת המאסטר הוחלפה וכל החיבורים נותקו', 'good');
+    loadMaster();
+}
+
+async function endMaster(handle) {
+    const r = await api('/admin/master/end', { handle });
+    if (!r.ok) { toast(r.error || 'שגיאה בניתוק', 'bad'); return; }
+    toast('החיבור נותק', 'good');
+    loadMaster();
+}
+
+async function endAllMaster() {
+    if (!(await confirmDanger('ניתוק כל חיבורי המאסטר', 'כל מי שמחובר כמאסטר יוצא מיד מהחשבון.', 'ניתוק הכל'))) return;
+    const r = await api('/admin/master/save', { endAll: true });
+    if (!r.ok) { toast(r.error || 'שגיאה בניתוק', 'bad'); return; }
+    toast('כל חיבורי המאסטר נותקו', 'good');
+    loadMaster();
+}
+
 async function loadAudit() {
     $('#audit-body').innerHTML = loadingRows(5, 6);
     const r = await api('/admin/audit-logs');
@@ -3758,6 +3971,10 @@ const ACTIONS = {
     'export-sql': exportSql,
 
     'refresh-audit': loadAudit,
+    'refresh-master': () => loadMaster(),
+    'master-more': () => loadMaster(true),
+    'master-end': el => endMaster(el.dataset.handle),
+    'master-end-all': endAllMaster,
 };
 
 function bindEvents() {
@@ -3819,6 +4036,10 @@ function bindEvents() {
     $('#chat-search').addEventListener('input', debounce(e => { S.chatSearch = e.target.value.trim(); renderConvs(); searchMessages(S.chatSearch); }, 120));
     $('#act-phone').addEventListener('input', debounce(e => { S.actPhone = e.target.value.replace(/[^\d+]/g, ''); loadActivity(); }, 400));
     $('#chat-settings-form').addEventListener('submit', saveChatSettings);
+    $('#master-form').addEventListener('submit', saveMaster);
+    $('#master-form').addEventListener('input', () => { S.masterFormDirty = true; });
+    $('#master-pw-form').addEventListener('submit', saveMasterPassword);
+    $('#master-search').addEventListener('input', debounce(e => { S.masterPhone = e.target.value.replace(/\D/g, ''); loadMaster(); }, 350));
     $('#pw-form').addEventListener('submit', changeAdminPassword);
     $$('[data-setting]').forEach(i => i.addEventListener('change', () => savePrivacy(i)));
     document.addEventListener('visibilitychange', () => reportPresence(true));

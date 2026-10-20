@@ -526,6 +526,48 @@
                 </section>
 
                 <!-- Audit -->
+                <!-- Master -->
+                <section class="view" id="view-master">
+                    <div class="view-head">
+                        <div><h1>התחברות מאסטר</h1><p>כניסה לחשבון של לקוח עם סיסמת המאסטר. אצל הלקוח לא נרשם כלום; כל כניסה ופעולה נרשמות כאן בלבד.</p></div>
+                        <div class="actions"><button class="btn" data-action="refresh-master"><i class="fa-solid fa-rotate-right"></i> רענון</button></div>
+                    </div>
+                    <div class="kpis" id="master-kpis"></div>
+                    <div class="grid-2" style="margin-bottom:14px;">
+                        <div class="card">
+                            <div class="card-head"><h3><i class="fa-solid fa-sliders"></i> הגדרות</h3></div>
+                            <form class="card-body stack" id="master-form">
+                                <div class="setting-group">
+                                    <div class="setting"><div class="s-text"><div class="s-title">התחברות מאסטר פעילה</div><div class="s-desc">כשכבוי, סיסמת המאסטר לא תעבוד בשום חשבון, וכל חיבורי המאסטר מנותקים מיד</div></div><label class="switch"><input type="checkbox" id="master-enabled"><span></span></label></div>
+                                </div>
+                                <div class="field"><label>משך חיבור (בדקות, מתחדש עם כל פעולה)</label><input type="number" id="master-minutes" class="input ltr" min="1" max="720" required></div>
+                                <div class="row wrap"><div class="spacer"></div><button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> שמירה</button></div>
+                            </form>
+                        </div>
+                        <div class="card">
+                            <div class="card-head"><h3><i class="fa-solid fa-key"></i> סיסמת מאסטר</h3></div>
+                            <form class="card-body stack" id="master-pw-form">
+                                <div class="alert info" id="master-pw-state"></div>
+                                <div class="grid-2">
+                                    <div class="field"><label>סיסמה חדשה</label><input type="password" id="master-pw" class="input ltr" autocomplete="new-password" minlength="8" required><span class="hint">לפחות 8 תווים</span></div>
+                                    <div class="field"><label>אימות הסיסמה</label><input type="password" id="master-pw2" class="input ltr" autocomplete="new-password" minlength="8" required></div>
+                                </div>
+                                <div class="row wrap"><span class="hint muted">החלפת הסיסמה מנתקת את כל חיבורי המאסטר הפעילים</span><div class="spacer"></div><button type="submit" class="btn btn-primary"><i class="fa-solid fa-key"></i> החלפת סיסמה</button></div>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="card" style="margin-bottom:14px;">
+                        <div class="card-head"><h3><i class="fa-solid fa-plug"></i> חיבורי מאסטר פעילים</h3><div class="tools"><button class="btn btn-sm btn-danger" data-action="master-end-all"><i class="fa-solid fa-power-off"></i> ניתוק הכל</button></div></div>
+                        <div class="table-wrap"><table class="tbl"><thead><tr><th>לקוח</th><th>התחיל</th><th>פעילות אחרונה</th><th>יסתיים</th><th></th></tr></thead><tbody id="master-sessions"></tbody></table></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-head"><h3><i class="fa-solid fa-clock-rotate-left"></i> היסטוריה</h3></div>
+                        <div class="toolbar"><div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input ltr" id="master-search" placeholder="סינון לפי טלפון…"></div></div>
+                        <div class="table-wrap"><table class="tbl"><thead><tr><th>זמן</th><th>פעולה</th><th>לקוח</th><th>פרטים</th><th>מכשיר</th><th>IP</th></tr></thead><tbody id="master-log"></tbody></table></div>
+                        <div class="card-body" id="master-more" hidden><button class="btn btn-sm" data-action="master-more">טעינת עוד</button></div>
+                    </div>
+                </section>
+
                 <section class="view" id="view-audit">
                     <div class="view-head">
                         <div><h1>יומן צוות</h1><p>כל השינויים שבוצעו על ידי חברי צוות ההנהלה</p></div>
