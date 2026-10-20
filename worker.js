@@ -117,10 +117,40 @@ const CONTROL_HEADERS = {
     'X-Robots-Tag': 'noindex, nofollow',
 };
 
+// pdf.js להצגת PDF בתוך הצ'אט: מוגש מהדומיין שלנו (כך שמדיניות האבטחה של הדפים לא משתנה), בגרסה קבועה
+const PDFJS_VERSION = '3.11.174';
+const VENDOR_FILES = {
+    '/salamon/vendor/pdf.min.js': 'pdf.min.js',
+    '/salamon/vendor/pdf.worker.min.js': 'pdf.worker.min.js',
+};
+
+// גופנים סטנדרטיים של pdf.js (למסמכים שלא כוללים את הגופן בתוכם)
+const VENDOR_FONT = /^\/salamon\/vendor\/standard_fonts\/([\w-]+\.(pfb|ttf))$/;
+
+async function serveVendor(file, font = false) {
+    const sources = font ? [
+        `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/standard_fonts/${file}`,
+        `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/standard_fonts/${file}`,
+    ] : [
+        `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/${file}`,
+        `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/${file}`,
+    ];
+    for (const src of sources) {
+        try {
+            const res = await fetch(src, { cf: { cacheTtl: 30 * 86400, cacheEverything: true } });
+            if (res.ok) return new Response(res.body, { headers: { 'Content-Type': font ? 'application/octet-stream' : JS, 'Cache-Control': 'public, max-age=604800, immutable', 'X-Content-Type-Options': 'nosniff' } });
+        } catch (e) {}
+    }
+    return new Response('Unavailable', { status: 502 });
+}
+
 export default {
     async fetch(request, env, ctx) {
         const url = new URL(request.url);
         const path = url.pathname.replace(/\/+$/, '') || '/';
+        if (VENDOR_FILES[url.pathname]) return serveVendor(VENDOR_FILES[url.pathname]);
+        const font = url.pathname.match(VENDOR_FONT);
+        if (font) return serveVendor(font[1], true);
 
         if (path === '/salamon' || path === '/salamon/unsubscribe') {
             return new Response(htmlContent, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
