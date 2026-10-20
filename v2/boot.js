@@ -11,7 +11,24 @@ async function loadUser() {
     return App.user;
 }
 
-function renderMe() { App.renderNav(); }
+function renderMe() { App.renderNav(); renderMasterBar(); }
+
+// כשהמנהל נכנס לחשבון של לקוח עם סיסמת המאסטר, מוצג פס קבוע שמבהיר שזו התחברות מאסטר
+function renderMasterBar() {
+    const isMaster = !!(App.token && App.user && App.user.tokenType === 'master');
+    let bar = document.getElementById('master-bar');
+    document.body.classList.toggle('has-master-bar', isMaster);
+    if (!isMaster) { if (bar) bar.remove(); return; }
+    if (bar) return;
+    bar = document.createElement('div');
+    bar.id = 'master-bar';
+    bar.className = 'master-bar';
+    bar.setAttribute('role', 'status');
+    bar.innerHTML = '<i class="fa-solid fa-user-secret"></i> התחברות מאסטר<span>· הלקוח לא רואה שנכנסת, ושום דבר לא נרשם אצלו</span><button type="button" data-act="master-exit">יציאה</button>';
+    document.body.prepend(bar);
+}
+App.actions['master-exit'] = () => App.logout();
+document.addEventListener('logout', () => renderMasterBar());
 
 function renderBanner() {
     const b = App.config && App.config.banner;
