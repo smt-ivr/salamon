@@ -8,6 +8,7 @@ const POLL_CLOSED_MS = 12000;
 const PRESENCE_MS = 30000;
 const LOGO_URL = 'https://smt-tel-manager.netlify.app/salamon-logo.png';
 const MAX_LEN = 2000;
+const MAX_FILE = 20 * 1024 * 1024;
 const EMOJIS = ['😊', '🙏', '👍', '❤️', '😂', '🙂', '😅', '🤔', '😮', '😢', '🎉', '✅', '❌', '🔥', '👏', '💪', '📞', '🎧', '⏳', '📩', '🙌', '😉', '🤝', '⭐'];
 const TOPICS = ['יש לי בעיה עם הצינתוקים', 'שאלה על החשבון שלי', 'בעיה בהשמעת הודעות', 'משהו אחר'];
 
@@ -30,6 +31,7 @@ const C = {
     presenceAt: 0,
     notifyBaseline: null,
     focusId: null,
+    attach: null,
 };
 
 const $ = sel => document.querySelector(sel);
@@ -71,6 +73,49 @@ async function post(path, body = {}) {
     let data = {};
     try { data = await res.json(); } catch (e) {}
     return { ok: res.ok && data.success !== false, status: res.status, data };
+}
+
+async function postFile(path, file, fields = {}) {
+    const fd = new FormData();
+    fd.append('userToken', state.userToken);
+    for (const [k, v] of Object.entries(fields)) if (v !== undefined && v !== null) fd.append(k, v);
+    fd.append('file', file, file.name);
+    const res = await fetch(`${API_BASE_URL}${path}`, { method: 'POST', body: fd });
+    let data = {};
+    try { data = await res.json(); } catch (e) {}
+    return { ok: res.ok && data.success !== false, status: res.status, data };
+}
+
+function fileSize(n) {
+    if (!n) return '';
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+    return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function fileIcon(type, name) {
+    const t = String(type || ''), n = String(name || '').toLowerCase();
+    if (t.startsWith('image/')) return 'fa-file-image';
+    if (t.startsWith('audio/')) return 'fa-file-audio';
+    if (t.startsWith('video/')) return 'fa-file-video';
+    if (t === 'application/pdf') return 'fa-file-pdf';
+    if (/\.(docx?|odt|rtf)$/.test(n)) return 'fa-file-word';
+    if (/\.(xlsx?|ods|csv)$/.test(n)) return 'fa-file-excel';
+    if (/\.(zip|rar|7z|gz)$/.test(n)) return 'fa-file-zipper';
+    return 'fa-file-lines';
+}
+
+// קובץ מצורף בבועה: תמונה / נגן / כרטיס הורדה. local = קובץ שעדיין עולה ('failed' = ההעלאה נכשלה)
+function fileHtml(f, local) {
+    if (!f) return '';
+    const t = String(f.type || '');
+    if (!local && /^image\/(png|jpe?g|gif|webp|avif|bmp)$/.test(t)) {
+        return `<a class="sc-img" href="${esc(f.url)}" target="_blank" rel="noopener"><img src="${esc(f.url)}" alt="${esc(f.name)}" loading="lazy"></a>`;
+    }
+    if (!local && t.startsWith('audio/')) return `<audio class="sc-audio" controls preload="none" src="${esc(f.url)}"></audio>`;
+    if (!local && /^video\/(mp4|webm|ogg|quicktime)$/.test(t)) return `<video class="sc-video" controls preload="metadata" src="${esc(f.url)}"></video>`;
+    const inner = `<i class="fa-solid ${fileIcon(t, f.name)}"></i><span><b>${esc(f.name)}</b><small>${local ? (local === 'failed' ? 'לא נשלח · לחץ לשליחה חוזרת' : '<i class="fa-solid fa-circle-notch fa-spin"></i> מעלה…') : esc(fileSize(f.size))}</small></span>${local ? '' : '<i class="fa-solid fa-download sc-dl"></i>'}`;
+    return local ? `<div class="sc-file">${inner}</div>` : `<a class="sc-file" href="${esc(f.url)}?dl=1" target="_blank" rel="noopener" download>${inner}</a>`;
 }
 
 // ---------- UI ----------
@@ -189,6 +234,25 @@ function injectStyles() {
     .sc-preview-card p { color: #64748b; font-size: .88rem; margin: 14px 0; }
     .sc-preview-card button { width: 100%; border: none; border-radius: 12px; padding: 12px; background: #16a34a; color: #fff; font-weight: 700; font-size: .95rem; cursor: pointer; font-family: inherit; }
 
+    .sc-file { display: flex; align-items: center; gap: 10px; min-width: 200px; max-width: 280px; padding: 9px 11px; margin: 1px 0 4px; border-radius: 8px; background: rgba(0,0,0,.05); color: inherit; text-decoration: none; }
+    .sc-file > i:first-child { font-size: 1.7rem; color: #2563eb; flex-shrink: 0; }
+    .sc-file span { flex: 1; min-width: 0; line-height: 1.3; }
+    .sc-file b { display: block; font-size: .86rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sc-file small { font-size: .72rem; color: #667781; }
+    .sc-file .sc-dl { color: #54656f; }
+    .sc-img { display: block; margin: -2px -5px 4px; }
+    .sc-img img { display: block; max-width: 100%; max-height: 280px; border-radius: 8px; object-fit: cover; background: rgba(0,0,0,.05); }
+    .sc-audio { display: block; width: 250px; max-width: 100%; height: 40px; margin: 2px 0 4px; }
+    .sc-video { display: block; max-width: 100%; max-height: 280px; border-radius: 8px; margin: 0 0 4px; background: #000; }
+    .sc-attachbar { display: none; align-items: center; gap: 10px; padding: 8px 12px; background: #f0f2f5; border-top: 1px solid #e2e8f0; }
+    .sc-attachbar.show { display: flex; }
+    .sc-attachbar > i { font-size: 1.5rem; color: #2563eb; }
+    .sc-attachbar .sc-ab { flex: 1; min-width: 0; font-size: .84rem; line-height: 1.3; }
+    .sc-attachbar .sc-ab b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sc-attachbar .sc-ab small { color: #667781; }
+    .sc-attachbar .sc-icon-btn { color: #54656f; width: 32px; height: 32px; }
+    .sc-overlay.drag .sc-panel { outline: 3px dashed #16a34a; outline-offset: -8px; }
+
     .chat-badge-pulse { animation: badgePulse 1.5s infinite; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
     @keyframes badgePulse { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
     @media (prefers-reduced-motion: reduce) { .sc-overlay *, .sc-overlay { animation: none !important; } }
@@ -215,9 +279,16 @@ function injectModal() {
                 <div class="sc-rb"><b id="sc-rb-who"></b><span id="sc-rb-text"></span></div>
                 <button class="sc-icon-btn" id="sc-rb-cancel" aria-label="ביטול ציטוט"><i class="fa-solid fa-xmark"></i></button>
             </div>
+            <div class="sc-attachbar" id="sc-attachbar">
+                <i class="fa-solid fa-file" id="sc-ab-icon"></i>
+                <div class="sc-ab"><b id="sc-ab-name"></b><small id="sc-ab-size"></small></div>
+                <button class="sc-icon-btn" id="sc-ab-cancel" type="button" aria-label="הסרת הקובץ"><i class="fa-solid fa-xmark"></i></button>
+            </div>
             <form class="sc-compose" id="sc-form">
                 <div class="sc-emoji" id="sc-emoji">${EMOJIS.map(e => `<button type="button" data-emoji="${e}">${e}</button>`).join('')}</div>
                 <button type="button" class="sc-icon-btn" id="sc-emoji-btn" aria-label="אימוג׳י"><i class="fa-regular fa-face-smile"></i></button>
+                <button type="button" class="sc-icon-btn" id="sc-attach-btn" aria-label="צירוף קובץ" title="צירוף קובץ"><i class="fa-solid fa-paperclip"></i></button>
+                <input type="file" id="sc-file" hidden>
                 <div class="sc-field">
                     <textarea id="sc-input" rows="1" placeholder="הקלד הודעה…" maxlength="${MAX_LEN + 200}" aria-label="הודעה"></textarea>
                     <div class="sc-count" id="sc-count"></div>
@@ -260,7 +331,8 @@ function bubbleHtml(m, prev) {
     return `<div class="${cls}" data-id="${esc(m.id)}" ${m.localId ? `data-local="${esc(m.localId)}"` : ''}>
         <div class="sc-bubble ${m.isDeleted ? 'deleted' : ''}">
             ${quote}
-            <div class="sc-text">${m.isDeleted ? '🚫 ההודעה נמחקה' : richText(m.text)}</div>
+            ${!m.isDeleted ? fileHtml(m.file, m.failed ? 'failed' : m.pending) : ''}
+            ${m.isDeleted || m.text ? `<div class="sc-text">${m.isDeleted ? '🚫 ההודעה נמחקה' : richText(m.text)}</div>` : ''}
             <div class="sc-meta">${ticks}<span>${esc(timeOf(m.createdAt))}</span>${m.edited ? '<span>· נערך</span>' : ''}</div>
         </div>
         ${!m.isDeleted && !m.pending && !m.failed ? `<button class="sc-reply-btn" data-reply="${esc(m.id)}" aria-label="ציטוט"><i class="fa-solid fa-reply"></i></button>` : ''}
@@ -432,7 +504,10 @@ async function deliver(p) {
     p.pending = true; p.failed = false;
     render({ forceBottom: true });
     try {
-        const r = await post('/chat/send', { text: p.text, replyTo: p.replyTo ? p.replyTo.id : undefined });
+        const replyTo = p.replyTo ? p.replyTo.id : undefined;
+        const r = p.upload
+            ? await postFile('/chat/send-file', p.upload, { text: p.text, replyTo })
+            : await post('/chat/send', { text: p.text, replyTo });
         if (!r.ok) {
             p.pending = false; p.failed = true;
             render();
@@ -451,15 +526,18 @@ async function deliver(p) {
 function send() {
     const input = $('#sc-input');
     const text = input.value.trim();
-    if (!text) return;
+    const upload = C.attach;
+    if (!text && !upload) return;
     if (text.length > MAX_LEN) { if (typeof showToast === 'function') showToast(`ההודעה ארוכה מדי (עד ${MAX_LEN} תווים)`, 'error'); return; }
     const p = {
-        localId: 'l' + Date.now(), id: 'local', sender: 'user', text,
+        localId: 'l' + Date.now(), id: 'local', sender: 'user', text, upload,
+        file: upload ? { name: upload.name, type: upload.type, size: upload.size } : null,
         createdAt: new Date().toLocaleString('sv-SE').replace('T', ' '),
         replyTo: C.replyTo ? { id: C.replyTo.id, sender: C.replyTo.sender, text: C.replyTo.text } : null,
     };
     C.pending.push(p);
     input.value = '';
+    setAttach(null);
     autoGrow();
     C.replyTo = null;
     renderReplyBar();
@@ -478,13 +556,30 @@ function autoGrow() {
     count.classList.toggle('show', len > MAX_LEN - 300);
     count.classList.toggle('over', len > MAX_LEN);
     count.textContent = `${len}/${MAX_LEN}`;
-    $('#sc-send').disabled = !t.value.trim();
+    $('#sc-send').disabled = !t.value.trim() && !C.attach;
+}
+
+function setAttach(file) {
+    if (file && file.size > MAX_FILE) {
+        if (typeof showToast === 'function') showToast(`הקובץ גדול מדי (עד ${MAX_FILE / 1024 / 1024}MB)`, 'error');
+        file = null;
+    }
+    C.attach = file || null;
+    $('#sc-attachbar').classList.toggle('show', !!C.attach);
+    $('#sc-file').value = '';
+    if (C.attach) {
+        $('#sc-ab-icon').className = `fa-solid ${fileIcon(C.attach.type, C.attach.name)}`;
+        $('#sc-ab-name').textContent = C.attach.name;
+        $('#sc-ab-size').textContent = fileSize(C.attach.size) + ' · אפשר להוסיף הודעה ולשלוח';
+        $('#sc-input').focus();
+    }
+    autoGrow();
 }
 
 function startReply(id) {
     const m = C.messages.find(x => String(x.id) === String(id));
     if (!m) return;
-    C.replyTo = { id: m.id, sender: m.sender, text: m.text };
+    C.replyTo = { id: m.id, sender: m.sender, text: m.text || (m.file ? `📎 ${m.file.name}` : '') };
     renderReplyBar();
     $('#sc-input').focus();
 }
@@ -544,6 +639,21 @@ function bind() {
     document.addEventListener('click', e => { if (!e.target.closest('#sc-emoji, #sc-emoji-btn')) $('#sc-emoji').classList.remove('show'); });
 
     $('#sc-rb-cancel').addEventListener('click', () => { C.replyTo = null; renderReplyBar(); });
+    $('#sc-attach-btn').addEventListener('click', () => $('#sc-file').click());
+    $('#sc-file').addEventListener('change', e => setAttach(e.target.files && e.target.files[0]));
+    $('#sc-ab-cancel').addEventListener('click', () => setAttach(null));
+    input.addEventListener('paste', e => {
+        const f = [...(e.clipboardData && e.clipboardData.files || [])][0];
+        if (f) { e.preventDefault(); setAttach(f); }
+    });
+    // גרירת קובץ לחלון הצ'אט
+    modal.addEventListener('dragover', e => { if ([...e.dataTransfer.types].includes('Files')) { e.preventDefault(); modal.classList.add('drag'); } });
+    modal.addEventListener('dragleave', e => { if (e.target === modal || !modal.contains(e.relatedTarget)) modal.classList.remove('drag'); });
+    modal.addEventListener('drop', e => {
+        modal.classList.remove('drag');
+        const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (f) { e.preventDefault(); setAttach(f); }
+    });
     $('#sc-nb-on').addEventListener('click', enableNotifications);
     $('#sc-nb-x').addEventListener('click', () => { try { localStorage.setItem('salamonChatNotifyAsked', '1'); } catch (e) {} renderNotifyBar(); });
     $('#sc-fab').addEventListener('click', () => { const box = $('#sc-msgs'); box.scrollTop = box.scrollHeight; C.unreadBelow = 0; updateFab(); });
@@ -748,6 +858,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (!has && hadToken) {
             hadToken = false;
             C.messages = []; C.pending = []; C.hash = '';
+            setAttach(null);
             if (C.open) closeChat();
             updateBadge(0);
         }

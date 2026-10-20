@@ -225,6 +225,21 @@ async function api(path, body = {}, auth = 'admin', method = 'POST') {
     return { ok, status: res.status, data, error: data.error || data.message || (ok ? '' : `שגיאה (${res.status})`) };
 }
 
+async function apiUpload(path, file, fields = {}) {
+    const fd = new FormData();
+    fd.append('adminToken', S.adminToken);
+    for (const [k, v] of Object.entries(fields)) if (v !== undefined && v !== null) fd.append(k, v);
+    fd.append('file', file, file.name);
+    let res;
+    try { res = await fetch(`${API_BASE_URL}${path}`, { method: 'POST', body: fd }); }
+    catch (e) { return { ok: false, status: 0, data: {}, error: 'שגיאת תקשורת מול השרת' }; }
+    let data = {};
+    try { data = await res.json(); } catch (e) {}
+    if (res.status === 401 && S.mode === 'admin') sessionExpired();
+    const ok = res.ok && data.success !== false;
+    return { ok, status: res.status, data, error: data.error || data.message || (ok ? '' : `שגיאה (${res.status})`) };
+}
+
 function adminIsActive() {
     return !document.hidden && Date.now() - S.lastInteraction < 120000;
 }
@@ -1310,7 +1325,7 @@ async function openConv(phone, focusMsgId) {
     S.activePhone = phone;
     S.activeHash = '';
     S.focusMsgId = focusMsgId || null;
-    if (changed) { S.replyTo = null; S.thread = null; renderReplyBar(); $('#composer-input').value = ''; setSelectMode(false); }
+    if (changed) { S.replyTo = null; S.thread = null; renderReplyBar(); setAttach(null); $('#composer-input').value = ''; setSelectMode(false); }
     history.replaceState(null, '', `#chat/${encodeURIComponent(phone)}`);
     const c = S.convs.find(x => x.user_phone === phone) || {};
     $('#inbox').classList.add('has-active');
@@ -1393,6 +1408,50 @@ async function refreshThread(silent = true) {
     if (msgs.some(m => m.sender === 'user' && !m.is_read)) api('/admin/chat/read', { targetPhone: phone }).then(() => loadConvs(true));
 }
 
+const MAX_CHAT_FILE = 20 * 1024 * 1024;
+
+function fileSize(n) {
+    if (!n) return '';
+    if (n < 1024) return `${n} B`;
+    if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`;
+    return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function fileIcon(type, name) {
+    const t = String(type || ''), n = String(name || '').toLowerCase();
+    if (t.startsWith('image/')) return 'fa-file-image';
+    if (t.startsWith('audio/')) return 'fa-file-audio';
+    if (t.startsWith('video/')) return 'fa-file-video';
+    if (t === 'application/pdf') return 'fa-file-pdf';
+    if (/\.(docx?|odt|rtf)$/.test(n)) return 'fa-file-word';
+    if (/\.(xlsx?|ods|csv)$/.test(n)) return 'fa-file-excel';
+    if (/\.(zip|rar|7z|gz)$/.test(n)) return 'fa-file-zipper';
+    return 'fa-file-lines';
+}
+
+// קובץ מצורף בהודעה: תמונה / נגן / כרטיס הורדה. local = קובץ שעדיין עולה
+function fileHtml(f, local) {
+    if (!f) return '';
+    const t = String(f.type || '');
+    if (!local && /^image\/(png|jpe?g|gif|webp|avif|bmp)$/.test(t)) return `<a class="m-img" href="${esc(f.url)}" target="_blank" rel="noopener"><img src="${esc(f.url)}" alt="${esc(f.name)}" loading="lazy"></a>`;
+    if (!local && t.startsWith('audio/')) return `<audio class="m-audio" controls preload="none" src="${esc(f.url)}"></audio>`;
+    if (!local && /^video\/(mp4|webm|ogg|quicktime)$/.test(t)) return `<video class="m-video" controls preload="metadata" src="${esc(f.url)}"></video>`;
+    const inner = `<i class="fa-solid ${fileIcon(t, f.name)}"></i><span><b>${esc(f.name)}</b><small>${local ? '<i class="fa-solid fa-circle-notch spin"></i> מעלה…' : esc(fileSize(f.size))}</small></span>${local ? '' : '<i class="fa-solid fa-download"></i>'}`;
+    return local ? `<div class="m-file">${inner}</div>` : `<a class="m-file" href="${esc(f.url)}?dl=1" target="_blank" rel="noopener" download>${inner}</a>`;
+}
+
+function setAttach(file) {
+    if (file && file.size > MAX_CHAT_FILE) { toast(`הקובץ גדול מדי (עד ${MAX_CHAT_FILE / 1024 / 1024}MB)`, 'bad'); file = null; }
+    S.attach = file || null;
+    $('#attach-bar').hidden = !S.attach;
+    $('#composer-file').value = '';
+    if (!S.attach) return;
+    $('#attach-icon').className = `fa-solid ${fileIcon(S.attach.type, S.attach.name)}`;
+    $('#attach-name').textContent = S.attach.name;
+    $('#attach-size').textContent = `${fileSize(S.attach.size)} · אפשר להוסיף הודעה ולשלוח`;
+    $('#composer-input').focus();
+}
+
 function renderThread(msgs, forceBottom) {
     const box = $('#thread-msgs');
     const atBottom = box.scrollHeight - box.scrollTop <= box.clientHeight + 60;
@@ -1420,7 +1479,8 @@ function renderThread(msgs, forceBottom) {
         html += `<div class="msg ${out ? 'out' : 'in'} ${deleted ? 'deleted' : ''} ${sel ? 'selectable' : ''} ${picked ? 'picked' : ''}" data-msg="${esc(m.id)}"${sel ? ` data-action="pick-msg" data-id="${esc(m.id)}"` : ''}>
             ${sel ? `<span class="m-check"><i class="fa-solid fa-check"></i></span>` : ''}
             ${quote}
-            <div class="m-text">${deleted ? `🚫 ההודעה נמחקה${m.deleted_at ? ` · ${esc(chatTime(m.deleted_at))}` : ''}` : esc(m.message_text)}</div>
+            ${deleted ? (m.file_name ? `<div class="m-file-gone"><i class="fa-solid fa-paperclip"></i> ${esc(m.file_name)}</div>` : '') : fileHtml(m.file)}
+            ${deleted || m.message_text ? `<div class="m-text">${deleted ? `🚫 ההודעה נמחקה${m.deleted_at ? ` · ${esc(chatTime(m.deleted_at))}` : ''}` : esc(m.message_text)}</div>` : ''}
             ${deleted && m.deleted_text ? `<details class="m-deleted"><summary>הצגת התוכן שנמחק (רק אתה רואה)</summary><div>${esc(m.deleted_text)}</div></details>` : ''}
             ${m.email ? `<div class="m-email" title="${m.email.openedAt ? `נפתח ב-${esc(fmtDate(m.email.openedAt))}${m.email.openedIp ? ` מ-${esc(m.email.openedIp)}` : ''}` : 'הלקוח עוד לא פתח את הקישור'}"><i class="fa-solid fa-envelope${m.email.openedAt ? '-open' : ''}"></i> ${m.email.ok ? 'נשלח במייל' : 'שליחת המייל נכשלה'}${m.email.openedAt ? ` · נפתח ${esc(chatTime(m.email.openedAt))}` : ''}</div>` : ''}
             <div class="m-meta">${m.edited ? '<span class="m-edited">נערך</span>' : ''}<span>${chatTime(m.created_at)}</span>${ticks}</div>
@@ -1451,7 +1511,7 @@ function renderReplyBar() {
 function startReply(id) {
     const m = (S.threadMsgs || []).find(x => String(x.id) === String(id));
     if (!m) return;
-    S.replyTo = { id: m.id, sender: m.sender, text: m.message_text };
+    S.replyTo = { id: m.id, sender: m.sender, text: m.message_text || (m.file_name ? `📎 ${m.file_name}` : '') };
     renderReplyBar();
     $('#composer-input').focus();
 }
@@ -1480,25 +1540,29 @@ async function sendMsg(e) {
     if (e) e.preventDefault();
     const input = $('#composer-input');
     const text = input.value.trim();
-    if (!text || !S.activePhone) return;
+    const file = S.attach;
+    if ((!text && !file) || !S.activePhone) return;
     const box = $('#thread-msgs');
     const tmp = document.createElement('div');
     tmp.className = 'msg out pending';
-    tmp.innerHTML = `${S.replyTo ? `<div class="m-quote"><b>${S.replyTo.sender === 'admin' ? 'אתה' : 'הלקוח'}</b>${esc(S.replyTo.text)}</div>` : ''}<div class="m-text">${esc(text)}</div><div class="m-meta"><i class="fa-regular fa-clock"></i></div>`;
+    tmp.innerHTML = `${S.replyTo ? `<div class="m-quote"><b>${S.replyTo.sender === 'admin' ? 'אתה' : 'הלקוח'}</b>${esc(S.replyTo.text)}</div>` : ''}${file ? fileHtml({ name: file.name, type: file.type, size: file.size }, true) : ''}${text ? `<div class="m-text">${esc(text)}</div>` : ''}<div class="m-meta"><i class="fa-regular fa-clock"></i></div>`;
     box.querySelector('.empty')?.remove();
     box.appendChild(tmp);
     box.scrollTop = box.scrollHeight;
     const replyTo = S.replyTo;
     input.value = ''; input.style.height = '';
     S.replyTo = null; renderReplyBar();
+    setAttach(null);
     typingSentAt = 0;
     const btn = $('#composer-send');
     btn.disabled = true;
     const mail = $('#composer-email');
     const withEmail = mail.checked && !mail.disabled;
-    const r = await api('/admin/chat/send', { targetPhone: S.activePhone, text, replyTo: replyTo ? replyTo.id : undefined, sendEmail: withEmail });
+    const r = file
+        ? await apiUpload('/admin/chat/send-file', file, { targetPhone: S.activePhone, text, replyTo: replyTo ? replyTo.id : undefined, sendEmail: withEmail ? '1' : undefined })
+        : await api('/admin/chat/send', { targetPhone: S.activePhone, text, replyTo: replyTo ? replyTo.id : undefined, sendEmail: withEmail });
     btn.disabled = false;
-    if (!r.ok) { tmp.remove(); input.value = text; S.replyTo = replyTo; renderReplyBar(); toast(r.error || 'שגיאה בשליחת ההודעה', 'bad'); return; }
+    if (!r.ok) { tmp.remove(); input.value = text; S.replyTo = replyTo; renderReplyBar(); if (file) setAttach(file); toast(r.error || 'שגיאה בשליחת ההודעה', 'bad'); return; }
     mail.checked = false;
     if (EMAIL_RESULT[r.data.email]) toast(...EMAIL_RESULT[r.data.email]);
     S.activeHash = '';
@@ -3287,6 +3351,8 @@ const ACTIONS = {
     'clean-logs': cleanLogs,
 
     'open-conv': el => { closePopovers(); openConv(el.dataset.phone); },
+    'attach-file': () => $('#composer-file').click(),
+    'attach-cancel': () => setAttach(null),
     'chat-filter': el => { S.chatFilter = el.dataset.filter; renderConvs(); },
     'toggle-qr': () => { if (togglePopover('qr-panel')) renderQuickReplies(); },
     'qr-use': el => {
@@ -3498,6 +3564,12 @@ function bindEvents() {
         sendTyping(!!composer.value.trim());
     });
     composer.addEventListener('blur', () => sendTyping(false));
+    composer.addEventListener('paste', e => { const f = [...((e.clipboardData && e.clipboardData.files) || [])][0]; if (f) { e.preventDefault(); setAttach(f); } });
+    $('#composer-file').addEventListener('change', e => setAttach(e.target.files && e.target.files[0]));
+    const thread = $('#thread');
+    thread.addEventListener('dragover', e => { if (S.activePhone && [...e.dataTransfer.types].includes('Files')) { e.preventDefault(); thread.classList.add('drag'); } });
+    thread.addEventListener('dragleave', e => { if (!thread.contains(e.relatedTarget)) thread.classList.remove('drag'); });
+    thread.addEventListener('drop', e => { thread.classList.remove('drag'); const f = S.activePhone && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) { e.preventDefault(); setAttach(f); } });
 
     $('#ad-form').addEventListener('input', debounce(updateAdPreview, 120));
     $('#ad-form').addEventListener('change', e => { if (e.target.name === 'ad-aud' || e.target.id === 'ad-phones') renderAdAudience(); updateAdPreview(); });
