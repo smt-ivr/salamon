@@ -586,12 +586,6 @@ function injectStyles() {
     .sc-attachbar .sc-icon-btn { color: #54656f; width: 32px; height: 32px; }
     .sc-overlay.drag .sc-panel { outline: 3px dashed #16a34a; outline-offset: -8px; }
 
-    .master-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 2500; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 7px 14px; background: linear-gradient(90deg, #b45309, #d97706); color: #fff; font-size: .86rem; font-weight: 600; direction: rtl; box-shadow: 0 2px 10px rgba(0,0,0,.25); font-family: inherit; }
-    .master-bar span { opacity: .9; font-weight: 400; }
-    .master-bar button { border: 1px solid rgba(255,255,255,.6); background: rgba(255,255,255,.15); color: #fff; border-radius: 999px; padding: 3px 12px; font: inherit; font-size: .8rem; cursor: pointer; }
-    body.has-master-bar { padding-top: 36px; }
-    @media (max-width: 560px) { .master-bar span { display: none; } }
-
     .chat-badge-pulse { animation: badgePulse 1.5s infinite; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
     @keyframes badgePulse { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { transform: scale(1.1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
     @media (prefers-reduced-motion: reduce) { .sc-overlay *, .sc-overlay { animation: none !important; } }
@@ -1147,22 +1141,27 @@ async function handleEmailLink() {
     }
 }
 
-// ---------- Master ----------
-// כשהמנהל נכנס לחשבון של לקוח עם סיסמת המאסטר, מוצג פס קבוע שמבהיר שזו התחברות מאסטר
+// ---------- Groups link ----------
+// קישור לצ'אט הקבוצתי מופיע בתפריט רק למי שיש לו קבוצות (או קבוצות שאפשר להצטרף אליהן)
 
-function renderMasterBar() {
-    const isMaster = !!(state.userToken && state.currentUser && state.currentUser.tokenType === 'master');
-    let bar = document.getElementById('master-bar');
-    document.body.classList.toggle('has-master-bar', isMaster);
-    if (!isMaster) { if (bar) bar.remove(); return; }
-    if (bar) return;
-    bar = document.createElement('div');
-    bar.id = 'master-bar';
-    bar.className = 'master-bar';
-    bar.setAttribute('role', 'status');
-    bar.innerHTML = `<i class="fa-solid fa-user-secret"></i> התחברות מאסטר<span>· הלקוח לא רואה שנכנסת, ושום דבר לא נרשם אצלו</span><button type="button">יציאה</button>`;
-    bar.querySelector('button').addEventListener('click', () => { if (typeof logout === 'function') logout(); });
-    document.body.prepend(bar);
+async function checkGroups() {
+    try {
+        const r = await post('/groups/me');
+        const nav = document.querySelector('.nav-menu');
+        let item = document.getElementById('tab-btn-groups');
+        const has = r.ok && ((r.data.groups || []).length || (r.data.discover || []).length);
+        if (!has || !nav) { if (item) item.remove(); return; }
+        const unread = (r.data.groups || []).reduce((n, g) => n + (g.unread || 0), 0);
+        if (!item) {
+            item = document.createElement('a');
+            item.id = 'tab-btn-groups';
+            item.className = 'nav-item';
+            item.href = '/salamon/groups';
+            item.style.textDecoration = 'none';
+            nav.appendChild(item);
+        }
+        item.innerHTML = `<i class="fa-solid fa-people-group"></i> <span style="margin-right: 5px;">קבוצות</span>${unread ? `<span style="margin-inline-start:auto;background:var(--danger);color:#fff;border-radius:10px;padding:0 7px;font-size:12px;font-weight:700;">${unread > 99 ? '99+' : unread}</span>` : ''}`;
+    } catch (e) {}
 }
 
 // ---------- Lifecycle ----------
@@ -1174,6 +1173,7 @@ function tick() {
     const interval = C.open && !document.hidden ? POLL_OPEN_MS : POLL_CLOSED_MS;
     if (now - C.lastPoll < interval) return;
     C.lastPoll = now;
+    if (!document.hidden && now - (C.groupsAt || 0) > 60000) { C.groupsAt = now; checkGroups(); }
     if (C.open && !document.hidden) fetchChat();
     else checkUnread();
 }
@@ -1215,16 +1215,17 @@ document.addEventListener('DOMContentLoaded', () => {
             C.notifyBaseline = null;
             sendPresence(document.hidden ? 'hidden' : 'active', true);
             checkUnread();
+            checkGroups();
             setTimeout(consumeOpenIntent, 300);
         } else if (!has && hadToken) {
             hadToken = false;
             C.messages = []; C.pending = []; C.hash = '';
+            document.getElementById('tab-btn-groups')?.remove();
             setAttach(null);
             F.clear();
             if (C.open) closeChat();
             updateBadge(0);
         }
-        renderMasterBar();
         tick();
     }, 500);
     document.addEventListener('visibilitychange', () => {

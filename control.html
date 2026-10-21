@@ -326,6 +326,22 @@
                     </div>
                 </section>
 
+                <!-- Groups -->
+                <section class="view" id="view-groups">
+                    <div class="view-head">
+                        <div><h1>צ'אט קבוצתי</h1><p>קבוצות, מפקחים, הרשאות, שעות פעילות, הזמנות ואורחים מבחוץ · נפרד מתיבת התמיכה</p></div>
+                        <div class="actions">
+                            <label class="mail-toggle" title="כיבוי מסתיר את הצ'אט הקבוצתי מכולם"><input type="checkbox" id="groups-enabled"><span><i class="fa-solid fa-power-off"></i> פעיל</span></label>
+                            <button class="btn" data-action="groups-open-app"><i class="fa-solid fa-arrow-up-right-from-square"></i> פתיחת הצ'אט הקבוצתי</button>
+                            <button class="btn btn-primary" data-action="group-new"><i class="fa-solid fa-plus"></i> קבוצה חדשה</button>
+                        </div>
+                    </div>
+                    <div class="kpis" id="groups-kpis"></div>
+                    <div class="card">
+                        <div class="table-wrap"><table class="tbl"><thead><tr><th>קבוצה</th><th>חברים</th><th>מפקחים</th><th>אורחים</th><th>ממתינים</th><th>הודעות השבוע</th><th>מצב</th><th></th></tr></thead><tbody id="groups-body"></tbody></table></div>
+                    </div>
+                </section>
+
                 <!-- Ads -->
                 <section class="view" id="view-ads">
                     <div class="view-head">
@@ -596,6 +612,26 @@
 
     <!-- ===== User drawer ===== -->
     <div class="scrim" id="scrim"></div>
+    <aside class="drawer" id="group-drawer" aria-hidden="true">
+        <div class="drawer-head">
+            <div><h2 id="gd-title">קבוצה</h2><div class="sub" id="gd-sub"></div></div>
+            <button class="icon-btn" data-action="close-drawer" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="drawer-tabs" id="gd-tabs">
+            <button class="drawer-tab active" data-gtab="settings"><i class="fa-solid fa-sliders"></i> הגדרות</button>
+            <button class="drawer-tab" data-gtab="members"><i class="fa-solid fa-users"></i> חברים</button>
+            <button class="drawer-tab" data-gtab="invites"><i class="fa-solid fa-link"></i> הזמנות</button>
+            <button class="drawer-tab" data-gtab="log"><i class="fa-solid fa-clock-rotate-left"></i> יומן</button>
+        </div>
+        <div class="drawer-body" id="gd-body"></div>
+        <div class="drawer-foot" id="gd-foot">
+            <button class="btn btn-primary" data-action="group-save"><i class="fa-solid fa-check"></i> שמירה</button>
+            <div class="spacer"></div>
+            <button class="btn" data-action="group-archive" id="gd-archive"><i class="fa-solid fa-box-archive"></i> ארכיון</button>
+            <button class="btn btn-danger" data-action="group-delete" id="gd-delete"><i class="fa-solid fa-trash-can"></i> מחיקה</button>
+        </div>
+    </aside>
+
     <aside class="drawer" id="user-drawer" aria-hidden="true">
         <div class="drawer-head">
             <div><h2 id="ud-title">משתמש</h2><div class="sub ltr" id="ud-sub"></div></div>

@@ -13,21 +13,16 @@ async function loadUser() {
 
 function renderMe() { App.renderNav(); renderMasterBar(); }
 
-// כשהמנהל נכנס לחשבון של לקוח עם סיסמת המאסטר, מוצג פס קבוע שמבהיר שזו התחברות מאסטר
+// התחברות מאסטר: סימון קבוע על התמונה בתפריט ועל כותרת המסך (במקום פס מעל האתר)
 function renderMasterBar() {
     const isMaster = !!(App.token && App.user && App.user.tokenType === 'master');
-    let bar = document.getElementById('master-bar');
-    document.body.classList.toggle('has-master-bar', isMaster);
-    if (!isMaster) { if (bar) bar.remove(); return; }
-    if (bar) return;
-    bar = document.createElement('div');
-    bar.id = 'master-bar';
-    bar.className = 'master-bar';
-    bar.setAttribute('role', 'status');
-    bar.innerHTML = '<i class="fa-solid fa-user-secret"></i> התחברות מאסטר<span>· הלקוח לא רואה שנכנסת, ושום דבר לא נרשם אצלו</span><button type="button" data-act="master-exit">יציאה</button>';
-    document.body.prepend(bar);
+    document.body.classList.toggle('is-master', isMaster);
+    const me = $('#side-me');
+    if (me && isMaster && !me.querySelector('.master-chip')) {
+        me.title = 'התחברות מאסטר · הלקוח לא רואה שנכנסת, ושום דבר לא נרשם אצלו';
+        me.querySelector('.sm-text b')?.insertAdjacentHTML('afterend', '<span class="master-chip"><i class="fa-solid fa-user-secret"></i> מאסטר</span>');
+    }
 }
-App.actions['master-exit'] = () => App.logout();
 document.addEventListener('logout', () => renderMasterBar());
 
 function renderBanner() {

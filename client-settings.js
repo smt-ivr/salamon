@@ -26,9 +26,14 @@ function updateDashboardUI() {
         ? `<div class="auth-icon-circle google" title="חשבון Google"><i class="fa-brands fa-google"></i></div>`
         : `<div class="auth-icon-circle password" title="סיסמה"><i class="fa-solid fa-lock"></i></div>`;
         
-    const tokenIcon = user.tokenType === 'permanent' 
+    // התחברות מאסטר: סימון קבוע על התמונה ובתגיות החיבור (במקום פס מעל האתר)
+    const isMaster = user.tokenType === 'master';
+    const tokenIcon = isMaster
+        ? `<div class="auth-icon-circle master" title="התחברות מאסטר · הלקוח לא רואה שנכנסת, ושום דבר לא נרשם אצלו"><i class="fa-solid fa-user-secret"></i></div>`
+        : user.tokenType === 'permanent'
         ? `<div class="auth-icon-circle perm" title="מכשיר מוכר"><i class="fa-solid fa-infinity"></i></div>`
         : `<div class="auth-icon-circle temp" title="חיבור זמני"><i class="fa-solid fa-hourglass-half"></i></div>`;
+    if (avatarDiv) avatarDiv.classList.toggle('is-master', isMaster);
 
     const badgeContainer = document.getElementById('ui-auth-badges');
     if (badgeContainer) badgeContainer.innerHTML = `${authIcon}${tokenIcon}`;

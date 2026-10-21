@@ -658,14 +658,32 @@ App.views.chat = {
     subtitle: () => statusText(),
 };
 
+// קישור לצ'אט הקבוצתי בראש התפריט, רק למי שיש קבוצות או קבוצות פתוחות להצטרפות
+async function checkGroups() {
+    const r = await api('/groups/me');
+    let a = document.getElementById('side-groups');
+    const has = r.ok && ((r.data.groups || []).length || (r.data.discover || []).length);
+    if (!has) { if (a) a.remove(); return; }
+    const unread = (r.data.groups || []).reduce((n, g) => n + (g.unread || 0), 0);
+    if (!a) {
+        a = document.createElement('a');
+        a.id = 'side-groups'; a.className = 'icon-btn'; a.href = '/salamon/groups'; a.title = 'קבוצות'; a.setAttribute('aria-label', 'קבוצות');
+        a.style.position = 'relative';
+        $('#side-actions')?.prepend(a);
+    }
+    a.innerHTML = `<i class="fa-solid fa-people-group"></i>${unread ? `<b class="dot">${unread > 99 ? '99+' : unread}</b>` : ''}`;
+}
+
 // בדיקת תשובות חדשות גם כשהצ'אט לא פתוח, ודיווח נוכחות (כמו באתר הוותיק)
 document.addEventListener('login', () => {
     C.baseline = null;
     checkUnread();
+    checkGroups();
     presence('active');
     if (!C._timers) {
         C._timers = true;
         App.every(12000, () => { if (!C.visible) checkUnread(); }, { hiddenMs: 30000 });
+        App.every(60000, checkGroups, { hiddenMs: 300000 });
         App.every(30000, () => { if (!document.hidden) presence('active'); }, { hiddenMs: 1e9 });
     }
 });
