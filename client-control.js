@@ -1423,14 +1423,13 @@ async function refreshThread(silent = true) {
 const MAX_CHAT_FILE = 20 * 1024 * 1024;
 
 // ---------- קבצים בצ'אט ----------
-// אין לקבצים קישור ציבורי: כל קובץ נטען בבקשה מאומתת (עם הטוקן של המחובר) ומוצג מתוך הזיכרון של הדף.
+// אין לקבצים קישור ציבורי: השרת נותן למי שמחובר קישור חתום ומוגבל בזמן לכל קובץ, והקובץ נטען ישירות ממנו
+// (לא דרך הזיכרון של הדף), כך שגם סינון כמו נטפרי רואה ומעביר אותו כרגיל.
 // כל הקבצים נפתחים בתוך הצ'אט (תמונה, וידאו, שמע, PDF, טקסט), ותמיד אפשר גם לשמור אותם.
 // קובץ שהמנהל הגביל (צפייה חד-פעמית / מספר צפיות / תוקף) לא נטען אוטומטית, וכל פתיחה שלו נספרת.
 
 // api: פונקציה שמחזירה את כתובת ה-API, auth: פונקציה שמחזירה את הטוקן לבקשה
 function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
-    const cache = new Map();
-    const loading = new Map();
     const PDFJS = '/salamon/vendor/pdf.min.js';
     const PDFJS_WORKER = '/salamon/vendor/pdf.worker.min.js';
     const VIDEO_EXT = /\.(mp4|m4v|mov|3gp|mkv|avi|webm)$/i;
@@ -1487,30 +1486,23 @@ function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
         return h ? `${h}:${String(m).padStart(2, '0')}:${r}` : `${m}:${r}`;
     }
 
-    async function fetchBlob(id, type, thumb) {
+    // קישור לפתיחה: קובץ רגיל - הקישור שהגיע עם ההודעה (אם לא עומד לפוג); קובץ מוגבל - קישור חדש מהשרת, ואז נספרת צפייה
+    function linkExpired(u) {
+        const m = /\/chat\/f\/\d+\/[ft]\/(\d+)\//.exec(String(u || ''));
+        return !m || Number(m[1]) * 1000 < Date.now() + 60000;
+    }
+    async function linkFor(id, f) {
+        const limited = viewer === 'user' && f.limited && !f.master;
+        if (!limited && f.url && !linkExpired(f.url)) return f.url;
         let res;
         try {
-            res = await fetch(`${api()}/chat/file`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...auth(), messageId: Number(id), thumb: !!thumb }) });
+            res = await fetch(`${api()}/chat/file-link`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...auth(), messageId: Number(id) }) });
         } catch (e) { throw new Error('שגיאת תקשורת מול השרת'); }
-        if (!res.ok) {
-            let d = {};
-            try { d = await res.json(); } catch (e) {}
-            const err = new Error(d.error || 'לא ניתן לפתוח את הקובץ');
-            err.status = res.status;
-            throw err;
-        }
-        const b = await res.blob();
-        // הסוג הנכון חשוב לנגן הווידאו (במיוחד באייפון)
-        return type && b.type !== type ? new Blob([b], { type }) : b;
-    }
-    // קבצים בלי הגבלה נשמרים בזיכרון הדף, כדי שרענון השיחה לא יטען אותם שוב
-    function load(id, type, thumb) {
-        const k = (thumb ? 't:' : '') + id;
-        if (cache.has(k)) return Promise.resolve(cache.get(k));
-        if (!loading.has(k)) {
-            loading.set(k, fetchBlob(id, thumb ? '' : type, thumb).then(b => { const u = URL.createObjectURL(b); cache.set(k, { url: u, blob: b }); return cache.get(k); }).finally(() => loading.delete(k)));
-        }
-        return loading.get(k);
+        let d = {};
+        try { d = await res.json(); } catch (e) {}
+        if (!res.ok || !d.url) throw new Error(d.error || 'לא ניתן לפתוח את הקובץ');
+        if (!limited) { f.url = d.url; if (d.thumbUrl) f.thumbUrl = d.thumbUrl; }
+        return d.url;
     }
 
     // ---------- תמונה מקדימה ----------
@@ -1525,18 +1517,21 @@ function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
         return c;
     }
     function once(el, ev) { return new Promise((res, rej) => { el.addEventListener(ev, res, { once: true }); el.addEventListener('error', rej, { once: true }); }); }
-    async function imageThumb(file) {
-        const url = URL.createObjectURL(file);
+    // src: הקובץ שנבחר להעלאה (File), או קישור לקובץ שכבר בשרת
+    const srcUrl = src => typeof src === 'string' ? src : URL.createObjectURL(src);
+    const release = (src, url) => { if (typeof src !== 'string') URL.revokeObjectURL(url); };
+    async function imageThumb(src, bytes) {
+        const url = srcUrl(src);
         try {
             const img = new Image(); img.src = url; await once(img, 'load');
             const meta = { w: img.naturalWidth, h: img.naturalHeight };
-            if (file.size < 120 * 1024) return { thumb: null, meta };
+            if (bytes < 120 * 1024) return { thumb: null, meta };
             const c = fit(meta.w, meta.h); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
             return { thumb: await toJpeg(c), meta };
-        } finally { URL.revokeObjectURL(url); }
+        } finally { release(src, url); }
     }
-    async function videoThumb(file) {
-        const url = URL.createObjectURL(file);
+    async function videoThumb(src) {
+        const url = srcUrl(src);
         const v = document.createElement('video');
         v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = url;
         try {
@@ -1547,11 +1542,12 @@ function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
             await timeout(once(v, 'seeked'), 4000);
             const c = fit(v.videoWidth, v.videoHeight); c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
             return { thumb: await toJpeg(c), meta };
-        } finally { v.removeAttribute('src'); v.load(); URL.revokeObjectURL(url); }
+        } finally { v.removeAttribute('src'); v.load(); release(src, url); }
     }
-    async function pdfThumb(file) {
+    const PDF_FONTS = '/salamon/vendor/standard_fonts/';
+    async function pdfThumb(src) {
         const lib = await loadPdfJs();
-        const doc = await lib.getDocument({ data: new Uint8Array(await file.arrayBuffer()), standardFontDataUrl: '/salamon/vendor/standard_fonts/' }).promise;
+        const doc = await lib.getDocument(typeof src === 'string' ? { url: src, standardFontDataUrl: PDF_FONTS } : { data: new Uint8Array(await src.arrayBuffer()), standardFontDataUrl: PDF_FONTS }).promise;
         const page = await doc.getPage(1);
         const base = page.getViewport({ scale: 1 });
         const vp = page.getViewport({ scale: THUMB_MAX / Math.max(base.width, base.height) });
@@ -1561,12 +1557,12 @@ function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
         await page.render({ canvasContext: ctx, viewport: vp }).promise;
         return { thumb: await toJpeg(c), meta: { pages: doc.numPages, w: Math.round(base.width), h: Math.round(base.height) } };
     }
-    async function makeThumb(file, type, name) {
-        const k = kind(type || file.type, name || file.name);
+    async function makeThumb(src, type, name, bytes) {
+        const k = kind(type || src.type, name || src.name);
         try {
-            if (k === 'img') return await timeout(imageThumb(file), 8000);
-            if (k === 'video') return await timeout(videoThumb(file), 10000);
-            if (k === 'pdf') return await timeout(pdfThumb(file), 15000);
+            if (k === 'img') return await timeout(imageThumb(src, bytes ?? src.size), 8000);
+            if (k === 'video') return await timeout(videoThumb(src), 10000);
+            if (k === 'pdf') return await timeout(pdfThumb(src), 15000);
         } catch (e) {}
         return null;
     }
@@ -1576,10 +1572,10 @@ function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
         if (!prepared.has(file)) prepared.set(file, makeThumb(file).then(t => t ? { thumb: t.thumb || undefined, meta: JSON.stringify(t.meta || {}) } : {}).catch(() => ({})));
         return prepared.get(file);
     }
-    // קובץ ישן בלי תמונה מקדימה: מכינים אותה מהקובץ שנפתח ושולחים לשרת
-    async function backfill(id, f, blob) {
+    // קובץ ישן בלי תמונה מקדימה: מכינים אותה מהקובץ שנפתח (דרך הקישור שלו) ושולחים לשרת
+    async function backfill(id, f, url) {
         if (f.thumb || !['img', 'video', 'pdf'].includes(kind(f.type, f.name))) return;
-        const t = await makeThumb(blob, f.type, f.name);
+        const t = await makeThumb(url, f.type, f.name, f.size);
         if (!t || (!t.thumb && !t.meta)) return;
         const fd = new FormData();
         for (const [k, v] of Object.entries(auth())) if (v) fd.append(k, v);
@@ -1589,7 +1585,7 @@ function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
         const r = await fetch(`${api()}/chat/file-thumb`, { method: 'POST', body: fd }).catch(() => null);
         if (r && r.ok) {
             f.meta = f.meta || t.meta;
-            if (t.thumb) { f.thumb = true; cache.set('t:' + id, { url: URL.createObjectURL(t.thumb), blob: t.thumb }); }
+            if (t.thumb) f.thumb = true;
             if (onChange) onChange();
         }
     }
@@ -1609,33 +1605,32 @@ function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
         if (viewer === 'user' && !f.available) return card('off', 'fa-lock', f.name, esc(BLOCKED[f.blocked] || 'הקובץ אינו זמין'));
         if (viewer === 'user' && f.limited && !f.master) return card('locked', 'fa-lock', f.name, `${esc(lim)} · ${OPEN_TEXT[k]}`, openAttrs, '<i class="fa-solid fa-eye cf-act"></i>');
         const pic = (thumb) => {
-            const c = cache.get((thumb ? 't:' : '') + key) || (thumb ? null : cache.get(key));
             const ratio = meta.w && meta.h ? ` style="aspect-ratio:${meta.w}/${meta.h}"` : '';
-            return c ? `<img src="${c.url}" alt=""${ratio}>` : `<img data-hydrate="${esc(key)}" data-type="${esc(t)}" ${thumb ? 'data-thumb="1"' : ''} alt=""${ratio}>`;
+            return `<img src="${esc(thumb ? f.thumbUrl : f.url)}" loading="lazy" decoding="async" alt=""${ratio}>`;
         };
-        if (k === 'img') return `<button type="button" class="cf-img" data-file-open="${esc(key)}" aria-label="${esc(f.name)}">${pic(!!f.thumb)}</button>${badge}`;
-        if (k === 'video' && f.thumb) {
+        if (k === 'img' && (f.thumbUrl || f.url)) return `<button type="button" class="cf-img" data-file-open="${esc(key)}" aria-label="${esc(f.name)}">${pic(!!f.thumbUrl)}</button>${badge}`;
+        if (k === 'video' && f.thumbUrl) {
             return `<button type="button" class="cf-img cf-video" data-file-open="${esc(key)}" aria-label="${esc(f.name)}">${pic(true)}<span class="cf-play"><i class="fa-solid fa-play"></i></span>${meta.duration ? `<span class="cf-dur"><i class="fa-solid fa-video"></i> ${esc(duration(meta.duration))}</span>` : ''}</button>${badge}`;
         }
-        if (k === 'pdf' && f.thumb) {
+        if (k === 'pdf' && f.thumbUrl) {
             return `<button type="button" class="cf-img cf-doc" data-file-open="${esc(key)}" aria-label="${esc(f.name)}">${pic(true)}<span class="cf-doc-bar"><i class="fa-solid fa-file-pdf"></i><b>${esc(f.name)}</b><small>${meta.pages ? `${meta.pages} עמ' · ` : ''}${esc(size(f.size))}</small></span></button>${badge}`;
         }
         const extra = k === 'video' && meta.duration ? `${esc(duration(meta.duration))} · ` : k === 'pdf' && meta.pages ? `${meta.pages} עמ' · ` : '';
         return card(k === 'video' || k === 'audio' ? 'media' : '', OPEN_ICON[k] || icon(t, f.name), f.name, `${extra}${esc(size(f.size))} · ${OPEN_TEXT[k]}`, openAttrs, `<i class="fa-solid fa-${k === 'video' || k === 'audio' ? 'play' : 'eye'} cf-act"></i>`) + badge;
     }
 
-    // טעינת תמונות (בלי הגבלה) אחרי ציור ההודעות
+    // תמונה שלא נטענה (למשל קישור שפג) מסומנת, ובלחיצה עליה נוצר קישור חדש
     function hydrate(root) {
         if (!root) return;
-        root.querySelectorAll('img[data-hydrate]').forEach(el => {
-            load(el.dataset.hydrate, el.dataset.type, !!el.dataset.thumb).then(c => { el.src = c.url; el.removeAttribute('data-hydrate'); })
-                .catch(() => { el.closest('.cf-img')?.classList.add('broken'); });
+        root.querySelectorAll('.cf-img img:not([data-watch])').forEach(el => {
+            el.dataset.watch = '1';
+            el.addEventListener('error', () => el.closest('.cf-img')?.classList.add('broken'), { once: true });
         });
     }
 
-    function saveBlob(url, name) {
+    function save(url, name) {
         const a = document.createElement('a');
-        a.href = url; a.download = name || 'file';
+        a.href = url + (url.includes('?') ? '&' : '?') + 'dl=1'; a.download = name || 'file'; a.rel = 'noopener';
         document.body.appendChild(a); a.click(); a.remove();
     }
 
@@ -1655,10 +1650,10 @@ function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
     }
 
     // הצגת PDF בתוך הצ'אט, עמוד אחרי עמוד (גם בטלפונים, שבהם הדפדפן היה מוריד את הקובץ)
-    async function renderPdf(blob, body, isOpen) {
+    async function renderPdf(url, body, isOpen) {
         body.innerHTML = '<div class="cf-v-wait"><i class="fa-solid fa-circle-notch fa-spin"></i> טוען מסמך…</div>';
         const lib = await loadPdfJs();
-        const doc = await lib.getDocument({ data: new Uint8Array(await blob.arrayBuffer()), standardFontDataUrl: '/salamon/vendor/standard_fonts/' }).promise;
+        const doc = await lib.getDocument({ url, standardFontDataUrl: PDF_FONTS }).promise;
         body.innerHTML = '';
         const width = Math.min(body.clientWidth - 20, 900);
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -1678,7 +1673,7 @@ function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
         }
     }
 
-    function viewerOpen({ url, blob }, f, temp) {
+    function viewerOpen(url, f) {
         const k = kind(f.type, f.name);
         const ov = document.createElement('div');
         ov.className = 'cf-viewer';
@@ -1687,11 +1682,11 @@ function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
             ${f.limited && viewer === 'user' && !f.master ? `<div class="cf-v-note"><i class="fa-solid fa-lock"></i> ${esc(limitText(f))}</div>` : ''}`;
         const body = ov.querySelector('.cf-v-body');
         let open = true;
-        if (k === 'img') body.innerHTML = `<img src="${url}" alt="">`;
-        else if (k === 'video') body.innerHTML = `<video src="${url}" controls autoplay playsinline></video>`;
-        else if (k === 'audio') body.innerHTML = `<div class="cf-v-audio"><i class="fa-solid fa-music"></i><audio src="${url}" controls autoplay></audio></div>`;
-        else if (k === 'text') blob.text().then(t => { body.innerHTML = `<pre class="cf-v-text">${esc(t.slice(0, 500000))}</pre>`; });
-        else if (k === 'pdf') renderPdf(blob, body, () => open).catch(() => {
+        if (k === 'img') body.innerHTML = `<img src="${esc(url)}" alt="">`;
+        else if (k === 'video') body.innerHTML = `<video src="${esc(url)}" controls autoplay playsinline preload="metadata"></video>`;
+        else if (k === 'audio') body.innerHTML = `<div class="cf-v-audio"><i class="fa-solid fa-music"></i><audio src="${esc(url)}" controls autoplay></audio></div>`;
+        else if (k === 'text') fetch(url).then(r => r.text()).then(t => { if (open) body.innerHTML = `<pre class="cf-v-text">${esc(t.slice(0, 500000))}</pre>`; }).catch(() => {});
+        else if (k === 'pdf') renderPdf(url, body, () => open).catch(() => {
             if (open) body.innerHTML = `<div class="cf-v-file"><i class="fa-solid fa-file-pdf"></i><b>${esc(f.name)}</b><p>לא ניתן להציג את המסמך כאן.</p><button type="button" class="cf-v-dl" data-v="save"><i class="fa-solid fa-download"></i> שמירה למכשיר</button></div>`;
         });
         else body.innerHTML = `<div class="cf-v-file"><i class="fa-solid ${icon(f.type, f.name)}"></i><b>${esc(f.name)}</b><p>${esc(size(f.size))} · אין תצוגה מקדימה לסוג קובץ זה</p><button type="button" class="cf-v-dl" data-v="save"><i class="fa-solid fa-download"></i> שמירה למכשיר</button></div>`;
@@ -1703,11 +1698,11 @@ function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
             if (open) body.innerHTML = `<div class="cf-v-file"><i class="fa-solid fa-file-video"></i><b>${esc(f.name)}</b><p>הדפדפן הזה לא מצליח להציג את הסרטון. אפשר לשמור אותו ולצפות בו במכשיר.</p><button type="button" class="cf-v-dl" data-v="save"><i class="fa-solid fa-download"></i> שמירה למכשיר</button></div>`;
         });
 
-        const close = () => { open = false; ov.remove(); document.removeEventListener('keydown', onKey, true); if (temp) URL.revokeObjectURL(url); };
+        const close = () => { open = false; ov.querySelectorAll('video, audio').forEach(m => { m.pause(); m.removeAttribute('src'); m.load(); }); ov.remove(); document.removeEventListener('keydown', onKey, true); };
         const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
         ov.addEventListener('click', e => {
             const b = e.target.closest('[data-v]');
-            if (b && b.dataset.v === 'save') { saveBlob(url, f.name); return; }
+            if (b && b.dataset.v === 'save') { save(url, f.name); return; }
             if (b || e.target === ov || e.target === body) close();
         });
         document.addEventListener('keydown', onKey, true);
@@ -1719,24 +1714,16 @@ function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
         const key = String(id);
         const limited = viewer === 'user' && f.limited && !f.master;
         try {
-            if (limited) {
-                const blob = await fetchBlob(key, f.type);
-                viewerOpen({ url: URL.createObjectURL(blob), blob }, f, true);
-            } else {
-                const c = await load(key, f.type);
-                viewerOpen(c, f, false);
-                backfill(key, f, c.blob).catch(() => {});
-            }
+            const url = await linkFor(key, f);
+            viewerOpen(url, f);
+            if (!limited) backfill(key, f, url).catch(() => {});
         } catch (e) {
             toast(e.message);
         }
         if (limited && onChange) onChange();
     }
 
-    function clear() {
-        for (const c of cache.values()) URL.revokeObjectURL(c.url);
-        cache.clear();
-    }
+    function clear() {}
 
     return { html, hydrate, open, clear, size, icon, limitText, prepare };
 }
@@ -1760,7 +1747,7 @@ function injectChatFileStyles() {
     .cf-card .cf-act { opacity: .7; }
     .cf-img { display: block; padding: 0; border: none; background: none; cursor: zoom-in; margin: 0 0 4px; border-radius: 8px; overflow: hidden; }
     .cf-img img { display: block; max-width: min(300px, 100%); max-height: 280px; object-fit: cover; }
-    .cf-img img:not([src]) { width: 220px; height: 150px; background: rgba(127,127,127,.15); }
+    .cf-img img { min-width: 120px; min-height: 80px; }
     .cf-img.broken img { width: 220px; height: 60px; }
     .cf-img img { background: rgba(127,127,127,.15); }
     .cf-video, .cf-doc { position: relative; }
