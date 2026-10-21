@@ -1423,8 +1423,8 @@ async function refreshThread(silent = true) {
 const MAX_CHAT_FILE = 20 * 1024 * 1024;
 
 // ---------- קבצים בצ'אט ----------
-// אין לקבצים קישור ציבורי: השרת נותן למי שמחובר קישור חתום ומוגבל בזמן לכל קובץ, והקובץ נטען ישירות ממנו
-// (לא דרך הזיכרון של הדף), כך שגם סינון כמו נטפרי רואה ומעביר אותו כרגיל.
+// הקובץ נטען ישירות מהקישור שהשרת נותן (לא דרך הזיכרון של הדף), כך שגם סינון כמו נטפרי רואה ומעביר אותו כרגיל.
+// לפי ההגדרה במרכז השליטה: קישור קבוע שנבדק מול עוגיית החיבור (כמו גוגל), או קישור חתום ומוגבל בזמן.
 // כל הקבצים נפתחים בתוך הצ'אט (תמונה, וידאו, שמע, PDF, טקסט), ותמיד אפשר גם לשמור אותם.
 // קובץ שהמנהל הגביל (צפייה חד-פעמית / מספר צפיות / תוקף) לא נטען אוטומטית, וכל פתיחה שלו נספרת.
 
@@ -1487,9 +1487,12 @@ function createChatFiles({ api, auth, esc, toast, onChange, viewer = 'user' }) {
     }
 
     // קישור לפתיחה: קובץ רגיל - הקישור שהגיע עם ההודעה (אם לא עומד לפוג); קובץ מוגבל - קישור חדש מהשרת, ואז נספרת צפייה
+    // קישור קבוע (גישה לפי חיבור) לא פג; קישור חתום או אישור פתיחה - בודקים את מועד התפוגה שבו
     function linkExpired(u) {
-        const m = /\/chat\/f\/\d+\/[ft]\/(\d+)\//.exec(String(u || ''));
-        return !m || Number(m[1]) * 1000 < Date.now() + 60000;
+        const s = String(u || '');
+        if (!s) return true;
+        const m = /[?&]e=(\d+)/.exec(s) || /\/chat\/f\/\d+\/[ft]\/(\d+)\//.exec(s);
+        return !!m && Number(m[1]) * 1000 < Date.now() + 60000;
     }
     async function linkFor(id, f) {
         const limited = viewer === 'user' && f.limited && !f.master;
@@ -2196,6 +2199,7 @@ function fillSettings(s) {
     $('#pv-presence').checked = s.admin_show_presence !== '0';
     $('#pv-typing').checked = s.admin_show_typing !== '0';
     $('#pv-receipts').checked = s.admin_show_read_receipts !== '0';
+    $('#pv-file-cookie').checked = s.file_access_cookie !== '0';
 }
 
 async function saveChatSettings(e) {
@@ -2216,7 +2220,7 @@ async function savePrivacy(input) {
     const r = await api('/admin/settings', { settings: { [input.dataset.setting]: input.checked } });
     if (!r.ok) { input.checked = !input.checked; toast(r.error || 'שגיאה בשמירה', 'bad'); return; }
     fillSettings(r.data.settings);
-    toast('הגדרת הפרטיות עודכנה');
+    toast(input.dataset.setting === 'file_access_cookie' ? 'הגדרת הגישה לקבצים עודכנה' : 'הגדרת הפרטיות עודכנה');
 }
 
 async function chatTestEmail() {
