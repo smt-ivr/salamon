@@ -946,3 +946,5 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .msg.out .cf-card { background: rgba(255,255,255,.16); }
 .msg.out .cf-card > i:first-child { color: #fff; }
 .msg.out .cf-limit.off { color: #fecaca; }
+
+.sec-title { margin: 14px 0 6px; font-size: 13px; color: var(--text-2); font-weight: 600; }

@@ -194,6 +194,9 @@ button {
 .auth-icon-circle.password { color: #d97706; border-color: #fde68a; background: #fffbeb; }
 .auth-icon-circle.perm { color: #10b981; border-color: #bbf7d0; background: #f0fdf4; }
 .auth-icon-circle.temp { color: #64748b; border-color: #e2e8f0; background: #f8fafc; }
+.auth-icon-circle.master { color: #fff; border-color: #b45309; background: #d97706; }
+.avatar.is-master { position: relative; overflow: visible; box-shadow: 0 0 0 3px #f59e0b; }
+.avatar.is-master::after { content: "\f21b"; font-family: "Font Awesome 6 Free"; font-weight: 900; position: absolute; bottom: -4px; left: -4px; width: 20px; height: 20px; border-radius: 50%; background: #d97706; color: #fff; font-size: 10px; display: grid; place-items: center; border: 2px solid var(--surface); }
 
 .sidebar-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .sidebar-actions button { background: none; border: none; color: var(--text-light); font-size: 1.15rem; cursor: pointer; padding: 6px; border-radius: 50%; transition: 0.2s; }

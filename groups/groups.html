@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f172a">
+    <title>קבוצות · עכשיו סלומון</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/salamon/groups/groups.css">
+    <script src="/salamon/groups/groups.js" defer></script>
+</head>
+<body>
+    <div id="splash" class="splash"><i class="fa-solid fa-circle-notch fa-spin"></i></div>
+
+    <!-- כניסה: אין חיבור, או קישור הזמנה -->
+    <section id="gate" class="gate" hidden>
+        <div class="gate-card">
+            <div class="gate-logo"><img src="https://smt-tel-manager.netlify.app/salamon-logo.png" alt=""></div>
+            <div id="gate-body"></div>
+        </div>
+    </section>
+
+    <!-- האפליקציה -->
+    <div id="app" class="app" hidden>
+        <aside class="side">
+            <header class="side-head">
+                <div class="me" id="me"></div>
+                <a class="icon-btn" href="/salamon" title="חזרה לאתר" aria-label="חזרה לאתר"><i class="fa-solid fa-house"></i></a>
+            </header>
+            <div class="side-search"><i class="fa-solid fa-magnifying-glass"></i><input id="search" placeholder="חיפוש קבוצה" aria-label="חיפוש קבוצה"></div>
+            <nav class="group-list" id="group-list"></nav>
+        </aside>
+
+        <main class="main" id="main">
+            <div class="empty-main" id="empty-main"><div><i class="fa-regular fa-comments"></i><h2>הקבוצות שלך</h2><p>בחר/י קבוצה מהרשימה כדי להתחיל</p></div></div>
+
+            <div class="room" id="room" hidden>
+                <header class="room-head">
+                    <button class="icon-btn mobile-only" data-act="back" aria-label="חזרה לרשימה"><i class="fa-solid fa-arrow-right"></i></button>
+                    <div class="room-avatar" id="room-avatar"></div>
+                    <div class="room-title"><b id="room-name"></b><small id="room-sub"></small></div>
+                    <button class="icon-btn" data-act="panel" data-panel="pinned" id="btn-pinned" title="הודעות מוצמדות" aria-label="הודעות מוצמדות"><i class="fa-solid fa-thumbtack"></i><b class="dot" id="pinned-count" hidden></b></button>
+                    <button class="icon-btn" data-act="panel" data-panel="members" id="btn-members" title="חברים" aria-label="חברים"><i class="fa-solid fa-users"></i></button>
+                    <button class="icon-btn" data-act="panel" data-panel="mod" id="btn-mod" title="ניהול הקבוצה" aria-label="ניהול הקבוצה" hidden><i class="fa-solid fa-shield-halved"></i><b class="dot" id="pending-count" hidden></b></button>
+                    <div class="pop-wrap">
+                        <button class="icon-btn" data-act="menu" aria-label="עוד"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+                        <div class="menu" id="room-menu" hidden>
+                            <button data-act="panel" data-panel="info"><i class="fa-solid fa-circle-info"></i> פרטי הקבוצה</button>
+                            <button data-act="leave" id="btn-leave"><i class="fa-solid fa-right-from-bracket"></i> יציאה מהקבוצה</button>
+                        </div>
+                    </div>
+                </header>
+                <div class="room-body">
+                    <div class="msgs" id="msgs"></div>
+                    <button class="fab" id="fab" data-act="bottom" aria-label="לסוף השיחה"><i class="fa-solid fa-chevron-down"></i></button>
+                </div>
+                <div class="typing" id="typing" hidden></div>
+                <div class="notice" id="notice" hidden></div>
+                <div class="bar" id="replybar" hidden><i class="fa-solid fa-reply"></i><div><b id="rb-who"></b><span id="rb-text"></span></div><button class="icon-btn sm" data-act="reply-cancel" aria-label="ביטול"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="bar" id="editbar" hidden><i class="fa-solid fa-pen"></i><div><b>עריכת הודעה</b><span id="eb-text"></span></div><button class="icon-btn sm" data-act="edit-cancel" aria-label="ביטול"><i class="fa-solid fa-xmark"></i></button></div>
+                <div class="bar" id="attachbar" hidden><i class="fa-solid fa-file" id="ab-icon"></i><div><b id="ab-name"></b><span id="ab-size"></span></div><button class="icon-btn sm" data-act="attach-cancel" aria-label="הסרת הקובץ"><i class="fa-solid fa-xmark"></i></button></div>
+                <form class="composer" id="composer">
+                    <div class="emoji" id="emoji" hidden></div>
+                    <button type="button" class="icon-btn" data-act="emoji" aria-label="סמלים"><i class="fa-regular fa-face-smile"></i></button>
+                    <button type="button" class="icon-btn" data-act="attach" id="btn-attach" aria-label="צירוף קובץ"><i class="fa-solid fa-paperclip"></i></button>
+                    <input type="file" id="file" hidden>
+                    <textarea id="input" rows="1" placeholder="כתיבת הודעה" aria-label="הודעה"></textarea>
+                    <button type="submit" class="send" id="send" aria-label="שליחה" disabled><i class="fa-solid fa-paper-plane"></i></button>
+                </form>
+            </div>
+        </main>
+
+        <aside class="panel" id="panel" hidden>
+            <header class="panel-head"><b id="panel-title"></b><button class="icon-btn" data-act="panel-close" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button></header>
+            <div class="panel-body" id="panel-body"></div>
+        </aside>
+    </div>
+
+    <div class="toasts" id="toasts"></div>
+</body>
+</html>

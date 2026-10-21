@@ -66,6 +66,7 @@ const VIEWS = [
     { id: 'users', label: 'משתמשים', icon: 'fa-users', group: 'ראשי', key: 'u' },
     { id: 'activity', label: 'פעילות ונוכחות', icon: 'fa-wave-square', group: 'ראשי', key: 'p' },
     { id: 'chat', label: 'תיבת תמיכה', icon: 'fa-comments', group: 'ראשי', key: 'c' },
+    { id: 'groups', label: "צ'אט קבוצתי", icon: 'fa-people-group', group: 'ראשי', key: 'g' },
     { id: 'security', label: 'אבטחה', icon: 'fa-shield-halved', group: 'ראשי', key: 's' },
     { id: 'ads', label: 'קמפיינים', icon: 'fa-bullhorn', group: 'תוכן', key: 'a' },
     { id: 'mail', label: 'דיוור במייל', icon: 'fa-envelope-open-text', group: 'תוכן', key: 'e' },
@@ -571,6 +572,7 @@ function loadView(id) {
         case 'sql': return loadTables();
         case 'audit': return loadAudit();
         case 'master': return loadMaster();
+        case 'groups': return loadGroups();
         case 'settings': return loadSettings();
     }
 }
@@ -3563,6 +3565,206 @@ function exportSql() {
 
 // ---------- Audit ----------
 
+// ---------- Groups ----------
+
+const G_DAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+const G_LOG = { CREATE: 'יצירה', SETTINGS: 'הגדרות', JOIN: 'הצטרפות', JOIN_REQUEST: 'בקשת הצטרפות', LEAVE: 'עזיבה', APPROVE: 'אישור', REJECT: 'דחייה', REMOVE: 'הסרה', BAN: 'חסימה', UNBAN: 'ביטול חסימה', MUTE: 'השתקה', UNMUTE: 'ביטול השתקה', PROMOTE: 'מינוי למפקח', DEMOTE: 'הסרת מפקח', RENAME: 'שינוי שם', INVITE_CREATE: 'יצירת הזמנה', INVITE_REVOKE: 'ביטול הזמנה', PIN: 'הצמדה', UNPIN: 'ביטול הצמדה', DELETE_MESSAGE: 'מחיקת הודעה', ADD_MEMBERS: 'הוספת חברים', ARCHIVE: 'ארכיון' };
+
+async function loadGroups(enabled) {
+    $('#groups-body').innerHTML = loadingRows(8, 3);
+    const r = await api('/admin/groups', enabled === undefined ? {} : { enabled });
+    if (!r.ok) { $('#groups-body').innerHTML = emptyRow(8, r.error, 'fa-circle-exclamation'); return; }
+    S.groups = r.data;
+    renderGroups();
+}
+
+function renderGroups() {
+    const d = S.groups, list = d.groups || [];
+    $('#groups-enabled').checked = !!d.enabled;
+    const active = list.filter(g => !g.archived);
+    $('#groups-kpis').innerHTML = [
+        kpi('fa-people-group', 'accent', 'קבוצות פעילות', num(active.length), d.enabled ? 'הצ׳אט הקבוצתי פעיל' : 'הצ׳אט הקבוצתי כבוי'),
+        kpi('fa-users', 'good', 'חברים', num(active.reduce((n, g) => n + g.members, 0)), `${num(active.reduce((n, g) => n + g.guests, 0))} אורחים מבחוץ`),
+        kpi('fa-user-clock', active.some(g => g.pending) ? 'warn' : '', 'ממתינים לאישור', num(active.reduce((n, g) => n + g.pending, 0)), 'בכל הקבוצות'),
+        kpi('fa-comments', 'accent', 'הודעות השבוע', num(active.reduce((n, g) => n + g.week, 0)), '7 ימים אחרונים'),
+    ].join('');
+    $('#groups-body').innerHTML = list.length ? list.map(g => `<tr>
+        <td><div class="row" style="gap:10px;"><span class="avatar sm" style="background:${esc(g.color || '#0b8043')};color:#fff;border-radius:10px;">${esc(String(g.name).charAt(0))}</span><div><b>${esc(g.name)}</b><div class="muted" style="font-size:12px;">${esc(g.description || '')}</div></div></div></td>
+        <td>${num(g.members)}</td><td>${num(g.moderators)}</td><td>${num(g.guests)}</td>
+        <td>${g.pending ? `<span class="badge warn">${num(g.pending)}</span>` : '0'}</td><td>${num(g.week)}</td>
+        <td>${g.archived ? '<span class="badge">ארכיון</span>' : `${g.settings.visibility === 'private' ? '<span class="badge">פרטית</span>' : g.settings.visibility === 'public' ? '<span class="badge good">ציבורית</span>' : '<span class="badge info">בבקשה</span>'}${g.settings.whoCanPost === 'moderators' ? ' <span class="badge accent">ערוץ</span>' : ''}${g.settings.hours.enabled ? ` <span class="badge ${g.hours.open ? 'good' : 'warn'}">${g.hours.open ? 'פתוח' : 'מחוץ לשעות'}</span>` : ''}`}</td>
+        <td class="nowrap"><button class="btn btn-sm" data-action="group-edit" data-id="${g.id}"><i class="fa-solid fa-pen"></i> ניהול</button> <button class="btn btn-sm" data-action="groups-open-app" data-id="${g.id}" title="פתיחה בצ'אט הקבוצתי"><i class="fa-solid fa-arrow-up-right-from-square"></i></button></td>
+    </tr>`).join('') : emptyRow(8, 'עדיין אין קבוצות. צור/י את הראשונה.', 'fa-people-group');
+}
+
+function groupSettingsHtml(s, g) {
+    const sw = (k, title, desc = '', val = s[k], attr = 'data-k') => `<div class="setting"><div class="s-text"><div class="s-title">${title}</div>${desc ? `<div class="s-desc">${desc}</div>` : ''}</div><label class="switch"><input type="checkbox" ${attr}="${k}" ${val ? 'checked' : ''}><span></span></label></div>`;
+    const sel = (k, label, opts) => `<div class="field"><label>${label}</label><select class="input" data-k="${k}">${opts.map(([v, l]) => `<option value="${v}" ${String(s[k]) === String(v) ? 'selected' : ''}>${l}</option>`).join('')}</select></div>`;
+    return `<div class="stack">
+        <div class="grid-2"><div class="field"><label>שם הקבוצה</label><input class="input" data-g="name" maxlength="60" value="${esc(g.name || '')}" required></div>
+        <div class="field"><label>צבע</label><input type="color" class="input" data-g="color" value="${esc(g.color || '#0b8043')}" style="height:42px;padding:4px;"></div></div>
+        <div class="field"><label>תיאור</label><input class="input" data-g="description" maxlength="300" value="${esc(g.description || '')}"></div>
+        <div class="field"><label>הודעת פתיחה (מוצגת בראש הקבוצה)</label><textarea class="input" data-k="welcome" rows="3" maxlength="1000">${esc(s.welcome || '')}</textarea></div>
+        <h4 class="sec-title">מי נכנס</h4>
+        ${sel('visibility', 'משתמשי האתר', [['private', 'רק מי שצורף או הוזמן'], ['request', 'רואים את הקבוצה ומבקשים להצטרף'], ['public', 'רואים ומצטרפים חופשי']])}
+        <div class="setting-group">${sw('userApproval', 'אישור מפקח למשתמשי אתר', 'גם בהצטרפות דרך קישור הזמנה')}${sw('allowGuests', 'אורחים מבחוץ', 'רק דרך קישור הזמנה, עם שם וטלפון')}${sw('guestApproval', 'אישור מפקח לאורחים')}${sw('guestPhoneRequired', 'אורח חייב להזין טלפון')}</div>
+        <h4 class="sec-title">כתיבה וקבצים</h4>
+        ${sel('whoCanPost', 'מי כותב', [['all', 'כל החברים'], ['moderators', 'רק מפקחים (ערוץ הודעות)']])}
+        <div class="grid-2">
+            ${sel('slowModeSeconds', 'השהיה בין הודעות', [[0, 'ללא'], [5, '5 שניות'], [15, '15 שניות'], [30, '30 שניות'], [60, 'דקה'], [300, '5 דקות'], [900, '15 דקות'], [3600, 'שעה']])}
+            ${sel('maxMessageLength', 'אורך הודעה מרבי', [[200, '200'], [500, '500'], [1000, '1000'], [2000, '2000'], [4000, '4000']])}
+            ${sel('maxFileMb', 'גודל קובץ מרבי', [[1, '1MB'], [5, '5MB'], [10, '10MB'], [20, '20MB']])}
+            ${sel('showMembers', 'מי רואה את רשימת החברים', [['all', 'כולם'], ['moderators', 'רק מפקחים']])}
+        </div>
+        <div class="setting-group">${sw('guestsCanPost', 'אורחים יכולים לכתוב')}${sw('allowFiles', 'שליחת קבצים')}${sw('guestsCanSendFiles', 'אורחים יכולים לשלוח קבצים')}${sw('allowReplies', 'תגובה לציטוט')}${sw('allowEditOwn', 'עריכת הודעות עצמיות')}${sw('allowDeleteOwn', 'מחיקת הודעות עצמיות')}${sw('showReadCount', 'הצגת "נקרא ע״י"')}</div>
+        <h4 class="sec-title">שעות פעילות (שעון ישראל)</h4>
+        <div class="setting-group">${sw('enabled', 'הגבלה לפי שעות', '', s.hours.enabled, 'data-h')}${sw('exemptModerators', 'המפקחים לא מוגבלים', '', s.hours.exemptModerators, 'data-h')}</div>
+        <div class="field"><label>מחוץ לשעות</label><select class="input" data-h="mode"><option value="readonly" ${s.hours.mode === 'readonly' ? 'selected' : ''}>אפשר לקרוא, אי אפשר לכתוב</option><option value="closed" ${s.hours.mode === 'closed' ? 'selected' : ''}>הקבוצה סגורה לגמרי</option></select></div>
+        ${s.hours.days.map((d, i) => `<div class="row" style="gap:10px;"><span style="width:52px;">יום ${G_DAYS[i]}</span><label class="switch"><input type="checkbox" data-day="${i}" data-f="on" ${d.on ? 'checked' : ''}><span></span></label><input type="time" class="input" data-day="${i}" data-f="from" value="${esc(d.from)}" style="width:auto;"><span class="muted">עד</span><input type="time" class="input" data-day="${i}" data-f="to" value="${esc(d.to)}" style="width:auto;"></div>`).join('')}
+        <h4 class="sec-title">הרשאות המפקחים</h4>
+        <div class="setting-group">${[['approve', 'אישור מצטרפים'], ['remove', 'הסרת חברים'], ['ban', 'חסימה'], ['mute', 'השתקה'], ['deleteMessages', 'מחיקת הודעות של אחרים'], ['pin', 'הצמדת הודעות'], ['invites', 'ניהול קישורי הזמנה'], ['editSettings', 'שינוי הגדרות הקבוצה'], ['seePhones', 'צפייה במספרי טלפון']].map(([k, l]) => sw(k, l, '', s.moderatorPerms[k], 'data-mp')).join('')}</div>
+    </div>`;
+}
+
+function readGroupForm(root) {
+    const out = { settings: { hours: { days: [] }, moderatorPerms: {} } };
+    $$('[data-g]', root).forEach(el => { out[el.dataset.g] = el.value; });
+    $$('[data-k]', root).forEach(el => { out.settings[el.dataset.k] = el.type === 'checkbox' ? el.checked : (el.tagName === 'SELECT' && /^\d+$/.test(el.value) ? Number(el.value) : el.value); });
+    $$('[data-h]', root).forEach(el => { out.settings.hours[el.dataset.h] = el.type === 'checkbox' ? el.checked : el.value; });
+    $$('[data-day]', root).forEach(el => { const i = Number(el.dataset.day); out.settings.hours.days[i] = out.settings.hours.days[i] || {}; out.settings.hours.days[i][el.dataset.f] = el.type === 'checkbox' ? el.checked : el.value; });
+    $$('[data-mp]', root).forEach(el => { out.settings.moderatorPerms[el.dataset.mp] = el.checked; });
+    return out;
+}
+
+function openGroupDrawer(id) {
+    const d = S.groups || {};
+    const g = id ? (d.groups || []).find(x => x.id === id) : { name: '', description: '', color: '#0b8043', settings: d.defaults, archived: false };
+    if (!g) return;
+    S.groupEdit = { id: id || null, g };
+    $('#gd-title').textContent = id ? g.name : 'קבוצה חדשה';
+    $('#gd-sub').textContent = id ? `${g.members} חברים · ${g.moderators} מפקחים · ${g.guests} אורחים` : 'אחרי היצירה אפשר להוסיף חברים והזמנות';
+    $$('#gd-tabs .drawer-tab').forEach(t => { t.hidden = !id && t.dataset.gtab !== 'settings'; });
+    $('#gd-archive').hidden = !id; $('#gd-delete').hidden = !id;
+    $('#gd-archive').innerHTML = g.archived ? '<i class="fa-solid fa-box-open"></i> החזרה מארכיון' : '<i class="fa-solid fa-box-archive"></i> ארכיון';
+    switchGroupTab('settings');
+    openDrawer('group-drawer');
+}
+
+async function switchGroupTab(tab) {
+    S.groupTab = tab;
+    $$('#gd-tabs .drawer-tab').forEach(t => t.classList.toggle('active', t.dataset.gtab === tab));
+    $('#gd-foot').hidden = tab !== 'settings';
+    const body = $('#gd-body'), e = S.groupEdit;
+    if (tab === 'settings') { body.innerHTML = groupSettingsHtml(e.g.settings, e.g); return; }
+    body.innerHTML = '<div class="empty"><i class="fa-solid fa-circle-notch spin"></i></div>';
+    if (tab === 'members') {
+        const r = await api('/groups/mod/members', { groupId: e.id });
+        if (!r.ok) { body.innerHTML = `<div class="empty">${esc(r.error)}</div>`; return; }
+        const ms = r.data.members;
+        const row = m => `<div class="row" style="gap:10px;padding:8px 0;border-bottom:1px solid var(--border);">
+            <div style="flex:1;min-width:0;"><b>${esc(m.name)}</b> ${m.role === 'moderator' ? '<span class="badge accent">מפקח</span>' : ''}${m.guest ? ' <span class="badge warn">אורח</span>' : ''}${m.status === 'pending' ? ' <span class="badge warn">ממתין</span>' : ''}${m.status === 'banned' ? ` <span class="badge bad">חסום${m.bannedUntil ? ' עד ' + esc(fmtDate(m.bannedUntil)) : ''}</span>` : ''}${m.mutedUntil ? ` <span class="badge warn">מושתק עד ${esc(fmtDate(m.mutedUntil))}</span>` : ''}
+                <div class="muted" style="font-size:12px;"><span class="ltr">${esc(m.phone || '')}</span>${m.banReason ? ' · ' + esc(m.banReason) : ''}${m.lastSeenAt ? ' · נראה ' + esc(relTime(m.lastSeenAt)) : ''}</div></div>
+            <select class="input" data-gm="${esc(m.key)}" style="width:auto;height:34px;font-size:13px;">
+                <option value="">פעולה…</option>
+                ${m.status === 'pending' ? '<option value="approve">אישור</option><option value="reject">דחייה</option>' : ''}
+                ${m.status === 'banned' ? '<option value="unban">ביטול חסימה</option>' : ''}
+                ${m.status === 'active' ? `${m.mutedUntil ? '<option value="unmute">ביטול השתקה</option>' : '<option value="mute:60">השתקה לשעה</option><option value="mute:1440">השתקה ליום</option><option value="mute:0">השתקה ללא הגבלה</option>'}
+                    <option value="ban:1440">חסימה ליום</option><option value="ban:10080">חסימה לשבוע</option><option value="ban:0">חסימה ללא הגבלה</option><option value="remove">הסרה מהקבוצה</option>
+                    ${m.guest ? '' : m.role === 'moderator' ? '<option value="demote">הסרת מפקח</option>' : '<option value="promote">מינוי למפקח</option>'}<option value="rename">שינוי שם</option>` : ''}
+                ${m.guest ? '<option value="guest-block">חסימת האורח בכל הקבוצות</option>' : ''}
+            </select></div>`;
+        body.innerHTML = `<form class="card" id="gd-add" style="padding:14px;margin-bottom:14px;">
+                <div class="field"><label>הוספת משתמשי אתר לפי טלפון</label><textarea class="input ltr" id="gd-phones" rows="2" placeholder="0501234567, 0527654321"></textarea></div>
+                <div class="row" style="gap:8px;"><select class="input" id="gd-role" style="width:auto;"><option value="member">כחברים</option><option value="moderator">כמפקחים</option></select><div class="spacer"></div><button class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> הוספה</button></div>
+            </form>
+            ${ms.filter(m => m.status === 'pending').length ? `<h4 class="sec-title">ממתינים לאישור</h4>${ms.filter(m => m.status === 'pending').map(row).join('')}` : ''}
+            <h4 class="sec-title">חברים (${ms.filter(m => m.status === 'active').length})</h4>${ms.filter(m => m.status === 'active').map(row).join('') || '<div class="empty">אין חברים</div>'}
+            ${ms.filter(m => m.status === 'banned').length ? `<h4 class="sec-title">חסומים</h4>${ms.filter(m => m.status === 'banned').map(row).join('')}` : ''}`;
+        $('#gd-add').addEventListener('submit', async ev => {
+            ev.preventDefault();
+            const a = await api('/admin/groups/add-members', { groupId: e.id, phones: $('#gd-phones').value, role: $('#gd-role').value });
+            if (!a.ok) { toast(a.error, 'bad'); return; }
+            toast(`${a.data.added} נוספו${a.data.missing.length ? ` · אין חשבון באתר: ${a.data.missing.join(', ')}` : ''}`, a.data.missing.length ? 'info' : 'good');
+            switchGroupTab('members'); loadGroups();
+        });
+        $$('[data-gm]', body).forEach(sel => sel.addEventListener('change', async () => {
+            const [action, mins] = sel.value.split(':');
+            if (!action) return;
+            const key = sel.dataset.gm;
+            let r2;
+            if (action === 'guest-block') {
+                if (!(await confirmDanger('חסימת אורח', 'האורח לא יוכל להיכנס לאף קבוצה.', 'חסימה'))) { sel.value = ''; return; }
+                r2 = await api('/admin/groups/guest-block', { memberKey: key });
+            } else {
+                const extra = { minutes: mins !== undefined ? Number(mins) : undefined };
+                if (action === 'rename') { const d2 = await dialog({ title: 'שינוי שם בקבוצה', icon: 'info', input: { value: '' }, buttons: [{ label: 'ביטול' }, { label: 'שמירה', value: 'ok', cls: 'btn-primary' }] }); if (!d2 || !d2.input) { sel.value = ''; return; } extra.name = d2.input; }
+                if (action === 'ban') { const d2 = await dialog({ title: 'חסימה בקבוצה', text: 'סיבה (לא חובה)', icon: 'warn', input: { value: '' }, buttons: [{ label: 'ביטול' }, { label: 'חסימה', value: 'ok', cls: 'btn-danger-solid' }] }); if (!d2) { sel.value = ''; return; } extra.reason = d2.input; }
+                if (action === 'remove' && !(await confirmDanger('הסרה מהקבוצה', 'החבר יוסר מהקבוצה.', 'הסרה'))) { sel.value = ''; return; }
+                r2 = await api('/groups/mod/action', { groupId: e.id, memberKey: key, action, ...extra });
+            }
+            if (!r2.ok) { toast(r2.error, 'bad'); sel.value = ''; return; }
+            toast('בוצע', 'good');
+            switchGroupTab('members'); loadGroups();
+        }));
+        return;
+    }
+    if (tab === 'invites') {
+        const r = await api('/groups/mod/invites', { groupId: e.id });
+        if (!r.ok) { body.innerHTML = `<div class="empty">${esc(r.error)}</div>`; return; }
+        const base = `${location.origin}/salamon/groups?invite=`;
+        body.innerHTML = `<form class="card" id="gd-inv" style="padding:14px;margin-bottom:14px;">
+                <div class="field"><label>תיאור</label><input class="input" name="note" maxlength="80" placeholder="למשל: אורחים לכנס"></div>
+                <div class="grid-2">
+                    <div class="field"><label>תוקף</label><select class="input" name="hours"><option value="1">שעה</option><option value="24">יום</option><option value="168" selected>שבוע</option><option value="720">חודש</option><option value="0">ללא הגבלה</option></select></div>
+                    <div class="field"><label>מספר שימושים</label><select class="input" name="maxUses"><option value="0">ללא הגבלה</option><option value="1">1</option><option value="5">5</option><option value="10">10</option><option value="50">50</option><option value="200">200</option></select></div>
+                </div>
+                <div class="setting-group">
+                    <div class="setting"><div class="s-text"><div class="s-title">אישור מפקח לכל מצטרף</div></div><label class="switch"><input type="checkbox" name="approval"><span></span></label></div>
+                    <div class="setting"><div class="s-text"><div class="s-title">משתמשי האתר</div></div><label class="switch"><input type="checkbox" name="allowUsers" checked><span></span></label></div>
+                    <div class="setting"><div class="s-text"><div class="s-title">אורחים מבחוץ</div><div class="s-desc">${e.g.settings.allowGuests ? 'נכנסים עם שם וטלפון' : 'כבוי בהגדרות הקבוצה'}</div></div><label class="switch"><input type="checkbox" name="allowGuests" ${e.g.settings.allowGuests ? 'checked' : 'disabled'}><span></span></label></div>
+                    <div class="setting"><div class="s-text"><div class="s-title">מצטרפים כמפקחים</div></div><label class="switch"><input type="checkbox" name="mod"><span></span></label></div>
+                </div>
+                <div class="row" style="margin-top:10px;"><div class="spacer"></div><button class="btn btn-primary"><i class="fa-solid fa-link"></i> יצירת קישור</button></div>
+            </form>
+            ${r.data.invites.map(i => `<div class="card" style="padding:12px;margin-bottom:8px;">
+                <b>${esc(i.note || 'הזמנה')}</b> ${i.active ? '<span class="badge good">פעילה</span>' : i.revoked ? '<span class="badge bad">בוטלה</span>' : '<span class="badge">לא פעילה</span>'}
+                <div class="muted" style="font-size:12px;">${i.uses}${i.maxUses ? '/' + i.maxUses : ''} שימושים · ${i.expiresAt ? 'עד ' + esc(fmtDate(i.expiresAt)) : 'ללא תוקף'}${i.approval ? ' · באישור' : ''}${i.allowGuests ? ' · אורחים' : ''}${i.role === 'moderator' ? ' · כמפקחים' : ''}</div>
+                ${i.active ? `<div class="row" style="gap:6px;margin-top:6px;"><input class="input ltr" readonly value="${esc(base + i.code)}" style="font-size:12px;"><button type="button" class="btn btn-sm" data-action="copy-input">העתקה</button><button type="button" class="btn btn-sm btn-danger" data-action="group-invite-revoke" data-id="${esc(i.id)}">ביטול</button></div>` : ''}
+            </div>`).join('') || '<div class="empty">אין הזמנות</div>'}`;
+        $('#gd-inv').addEventListener('submit', async ev => {
+            ev.preventDefault();
+            const f = ev.target;
+            const a = await api('/groups/mod/invites', { groupId: e.id, create: { note: f.note.value.trim(), hours: Number(f.hours.value), maxUses: Number(f.maxUses.value), approval: f.approval.checked, allowUsers: f.allowUsers.checked, allowGuests: f.allowGuests.checked, role: f.mod.checked ? 'moderator' : 'member' } });
+            if (!a.ok) { toast(a.error, 'bad'); return; }
+            toast('קישור ההזמנה נוצר', 'good');
+            switchGroupTab('invites');
+        });
+        return;
+    }
+    if (tab === 'log') {
+        const r = await api('/groups/mod/log', { groupId: e.id });
+        body.innerHTML = r.ok && r.data.log.length ? `<table class="tbl"><thead><tr><th>זמן</th><th>מי</th><th>פעולה</th><th>פרטים</th></tr></thead><tbody>${r.data.log.map(l => `<tr><td class="muted nowrap">${esc(fmtDate(l.at))}</td><td>${esc(l.actor)}</td><td><span class="badge">${esc(G_LOG[l.action] || l.action)}</span></td><td>${esc(l.details || '')}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">היומן ריק</div>';
+    }
+}
+
+async function saveGroup(archived) {
+    const e = S.groupEdit;
+    const data = readGroupForm($('#gd-body'));
+    if (!String(data.name || '').trim()) { toast('חסר שם לקבוצה', 'bad'); return; }
+    const r = await api('/admin/groups/save', { id: e.id || undefined, ...data, archived: archived !== undefined ? archived : e.g.archived });
+    if (!r.ok) { toast(r.error, 'bad'); return; }
+    toast(e.id ? 'הקבוצה נשמרה' : 'הקבוצה נוצרה', 'good');
+    await loadGroups();
+    openGroupDrawer(r.data.id);
+    if (!e.id) switchGroupTab('members');
+}
+
+function openGroupsApp(id) {
+    // הטוקן של המנהל עובר ללשונית החדשה פעם אחת, ושם נשמר רק לאותה לשונית
+    try { localStorage.setItem('salamonGroupsAdmin', S.adminToken); } catch (e) {}
+    window.open(`/salamon/groups${id ? `#g=${id}&as=admin` : '#as=admin'}`, '_blank');
+}
+
 // ---------- Master ----------
 
 const MASTER_LABELS = {
@@ -3963,6 +4165,23 @@ const ACTIONS = {
 
     'refresh-audit': loadAudit,
     'refresh-master': () => loadMaster(),
+    'group-new': () => openGroupDrawer(null),
+    'group-edit': el => openGroupDrawer(Number(el.dataset.id)),
+    'group-save': () => saveGroup(),
+    'group-archive': () => saveGroup(!S.groupEdit.g.archived),
+    'group-delete': async () => {
+        if (!(await confirmDanger('מחיקת קבוצה', 'הקבוצה, כל ההודעות, הקבצים וההזמנות יימחקו לצמיתות.', 'מחיקה לצמיתות'))) return;
+        const r = await api('/admin/groups/delete', { id: S.groupEdit.id });
+        if (!r.ok) { toast(r.error, 'bad'); return; }
+        closeDrawers(); toast('הקבוצה נמחקה', 'good'); loadGroups();
+    },
+    'group-invite-revoke': async el => {
+        const r = await api('/groups/mod/invites', { groupId: S.groupEdit.id, revoke: el.dataset.id });
+        if (!r.ok) { toast(r.error, 'bad'); return; }
+        switchGroupTab('invites');
+    },
+    'groups-open-app': el => openGroupsApp(el.dataset.id ? Number(el.dataset.id) : null),
+    'copy-input': el => { const i = el.parentElement.querySelector('input'); navigator.clipboard?.writeText(i.value).then(() => toast('הועתק', 'good')).catch(() => { i.select(); document.execCommand('copy'); }); },
     'master-more': () => loadMaster(true),
     'master-end': el => endMaster(el.dataset.handle),
     'master-end-all': endAllMaster,
@@ -4028,6 +4247,8 @@ function bindEvents() {
     $('#act-phone').addEventListener('input', debounce(e => { S.actPhone = e.target.value.replace(/[^\d+]/g, ''); loadActivity(); }, 400));
     $('#chat-settings-form').addEventListener('submit', saveChatSettings);
     $('#master-form').addEventListener('submit', saveMaster);
+    $('#gd-tabs').addEventListener('click', e => { const b = e.target.closest('[data-gtab]'); if (b && S.groupEdit && S.groupEdit.id) switchGroupTab(b.dataset.gtab); });
+    $('#groups-enabled').addEventListener('change', e => loadGroups(e.target.checked));
     $('#master-form').addEventListener('input', () => { S.masterFormDirty = true; });
     $('#master-pw-form').addEventListener('submit', saveMasterPassword);
     $('#master-search').addEventListener('input', debounce(e => { S.masterPhone = e.target.value.replace(/\D/g, ''); loadMaster(); }, 350));

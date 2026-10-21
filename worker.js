@@ -23,6 +23,10 @@ import v2Boot from './v2/boot.js';
 import v2Sw from './v2/sw.js';
 import v2LinkJs from './client-v2-link.js';
 
+import groupsHtml from './groups/groups.html';
+import groupsCss from './groups/groups.css';
+import groupsJs from './groups/groups.js';
+
 import controlHtml from './control.html';
 import controlCss from './control.css';
 import controlJs from './client-control.js';
@@ -88,6 +92,30 @@ const V2_HEADERS = {
     'Referrer-Policy': 'strict-origin-when-cross-origin',
     'Permissions-Policy': 'microphone=(self), camera=(), geolocation=()',
     'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+};
+
+// הצ'אט הקבוצתי (/salamon/groups): כתובת נפרדת מהאתר ומצ'אט התמיכה
+const GROUPS_FILES = {
+    '/salamon/groups/groups.css': [groupsCss, 'text/css; charset=utf-8'],
+    '/salamon/groups/groups.js': [groupsJs, JS],
+};
+const GROUPS_HEADERS = {
+    'Content-Security-Policy': [
+        "default-src 'self'",
+        "script-src 'self'",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com",
+        "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com",
+        "img-src 'self' https: data: blob:",
+        "media-src 'self' blob:",
+        "connect-src 'self'",
+        "worker-src 'self'",
+        "frame-ancestors 'none'",
+        "base-uri 'none'",
+        "form-action 'self'",
+    ].join('; '),
+    'X-Content-Type-Options': 'nosniff',
+    'Referrer-Policy': 'same-origin',
+    'Cache-Control': 'no-cache',
 };
 
 const CONTROL_FILES = {
@@ -165,6 +193,13 @@ export default {
             const [body, type] = V2_FILES[url.pathname];
             const extra = url.pathname.endsWith('/sw.js') ? { 'Service-Worker-Allowed': '/salamon/v2/' } : {};
             return new Response(body, { headers: { 'Content-Type': type, 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff', ...extra } });
+        }
+        if (path === '/salamon/groups') {
+            return new Response(groupsHtml, { headers: { 'Content-Type': 'text/html; charset=utf-8', ...GROUPS_HEADERS } });
+        }
+        if (GROUPS_FILES[url.pathname]) {
+            const [body, type] = GROUPS_FILES[url.pathname];
+            return new Response(body, { headers: { 'Content-Type': type, 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' } });
         }
         if (path === '/salamon/control') {
             return Response.redirect(`${url.origin}/salamon/admin`, 301);
