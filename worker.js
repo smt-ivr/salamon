@@ -186,6 +186,10 @@ export default {
         if (path === '/salamon/v2') {
             return new Response(v2Html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', ...V2_HEADERS } });
         }
+        // הורדת אפליקציית האנדרואיד (נבנית אוטומטית ב-GitHub Actions)
+        if (path === '/salamon/app' || path === '/salamon/app.apk') {
+            return Response.redirect('https://github.com/smt-ivr/salamon/releases/download/android/salamon.apk', 302);
+        }
         if (url.pathname === '/salamon/v2/manifest.webmanifest') {
             return new Response(V2_MANIFEST, { headers: { 'Content-Type': 'application/manifest+json; charset=utf-8', 'Cache-Control': 'no-cache' } });
         }

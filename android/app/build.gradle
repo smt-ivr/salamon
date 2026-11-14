@@ -1,0 +1,72 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Notifications while the app is closed use Firebase Cloud Messaging. They switch on
+// automatically once app/google-services.json exists (downloaded from the Firebase console).
+def hasFirebase = file('google-services.json').exists()
+if (hasFirebase) {
+    apply plugin: 'com.google.gms.google-services'
+}
+
+android {
+    namespace 'uk.smti.salamon'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'uk.smti.salamon'
+        minSdk 24
+        targetSdk 34
+        versionCode((project.findProperty('versionCode') ?: '1') as int)
+        versionName project.findProperty('versionName') ?: '1.0'
+        buildConfigField 'boolean', 'HAS_FIREBASE', hasFirebase.toString()
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    signingConfigs {
+        release {
+            def ks = System.getenv('KEYSTORE_FILE')
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv('KEYSTORE_PASSWORD')
+                keyAlias System.getenv('KEY_ALIAS') ?: 'salamon'
+                keyPassword System.getenv('KEYSTORE_PASSWORD')
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig System.getenv('KEYSTORE_FILE') ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    sourceSets {
+        // Firebase code is compiled only when Firebase is configured.
+        main.java.srcDirs += hasFirebase ? 'src/firebase/java' : 'src/nofirebase/java'
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.11.0'
+    if (hasFirebase) {
+        implementation platform('com.google.firebase:firebase-bom:33.5.1')
+        implementation 'com.google.firebase:firebase-messaging'
+    }
+}
