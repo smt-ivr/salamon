@@ -67,6 +67,7 @@ const VIEWS = [
     { id: 'activity', label: 'פעילות ונוכחות', icon: 'fa-wave-square', group: 'ראשי', key: 'p' },
     { id: 'chat', label: 'תיבת תמיכה', icon: 'fa-comments', group: 'ראשי', key: 'c' },
     { id: 'groups', label: "צ'אט קבוצתי", icon: 'fa-people-group', group: 'ראשי', key: 'g' },
+    { id: 'app', label: 'אפליקציה', icon: 'fa-mobile-screen-button', group: 'ראשי', key: 'k' },
     { id: 'security', label: 'אבטחה', icon: 'fa-shield-halved', group: 'ראשי', key: 's' },
     { id: 'ads', label: 'קמפיינים', icon: 'fa-bullhorn', group: 'תוכן', key: 'a' },
     { id: 'mail', label: 'דיוור במייל', icon: 'fa-envelope-open-text', group: 'תוכן', key: 'e' },
@@ -573,6 +574,7 @@ function loadView(id) {
         case 'audit': return loadAudit();
         case 'master': return loadMaster();
         case 'groups': return loadGroups();
+        case 'app': return loadApp();
         case 'settings': return loadSettings();
     }
 }
@@ -3565,6 +3567,65 @@ function exportSql() {
 
 // ---------- Audit ----------
 
+// ---------- Android app ----------
+
+async function loadApp() {
+    $('#app-body').innerHTML = loadingRows(8, 4);
+    const r = await api('/admin/app');
+    if (!r.ok) { $('#app-body').innerHTML = emptyRow(8, r.error, 'fa-circle-exclamation'); return; }
+    S.appData = r.data;
+    renderApp();
+}
+
+function renderApp() {
+    const d = S.appData, st = d.stats;
+    $('#app-kpis').innerHTML = [
+        kpi('fa-download', 'accent', 'הורדות', num(st.downloads), `${num(st.downloadsWeek)} בשבוע האחרון`),
+        kpi('fa-mobile-screen-button', 'good', 'משתמשים באפליקציה', num(st.users), `${num(st.activeWeek)} פעילים השבוע`),
+        kpi('fa-bell', d.pushConfigured ? 'good' : 'warn', 'התראות כשהאפליקציה סגורה', num(st.withPush), d.pushConfigured ? 'משתמשים שמקבלים התראות' : 'Firebase לא מוגדר בשרת'),
+        kpi('fa-ban', st.blocked ? 'warn' : '', 'חסומים', num(st.blocked), 'חסומים באפליקציה בלבד'),
+    ].join('');
+    // 30 days of downloads as small bars
+    const byDay = Object.fromEntries((d.days || []).map(x => [x.day, x.n]));
+    const days = [];
+    for (let i = 29; i >= 0; i--) {
+        const t = new Date(Date.now() - i * 86400000);
+        const key = t.toLocaleDateString('sv-SE', { timeZone: 'Asia/Jerusalem' });
+        days.push([key, byDay[key] || 0]);
+    }
+    const max = Math.max(1, ...days.map(x => x[1]));
+    $('#app-days').innerHTML = days.map(([k, n]) => `<div title="${esc(k)}: ${num(n)} הורדות" style="flex:1;min-width:4px;height:${Math.max(2, Math.round(n / max * 100))}%;background:${n ? 'var(--accent)' : 'var(--line)'};border-radius:3px 3px 0 0"></div>`).join('');
+    renderAppUsers();
+}
+
+function renderAppUsers() {
+    const q = ($('#app-search').value || '').trim().toLowerCase();
+    const list = (S.appData.users || []).filter(u => !q || u.phone.includes(q) || (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q));
+    $('#app-body').innerHTML = list.length ? list.map(u => `<tr>
+        <td><b>${esc(u.name || u.phone)}</b><div class="muted" style="font-size:12px;direction:ltr;text-align:right">${esc(u.phone)}${u.email ? ' · ' + esc(u.email) : ''}</div></td>
+        <td>${esc(u.version || '—')}</td>
+        <td>${num(u.opens)}</td>
+        <td>${u.lastSeen ? relTime(u.lastSeen) : '—'}</td>
+        <td>${u.firstSeen ? fmtDate(u.firstSeen) : '—'}</td>
+        <td>${u.push ? '<span class="badge good">כן</span>' : '<span class="badge">לא</span>'}</td>
+        <td>${u.blocked ? `<span class="badge warn" title="${esc(u.note || '')}">חסום</span>` : '<span class="badge good">פעיל</span>'}</td>
+        <td class="nowrap">${u.blocked
+            ? `<button class="btn btn-sm" data-action="app-unblock" data-phone="${esc(u.phone)}"><i class="fa-solid fa-unlock"></i> ביטול חסימה</button>`
+            : `<button class="btn btn-sm" data-action="app-block" data-phone="${esc(u.phone)}"><i class="fa-solid fa-ban"></i> חסימה</button>`}</td>
+    </tr>`).join('') : emptyRow(8, q ? 'אין תוצאות' : 'עדיין אף אחד לא נכנס דרך האפליקציה.', 'fa-mobile-screen-button');
+}
+
+async function setAppBlocked(phone, blocked) {
+    if (blocked) {
+        const ok = await confirmDanger('חסימה באפליקציה', `${phone} לא יוכל להשתמש באפליקציה ולא יקבל ממנה התראות. באתר הרגיל בדפדפן הוא ימשיך כרגיל.`, 'חסימה');
+        if (!ok) return;
+    }
+    const r = await api('/admin/app/block', { phone, blocked });
+    if (!r.ok) { toast(r.error, 'bad'); return; }
+    toast(blocked ? 'נחסם באפליקציה' : 'החסימה בוטלה');
+    loadApp();
+}
+
 // ---------- Groups ----------
 
 const G_DAYS = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
@@ -4166,6 +4227,10 @@ const ACTIONS = {
     'refresh-audit': loadAudit,
     'refresh-master': () => loadMaster(),
     'group-new': () => openGroupDrawer(null),
+    'refresh-app': () => loadApp(),
+    'app-block': el => setAppBlocked(el.dataset.phone, true),
+    'app-unblock': el => setAppBlocked(el.dataset.phone, false),
+    'app-copy-link': () => navigator.clipboard?.writeText('https://smti.uk/salamon/app').then(() => toast('הקישור הועתק')).catch(() => toast('https://smti.uk/salamon/app', 'info')),
     'group-edit': el => openGroupDrawer(Number(el.dataset.id)),
     'group-save': () => saveGroup(),
     'group-archive': () => saveGroup(!S.groupEdit.g.archived),
@@ -4242,6 +4307,7 @@ function bindEvents() {
     }));
 
     $('#users-search').addEventListener('input', debounce(e => { S.usersSearch = e.target.value.trim(); S.usersPage = 0; renderUsers(); }, 150));
+    $('#app-search').addEventListener('input', debounce(() => { if (S.appData) renderAppUsers(); }, 150));
     $('#logs-search').addEventListener('input', debounce(e => { S.logsSearch = e.target.value.trim(); renderSecurity(); }, 150));
     $('#chat-search').addEventListener('input', debounce(e => { S.chatSearch = e.target.value.trim(); renderConvs(); searchMessages(S.chatSearch); }, 120));
     $('#act-phone').addEventListener('input', debounce(e => { S.actPhone = e.target.value.replace(/[^\d+]/g, ''); loadActivity(); }, 400));

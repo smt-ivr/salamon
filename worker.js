@@ -188,7 +188,8 @@ export default {
         }
         // הורדת אפליקציית האנדרואיד (נבנית אוטומטית ב-GitHub Actions)
         if (path === '/salamon/app' || path === '/salamon/app.apk') {
-            return Response.redirect('https://github.com/smt-ivr/salamon/releases/download/android/salamon.apk', 302);
+            // דרך השרת, כדי לספור הורדות (מוצג במרכז השליטה ← אפליקציה)
+            return Response.redirect('https://smti.uk/salamon/api/app/download', 302);
         }
         if (url.pathname === '/salamon/v2/manifest.webmanifest') {
             return new Response(V2_MANIFEST, { headers: { 'Content-Type': 'application/manifest+json; charset=utf-8', 'Cache-Control': 'no-cache' } });
