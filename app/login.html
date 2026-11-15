@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>כניסה לאפליקציית עכשיו סלומון</title>
+<link rel="icon" href="https://smt-tel-manager.netlify.app/salamon-logo.png">
+<style>
+:root{--bg:#f0f2f5;--card:#fff;--text:#111b21;--muted:#54656f;--line:#d1d7db;--green:#16a34a;--danger:#ef4444}
+@media (prefers-color-scheme: dark){:root{--bg:#0b141a;--card:#1f2c33;--text:#e9edef;--muted:#8696a0;--line:#2a3942}}
+*{box-sizing:border-box}html,body{margin:0}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.card{background:var(--card);border-radius:16px;box-shadow:0 2px 10px rgba(0,0,0,.08);padding:28px 22px;max-width:400px;width:100%;text-align:center}
+img.logo{width:84px;height:84px;border-radius:20px}
+h1{font-size:22px;margin:14px 0 6px}p{color:var(--muted);margin:0 0 18px;line-height:1.5}
+.btn{display:block;width:100%;border:0;border-radius:12px;padding:14px;font:inherit;font-weight:700;font-size:17px;cursor:pointer;text-decoration:none;background:var(--green);color:#fff;margin-top:10px}
+.sep{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px;margin:18px 0}.sep::before,.sep::after{content:'';flex:1;height:1px;background:var(--line)}
+#g{display:flex;justify-content:center;min-height:44px}
+.err{color:var(--danger);font-weight:600;margin-top:12px;min-height:1.4em}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="card">
+  <img class="logo" src="https://smt-tel-manager.netlify.app/salamon-logo.png" alt="">
+  <div id="start">
+    <h1>כניסה לאפליקציה</h1>
+    <p>אחרי הכניסה תחזרו לאפליקציה מחוברים.</p>
+    <div id="session" hidden>
+      <button class="btn" id="use-session">המשך כ<span id="session-name"></span></button>
+      <div class="sep">או</div>
+    </div>
+    <div id="g"></div>
+  </div>
+  <div id="done" hidden>
+    <h1>מחוברים ✓</h1>
+    <p>לוחצים כדי לחזור לאפליקציה.</p>
+    <a class="btn" id="back" href="#">חזרה לאפליקציה</a>
+  </div>
+  <div class="err" id="err" role="alert"></div>
+</div>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+(function () {
+  var API = '/salamon/api';
+  var err = document.getElementById('err');
+  function back(token) {
+    var url = 'intent://login?token=' + encodeURIComponent(token) + '#Intent;scheme=salamon;package=uk.smti.salamon;end';
+    document.getElementById('start').hidden = true;
+    document.getElementById('done').hidden = false;
+    document.getElementById('back').href = url;
+    try { location.href = url; } catch (e) {}
+  }
+  function call(path, body) {
+    err.textContent = '';
+    return fetch(API + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().then(function (d) { if (!r.ok || !d.token) throw new Error(d.error || 'הכניסה נכשלה'); return d; }); })
+      .then(function (d) { back(d.token); })
+      .catch(function (e) { err.textContent = e.message; });
+  }
+  // Already signed in to the website in this browser
+  var siteToken = null;
+  try { siteToken = localStorage.getItem('userToken'); } catch (e) {}
+  if (siteToken && siteToken.indexOf(':') < 0) {
+    fetch(API + '/user', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userToken: siteToken }) })
+      .then(function (r) { return r.json(); }).then(function (d) {
+        var u = d && (d.user || d);
+        if (!u || !u.phone) return;
+        document.getElementById('session-name').textContent = (u.name && u.name !== 'לא מזוהה') ? u.name : u.phone;
+        document.getElementById('session').hidden = false;
+        document.getElementById('use-session').onclick = function () { call('/app/login/session', { userToken: siteToken }); };
+      }).catch(function () {});
+  }
+  // Google
+  function google() {
+    if (!window.google || !google.accounts) return setTimeout(google, 300);
+    google.accounts.id.initialize({
+      client_id: '89500817024-tbvsuu4dci6bqh173l65ua9lc65pe24p.apps.googleusercontent.com',
+      callback: function (res) { call('/app/login/google', { credential: res.credential }); }
+    });
+    google.accounts.id.renderButton(document.getElementById('g'), { theme: 'outline', size: 'large', text: 'signin_with', shape: 'pill', locale: 'he', width: 300 });
+  }
+  google();
+})();
+</script>
+</body>
+</html>

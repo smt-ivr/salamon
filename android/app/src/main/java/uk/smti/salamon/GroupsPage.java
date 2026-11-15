@@ -48,7 +48,7 @@ public class GroupsPage extends Page {
         schedule();
     };
 
-    public GroupsPage(MainActivity a) {
+    public GroupsPage(android.app.Activity a) {
         super(a);
     }
 
@@ -126,7 +126,6 @@ public class GroupsPage extends Page {
             total += g.optInt("unread");
             listCol.addView(groupRow(g), Ui.wide(a, 0, 10));
         }
-        a.setBadge("groups", total);
         int d = discover == null ? 0 : discover.length();
         if (d > 0) {
             listCol.addView(Ui.text(a, "קבוצות שאפשר להצטרף", 18, Ui.TEXT, 700), Ui.wide(a, 18, 8));

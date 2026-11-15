@@ -31,7 +31,7 @@ public class ChatPage extends Page {
         schedule();
     };
 
-    public ChatPage(MainActivity a) {
+    public ChatPage(android.app.Activity a) {
         super(a);
     }
 
@@ -110,7 +110,6 @@ public class ChatPage extends Page {
                 Api.post("/chat/read", new JSONObject(), null);
                 Notifier.cancel(a, "salamon-chat");
             }
-            a.setBadge("chat", 0);
         });
     }
 

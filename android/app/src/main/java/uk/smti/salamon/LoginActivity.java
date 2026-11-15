@@ -20,6 +20,8 @@ import org.json.JSONObject;
 /** Sign in once; the app stays connected permanently. */
 public class LoginActivity extends Activity {
 
+    private static final String WEB_LOGIN = "https://smti.uk/salamon/app/login";
+
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -70,6 +72,25 @@ public class LoginActivity extends Activity {
         Button go = Ui.button(this, "כניסה", true);
         card.addView(go, Ui.wide(this, 16, 0));
 
+        // Google / an existing website session: done in the browser, then back to the app
+        TextView or = Ui.text(this, "או", 14, Ui.TEXT3, 500);
+        or.setGravity(Gravity.CENTER);
+        col.addView(or, Ui.wide(this, 18, 8));
+        Button google = Ui.button(this, "  כניסה עם Google", false);
+        android.graphics.drawable.Drawable gd = getDrawable(R.drawable.ic_google).mutate();
+        gd.setTint(Ui.c("#4285F4"));
+        gd.setBounds(0, 0, Ui.dp(this, 20), Ui.dp(this, 20));
+        google.setCompoundDrawablesRelative(gd, null, null, null);
+        google.setOnClickListener(v -> openWebLogin());
+        col.addView(google, Ui.wide());
+        Button site = Ui.button(this, "  כניסה עם החשבון שמחובר באתר", false);
+        android.graphics.drawable.Drawable ld = getDrawable(R.drawable.ic_link).mutate();
+        ld.setTint(Ui.TEXT3);
+        ld.setBounds(0, 0, Ui.dp(this, 20), Ui.dp(this, 20));
+        site.setCompoundDrawablesRelative(ld, null, null, null);
+        site.setOnClickListener(v -> openWebLogin());
+        col.addView(site, Ui.wide(this, 10, 0));
+
         TextView forgot = Ui.text(this, "שכחתם סיסמה? אין לכם חשבון? היכנסו לאתר", 14, Ui.ACCENT, 500);
         forgot.setGravity(Gravity.CENTER);
         forgot.setPadding(0, Ui.dp(this, 16), 0, 0);
@@ -103,11 +124,45 @@ public class LoginActivity extends Activity {
                     return;
                 }
                 Store.setSession(r.data.optString("token"), r.data.optJSONObject("user"));
-                Store.setLastUnlock(System.currentTimeMillis());
+                App.lockPending = false;
                 startActivity(new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
                 finish();
             });
         });
         setContentView(scroll);
+        handleLink(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        handleLink(intent);
+    }
+
+    private void openWebLogin() {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(WEB_LOGIN)));
+        } catch (Exception e) {
+            android.widget.Toast.makeText(this, "לא נמצא דפדפן בטלפון", android.widget.Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** salamon://login?token=… — coming back from the browser after signing in. */
+    private void handleLink(Intent intent) {
+        Uri u = intent == null ? null : intent.getData();
+        if (u == null || !"salamon".equals(u.getScheme())) return;
+        String token = u.getQueryParameter("token");
+        if (token == null || token.isEmpty()) return;
+        Store.setSession(token, new JSONObject());
+        Sync.heartbeat(this, true, r -> {
+            if (!r.ok) {
+                Store.clearSession();
+                android.widget.Toast.makeText(this, r.error == null ? "הכניסה נכשלה" : r.error, android.widget.Toast.LENGTH_LONG).show();
+                return;
+            }
+            App.lockPending = false;
+            startActivity(new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
+            finish();
+        });
     }
 }

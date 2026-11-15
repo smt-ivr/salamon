@@ -3572,12 +3572,14 @@ function exportSql() {
 async function loadApp() {
     $('#app-body').innerHTML = loadingRows(8, 4);
     $('#app-devices').innerHTML = loadingRows(6, 3);
-    const [r, cfg, dev] = await Promise.all([api('/admin/app'), api('/admin/app/config'), api('/admin/app/devices')]);
+    const [r, cfg, dev, crashes] = await Promise.all([api('/admin/app'), api('/admin/app/config'), api('/admin/app/devices'), api('/admin/app/crashes')]);
     if (!r.ok) { $('#app-body').innerHTML = emptyRow(8, r.error, 'fa-circle-exclamation'); return; }
     S.appData = r.data;
     S.appConfig = cfg.ok ? cfg.data : null;
     S.appDevices = dev.ok ? dev.data : { devices: [], versions: {} };
+    S.appCrashes = crashes.ok ? crashes.data.crashes || [] : [];
     renderApp();
+    renderAppCrashes();
     renderAppConfig();
     renderAppDevices();
 }
@@ -3674,6 +3676,19 @@ function renderAppDevices() {
         <td>${x.last_seen_at ? relTime(x.last_seen_at) : '—'}</td>
         <td>${x.created_at ? fmtDate(x.created_at) : '—'}</td>
     </tr>`).join('') : emptyRow(6, d.pushConfigured === false ? 'ההתראות לא מוגדרות בשרת, ולכן מכשירים לא נרשמים. צריך להגדיר FCM_SERVICE_ACCOUNT.' : 'עדיין לא נרשמו מכשירים מהאפליקציה החדשה.', 'fa-mobile-screen-button');
+}
+
+function renderAppCrashes() {
+    const list = S.appCrashes || [];
+    const names = Object.fromEntries((S.appData.users || []).map(u => [u.phone, u.name]));
+    $('#app-crashes').innerHTML = list.length ? list.map(c => `<tr>
+        <td class="nowrap">${c.at ? relTime(c.at) : '—'}</td>
+        <td>${esc(names[c.phone] || c.phone || '—')}</td>
+        <td>${esc(c.version || '—')}</td>
+        <td>${esc(c.device || '')}<div class="muted" style="font-size:12px">${esc(c.os || '')}</div></td>
+        <td>${esc(c.screen || '')}</td>
+        <td><details><summary style="cursor:pointer">${esc(String(c.message || '').slice(0, 90))}</summary><pre style="white-space:pre-wrap;direction:ltr;text-align:left;font-size:11px;max-height:260px;overflow:auto;margin:6px 0 0">${esc(c.stack || '')}</pre></details></td>
+    </tr>`).join('') : emptyRow(6, 'אין קריסות מדווחות 👍', 'fa-circle-check');
 }
 
 async function sendAppPush() {

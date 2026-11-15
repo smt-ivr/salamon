@@ -30,6 +30,7 @@ import groupsJs from './groups/groups.js';
 
 import controlHtml from './control.html';
 import appPageHtml from './app/app.html';
+import appLoginHtml from './app/login.html';
 import controlCss from './control.css';
 import controlJs from './client-control.js';
 
@@ -191,6 +192,10 @@ export default {
         }
         // הורדת אפליקציית האנדרואיד (נבנית אוטומטית ב-GitHub Actions)
         // דף ההורדה של האפליקציה: מזהה אנדרואיד / אייפון / מחשב
+        // כניסה לאפליקציה דרך הדפדפן (Google, או חיבור קיים באתר) וחזרה לאפליקציה
+        if (path === '/salamon/app/login') {
+            return new Response(appLoginHtml, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' } });
+        }
         if (path === '/salamon/app') {
             return new Response(appPageHtml, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' } });
         }

@@ -83,16 +83,21 @@ public final class Api {
 
     /** Uploads a recorded voice message (multipart, like the website). */
     public static void uploadRecording(File file, Callback cb) {
+        upload(file, "recording.m4a", "audio/mp4", "record", cb);
+    }
+
+    /** Uploads an audio file. uploadType: "record" (recorded in the app) or "file" (chosen from the phone). */
+    public static void upload(File file, String fileName, String mime, String uploadType, Callback cb) {
         pool.execute(() -> {
             String boundary = "----salamon" + System.currentTimeMillis();
             try {
                 ByteArrayOutputStream buf = new ByteArrayOutputStream();
                 DataOutputStream out = new DataOutputStream(buf);
                 field(out, boundary, "userToken", Store.token());
-                field(out, boundary, "uploadType", "record");
+                field(out, boundary, "uploadType", uploadType);
                 out.writeBytes("--" + boundary + "\r\n");
-                out.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"recording.m4a\"\r\n");
-                out.writeBytes("Content-Type: audio/mp4\r\n\r\n");
+                out.write(("Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName.replace("\"", "") + "\"\r\n").getBytes(StandardCharsets.UTF_8));
+                out.writeBytes("Content-Type: " + mime + "\r\n\r\n");
                 try (InputStream in = new FileInputStream(file)) {
                     byte[] b = new byte[8192];
                     int n;
