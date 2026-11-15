@@ -80,5 +80,8 @@ jobs:
         run: |
           gh release view android >/dev/null 2>&1 || \
             gh release create android --title "אפליקציית אנדרואיד" --notes "הורדה: https://smti.uk/salamon/app" --latest=false
-          gh release upload android "$RUNNER_TEMP/salamon.apk" --clobber
+          # Small details file for the download page (read from smti.uk, no GitHub API needed)
+          jq -n --arg v "1.${{ github.run_number }}" --argjson s "$(stat -c %s "$RUNNER_TEMP/salamon.apk")" \
+            --arg d "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{version:$v,size:$s,updatedAt:$d}' > "$RUNNER_TEMP/version.json"
+          gh release upload android "$RUNNER_TEMP/salamon.apk" "$RUNNER_TEMP/version.json" --clobber
           gh release edit android --notes "גרסה 1.${{ github.run_number }} · הורדה: https://smti.uk/salamon/app"
