@@ -405,6 +405,10 @@ setInterval(() => { if (App.token) App.timers.forEach(t => t.tick()); }, 1000);
 App.logout = (expired = false) => {
     const token = App.token;
     if (token && !expired) fetch(API + '/logout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userToken: token }), keepalive: true }).catch(() => {});
+    // באפליקציית האנדרואיד: המכשיר מפסיק לקבל התראות של החשבון הזה
+    const push = window.SalamonApp && window.SalamonApp.pushToken();
+    if (push) fetch(API + '/push/unregister', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: push }), keepalive: true }).catch(() => {});
+    App.store.del('v2.pushReg');
     App.token = null; App.user = null;
     App.store.del('v2.prefs.server');
     try { localStorage.removeItem('userToken'); } catch (e) {}
@@ -414,3 +418,18 @@ App.logout = (expired = false) => {
     App.showAuth && App.showAuth();
 };
 })();
+
+// ---------- אפליקציית האנדרואיד ----------
+// האפליקציה נותנת טוקן של Firebase, והשרת שולח אליו התראות גם כשהאפליקציה סגורה.
+App.registerPush = async () => {
+    const A = window.SalamonApp;
+    if (!A || !App.token) return;
+    const token = A.pushToken();
+    if (!token) return;
+    const key = token + '|' + App.token.slice(0, 12);
+    if (App.store.get('v2.pushReg') === key) return;
+    const r = await App.api('/push/register', { token, appVersion: A.version || '' });
+    if (r.ok) App.store.set('v2.pushReg', key);
+};
+document.addEventListener('login', () => { App.registerPush(); });
+window.addEventListener('salamon-push-token', () => { App.store.del('v2.pushReg'); App.registerPush(); });
