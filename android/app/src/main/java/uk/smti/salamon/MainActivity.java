@@ -201,14 +201,7 @@ public class MainActivity extends BaseActivity {
             return;
         }
         if (cfg.optBoolean("mustUpdate")) {
-            showGate("צריך לעדכן את האפליקציה", cfg.optString("updateMessage", "יצאה גרסה חדשה. כדי להמשיך יש לעדכן."), "עדכון עכשיו", v -> {
-                Button bt = (Button) v;
-                bt.setEnabled(false);
-                Updater.start(this, (pct, status) -> {
-                    bt.setText(status);
-                    if (pct < 0) bt.setEnabled(true);
-                });
-            });
+            showGate("צריך לעדכן את האפליקציה", cfg.optString("updateMessage", "יצאה גרסה חדשה. כדי להמשיך יש לעדכן."), "עדכון עכשיו", v -> Updater.showDialog(this));
             return;
         }
         if ("web".equals(cfg.optString("mode"))) {
@@ -218,6 +211,21 @@ public class MainActivity extends BaseActivity {
         }
         if (!built) build();
         updateHeader(cfg);
+        offerUpdate(cfg);
+    }
+
+    /** A newer version is published: ask once per version, like normal apps. */
+    private void offerUpdate(JSONObject cfg) {
+        int latest = cfg.optInt("latestVersionCode");
+        if (!cfg.optBoolean("shouldUpdate") || latest <= BuildConfig.VERSION_CODE) return;
+        if (Store.mark("offered_update") >= latest) return;
+        Store.setMark("offered_update", latest);
+        new AlertDialog.Builder(this)
+                .setTitle("גרסה חדשה זמינה")
+                .setMessage("יצאה גרסה " + cfg.optString("latestVersionName", "") + " של האפליקציה. לעדכן עכשיו?")
+                .setPositiveButton("עדכון", (d, w) -> Updater.showDialog(this))
+                .setNegativeButton("אחר כך", null)
+                .show();
     }
 
     private void showGate(String title, String text, String action, View.OnClickListener onAction) {
@@ -349,7 +357,7 @@ public class MainActivity extends BaseActivity {
             else if (it.getItemId() == 2) {
                 refresh(false);
                 loadStatsHeader();
-            } else if (it.getItemId() == 3) PageActivity.open(this, "settings");
+            } else if (it.getItemId() == 3) Updater.showDialog(this);
             return true;
         });
         m.show();
@@ -428,12 +436,13 @@ public class MainActivity extends BaseActivity {
                 loadMessageStats(fresh);
                 return;
             }
+            boolean first = renderedHash.isEmpty();
             renderedHash = hash.toString();
             page = 1;
             noMore = fresh.size() < PAGE;
             items.clear();
             items.addAll(fresh);
-            render();
+            render(first || !silent ? Scroll.BOTTOM : Scroll.KEEP_BOTTOM_IF_NEAR);
             if (!fresh.isEmpty()) {
                 long newest = idNum(fresh.get(0));
                 if (newest > Store.mark("feed")) Store.setMark("feed", newest);
@@ -463,7 +472,7 @@ public class MainActivity extends BaseActivity {
             for (int i = 0; i < n; i++) items.add(arr.optJSONObject(i));
             page++;
             noMore = n < PAGE;
-            render();
+            render(Scroll.KEEP_POSITION);
         });
     }
 
@@ -477,22 +486,20 @@ public class MainActivity extends BaseActivity {
         try { return Long.parseLong(fileId(m)); } catch (Exception e) { return 0; }
     }
 
-    private void render() {
+    /** How the list should scroll after rendering. */
+    private enum Scroll { BOTTOM, KEEP_BOTTOM_IF_NEAR, KEEP_POSITION }
+
+    /** Like WhatsApp: oldest at the top, newest at the bottom; "load older" at the top. */
+    private void render(Scroll mode) {
+        boolean nearBottom = scroll.getChildCount() > 0
+                && scroll.getScrollY() + scroll.getHeight() >= list.getHeight() - Ui.dp(this, 120);
+        int oldHeight = list.getHeight(), oldY = scroll.getScrollY();
         list.removeAllViews();
         controls.clear();
         if (items.isEmpty()) {
             showLoading(Store.user().optBoolean("canListen", true) ? "אין הודעות להצגה כרגע." : "ההאזנה להודעות לא פעילה בחשבון שלך.");
             return;
         }
-        String lastDate = null;
-        for (JSONObject m : items) {
-            String mtime = m.optString("mtime", "");
-            String date = mtime.contains(" ") ? mtime.substring(0, mtime.indexOf(' ')) : mtime;
-            if (lastDate != null && !date.equals(lastDate)) list.addView(divider(lastDate));
-            lastDate = date;
-            list.addView(bubble(m));
-        }
-        if (lastDate != null) list.addView(divider(lastDate));
         moreBtn = null;
         if (!noMore) {
             moreBtn = Ui.button(this, "טען הודעות קודמות", false);
@@ -500,11 +507,24 @@ public class MainActivity extends BaseActivity {
             moreBtn.setOnClickListener(v -> loadMore());
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, Ui.dp(this, 42));
             lp.gravity = Gravity.CENTER_HORIZONTAL;
-            lp.topMargin = Ui.dp(this, 8);
+            lp.bottomMargin = Ui.dp(this, 6);
             list.addView(moreBtn, lp);
+        }
+        String lastDate = null;
+        for (int i = items.size() - 1; i >= 0; i--) {
+            JSONObject m = items.get(i);
+            String mtime = m.optString("mtime", "");
+            String date = mtime.contains(" ") ? mtime.substring(0, mtime.indexOf(' ')) : mtime;
+            if (!date.equals(lastDate)) list.addView(divider(date));
+            lastDate = date;
+            list.addView(bubble(m));
         }
         playerChanged();
         loadMessageStats(items);
+        scroll.post(() -> {
+            if (mode == Scroll.BOTTOM || (mode == Scroll.KEEP_BOTTOM_IF_NEAR && nearBottom)) scroll.fullScroll(View.FOCUS_DOWN);
+            else scroll.scrollTo(0, oldY + (list.getHeight() - oldHeight));
+        });
     }
 
     private View divider(String date) {

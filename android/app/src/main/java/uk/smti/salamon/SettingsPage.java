@@ -140,13 +140,7 @@ public class SettingsPage extends Page {
             ver.addView(l, Ui.wide(a, 4, 0));
         }
         Button upd = Ui.button(a, newer ? "עדכון עכשיו" : "בדיקה ועדכון", newer);
-        upd.setOnClickListener(v -> {
-            upd.setEnabled(false);
-            Updater.start(a, (pct, status) -> {
-                upd.setText(status);
-                if (pct < 0) upd.setEnabled(true);
-            });
-        });
+        upd.setOnClickListener(v -> Updater.showDialog(a));
         ver.addView(upd, Ui.wide(a, 12, 0));
         col.addView(ver, Ui.wide(a, 0, 16));
 
