@@ -2704,6 +2704,42 @@ const MAIL_DEFAULT_THEMES = {
     salamon: { label: 'סלומון', accent: '#16a34a', accent2: '#0ea5e9', page: '#eef1f7', card: '#ffffff' },
 };
 
+// Ready-made, luxurious announcement of the Android app (opens in the mail editor; pick the recipients there)
+function openAppLaunchTemplate() {
+    openMail({
+        duplicate: true,
+        tab: 'to',
+        campaign: {
+            subject: 'עכשיו סלומון – עכשיו גם באפליקציה 📱',
+            preheader: 'ההודעות הקוליות, הצ׳אט והקבוצות, בכיס שלך, עם התראה על כל הודעה חדשה.',
+            design: {
+                theme: 'luxe',
+                layout: 'banner',
+                align: 'center',
+                bannerUrl: 'https://smti.uk/salamon/app/banner.jpg',
+                eyebrow: 'חדש · לאנדרואיד',
+                title: 'שלום {{first_name}}, עכשיו סלומון עובר לאפליקציה',
+                bodyMode: 'text',
+                body: 'השקנו את האפליקציה הרשמית של עכשיו סלומון לאנדרואיד.\n'
+                    + 'כל מה שאתם מכירים מהאתר, במקום אחד בטלפון, נוח ומהיר יותר:\n\n'
+                    + '- **התראה על כל הודעה קולית חדשה**, גם כשהאפליקציה סגורה\n'
+                    + '- **הקלטה ושליחה** בלחיצה אחת, וצינתוק אחרי השליחה\n'
+                    + '- **צ׳אט עם ההנהלה וקבוצות**, עם התראות על כל תשובה\n'
+                    + '- **חיבור קבוע**: נכנסים פעם אחת ונשארים מחוברים\n\n'
+                    + 'ההתקנה לוקחת פחות מדקה, ישירות מהאתר שלנו.',
+                highlight: 'פותחים את הקישור בטלפון, מורידים, ומאשרים התקנה. העדכונים הבאים מגיעים מתוך האפליקציה עצמה.',
+                ctaLabel: 'להורדת האפליקציה',
+                ctaUrl: 'https://smti.uk/salamon/app',
+                cta2Label: 'לאתר',
+                cta2Url: 'https://smti.uk/salamon',
+                signature: 'בברכה,\nצוות עכשיו סלומון',
+                footnote: 'האפליקציה זמינה לאנדרואיד 7 ומעלה. באייפון אפשר להמשיך להשתמש באתר.',
+            },
+        },
+    });
+    toast('התבנית נפתחה. בחרו למי לשלוח, ושלחו קודם מייל בדיקה לעצמכם.', 'info');
+}
+
 function pct(a, b) { return b ? Math.round((a / b) * 100) : 0; }
 
 async function loadMail() {
@@ -3661,7 +3697,34 @@ async function saveAppConfig() {
     renderAppConfig();
 }
 
+function renderFeedStatus() {
+    const f = S.appDevices && S.appDevices.feedStatus;
+    const box = $('#app-feed-status');
+    if (!f) { box.innerHTML = '<p class="muted">הבדיקה עוד לא רצה. היא רצה בשרת כל דקה; אפשר ללחוץ "בדיקה עכשיו".</p>'; return; }
+    const ago = f.at ? relTime(f.at) : '';
+    const stale = f.at && (Date.now() - new Date(String(f.at).replace(' ', 'T') + '+02:00').getTime()) > 5 * 60000;
+    const tone = !f.ok ? 'bad' : stale ? 'warn' : 'good';
+    box.innerHTML = `<div class="row" style="gap:10px;flex-wrap:wrap;align-items:center">
+        <span class="badge ${tone}">${!f.ok ? 'תקלה' : stale ? 'לא רצה כבר כמה דקות' : 'פועל'}</span>
+        <span>רצה לאחרונה: <b>${esc(ago)}</b></span>
+        <span class="muted">· ${esc(f.reason || f.error || '')}</span>
+        ${f.newest ? `<span class="muted">· הודעה אחרונה: ${esc(f.newest)}</span>` : ''}
+        ${f.recipients !== undefined ? `<span class="muted">· נמענים: ${num(f.recipients)}, נשלחו: ${num(f.sent)}</span>` : ''}
+        ${f.recorder ? `<span class="muted">· הקליט: ${esc(f.recorder)} (לא מקבל התראה על עצמו)</span>` : ''}
+    </div>
+    <p class="muted" style="font-size:12px;margin:8px 0 0">כל דקה השרת בודק אם הגיעה הודעה קולית חדשה ושולח התראה לכל מכשיר שהפעיל "הודעות קוליות חדשות". מי שהקליט את ההודעה לא מקבל עליה התראה.</p>`;
+}
+
+async function runFeedCheck() {
+    const r = await api('/admin/app/devices', { runFeedCheck: true });
+    if (!r.ok) { toast(r.error, 'bad'); return; }
+    S.appDevices = r.data;
+    renderFeedStatus();
+    toast('הבדיקה רצה');
+}
+
 function renderAppDevices() {
+    renderFeedStatus();
     const d = S.appDevices || { devices: [], versions: {} };
     const names = Object.fromEntries((S.appData.users || []).map(u => [u.phone, u.name]));
     const list = (d.devices || []).filter(x => x.kind === 'native');
@@ -4358,6 +4421,8 @@ const ACTIONS = {
     'app-block': el => setAppBlocked(el.dataset.phone, true),
     'app-unblock': el => setAppBlocked(el.dataset.phone, false),
     'app-config-save': () => saveAppConfig(),
+    'mail-app-template': () => openAppLaunchTemplate(),
+    'app-feed-check': () => runFeedCheck(),
     'app-push-send': () => sendAppPush(),
     'app-copy-link': () => navigator.clipboard?.writeText('https://smti.uk/salamon/app').then(() => toast('הקישור הועתק')).catch(() => toast('https://smti.uk/salamon/app', 'info')),
     'group-edit': el => openGroupDrawer(Number(el.dataset.id)),

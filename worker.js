@@ -31,6 +31,7 @@ import groupsJs from './groups/groups.js';
 import controlHtml from './control.html';
 import appPageHtml from './app/app.html';
 import appLoginHtml from './app/login.html';
+import appBannerB64 from './app/banner-data.js';
 import controlCss from './control.css';
 import controlJs from './client-control.js';
 
@@ -193,6 +194,11 @@ export default {
         // הורדת אפליקציית האנדרואיד (נבנית אוטומטית ב-GitHub Actions)
         // דף ההורדה של האפליקציה: מזהה אנדרואיד / אייפון / מחשב
         // כניסה לאפליקציה דרך הדפדפן (Google, או חיבור קיים באתר) וחזרה לאפליקציה
+        // באנר האפליקציה (תמונה לדיוור במייל)
+        if (path === '/salamon/app/banner.jpg') {
+            const bin = Uint8Array.from(atob(appBannerB64), c => c.charCodeAt(0));
+            return new Response(bin, { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'public, max-age=604800' } });
+        }
         if (path === '/salamon/app/login') {
             return new Response(appLoginHtml, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' } });
         }
