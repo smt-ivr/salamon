@@ -102,6 +102,7 @@ App.api = async (path, body = {}, { auth = true, signal } = {}) => {
         try { data = await res.json(); } catch (e) {}
         const ok = res.ok && data.success !== false;
         if (res.status === 401 && auth && App.token && !path.startsWith('/login')) App.sessionExpired();
+        if (data.appBlocked) App.appBlocked(data.error);
         return { ok, status: res.status, data, error: ok ? null : (data.message || data.error || 'משהו השתבש, נסו שוב') };
     } catch (e) {
         if (e.name === 'AbortError') return { ok: false, status: 0, data: {}, error: 'בוטל' };
@@ -431,5 +432,26 @@ App.registerPush = async () => {
     const r = await App.api('/push/register', { token, appVersion: A.version || '' });
     if (r.ok) App.store.set('v2.pushReg', key);
 };
-document.addEventListener('login', () => { App.registerPush(); });
+document.addEventListener('login', () => { App.registerPush(); App.appHello(); });
+
+// מדווח לשרת שהמשתמש פתח את האפליקציה (למסך הניהול), ובודק אם הוא נחסם בה
+App.appHello = async () => {
+    const A = window.SalamonApp;
+    if (!A || !App.token) return;
+    const r = await App.api('/app/hello', { version: A.version || '' });
+    if (r.ok && r.data.blocked) App.appBlocked(r.data.message);
+};
+App.appBlocked = (message) => {
+    if (App._appBlockedShown) return;
+    App._appBlockedShown = true;
+    $('#app').hidden = true;
+    $('#auth').hidden = true;
+    $('#splash').classList.add('out');
+    $('#blocked').hidden = false;
+    $('#blocked-text').textContent = message || 'הגישה שלך לאפליקציה נחסמה.';
+    const card = $('#blocked');
+    const h = card.querySelector('h1'); if (h) h.textContent = 'אין גישה לאפליקציה';
+    const i = card.querySelector('i'); if (i) i.className = 'fa-solid fa-ban';
+    const a = card.querySelector('a'); if (a) a.hidden = true;
+};
 window.addEventListener('salamon-push-token', () => { App.store.del('v2.pushReg'); App.registerPush(); });

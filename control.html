@@ -342,6 +342,26 @@
                     </div>
                 </section>
 
+                <!-- Android app -->
+                <section class="view" id="view-app">
+                    <div class="view-head">
+                        <div><h1>אפליקציה</h1><p>מי משתמש באפליקציית האנדרואיד, הורדות, התראות וחסימה לפי משתמש</p></div>
+                        <div class="actions">
+                            <button class="btn" data-action="app-copy-link"><i class="fa-solid fa-link"></i> העתקת קישור ההורדה</button>
+                            <button class="btn" data-action="refresh-app"><i class="fa-solid fa-rotate-right"></i> רענון</button>
+                        </div>
+                    </div>
+                    <div class="kpis" id="app-kpis"></div>
+                    <div class="card">
+                        <div class="card-head"><h3>הורדות ב-30 הימים האחרונים</h3></div>
+                        <div id="app-days" style="display:flex;align-items:flex-end;gap:3px;height:120px;padding:12px 16px 4px;"></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-head"><h3>משתמשי האפליקציה</h3><div class="tools"><div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="app-search" placeholder="חיפוש שם או טלפון…"></div></div></div>
+                        <div class="table-wrap"><table class="tbl"><thead><tr><th>משתמש</th><th>גרסה</th><th>פתיחות</th><th>נראה לאחרונה</th><th>התקין לראשונה</th><th>התראות</th><th>מצב</th><th></th></tr></thead><tbody id="app-body"></tbody></table></div>
+                    </div>
+                </section>
+
                 <!-- Ads -->
                 <section class="view" id="view-ads">
                     <div class="view-head">
