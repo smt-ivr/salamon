@@ -34,6 +34,28 @@ function renderBanner() {
     box.innerHTML = `<div class="alert ${esc(b.tone || 'info')}"><i class="fa-solid ${b.tone === 'warn' ? 'fa-triangle-exclamation' : b.tone === 'good' ? 'fa-circle-check' : 'fa-circle-info'}"></i><div style="flex:1;">${esc(b.text)}</div><button class="icon-btn sm" data-act="banner-close" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button></div>`;
 }
 
+// פרסום האפליקציה: באנדרואיד הזמנה להוריד, באייפון הסבר על הוספה למסך הבית.
+// לא מוצג בתוך האפליקציה, למי שכבר הוסיף למסך הבית, או למי שסגר אותו ב-14 הימים האחרונים.
+function renderAppPromo() {
+    const box = $('#app-promo');
+    if (!box) return;
+    const ua = navigator.userAgent || '';
+    const ios = /iPhone|iPad|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const android = /Android/i.test(ua);
+    const installed = window.SalamonApp || navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    const closed = Number(App.store.get('v2.appPromoClosed', 0)) || 0;
+    if (installed || (!ios && !android) || Date.now() - closed < 14 * 86400000) { box.hidden = true; return; }
+    const text = android
+        ? '<b>אפליקציית סלומון לאנדרואיד:</b> הקלטה, התראות ישירות לטלפון, וכניסה מהירה.'
+        : '<b>סלומון במסך הבית של האייפון:</b> נפתח כמו אפליקציה, עם התראות.';
+    box.hidden = false;
+    box.innerHTML = `<div class="alert info" style="align-items:center"><i class="fa-solid ${android ? 'fa-mobile-screen-button' : 'fa-square-plus'}" style="margin-top:0"></i>`
+        + `<div style="flex:1;">${text}</div>`
+        + `<a class="btn primary sm" href="/salamon/app" style="text-decoration:none;white-space:nowrap">${android ? 'להורדה' : 'איך מוסיפים'}</a>`
+        + `<button class="icon-btn sm" data-act="app-promo-close" aria-label="סגירה"><i class="fa-solid fa-xmark"></i></button></div>`;
+}
+App.actions['app-promo-close'] = () => { App.store.set('v2.appPromoClosed', Date.now()); $('#app-promo').hidden = true; };
+
 App.actions['banner-close'] = () => { App.store.set('v2.bannerClosed', App.config.banner.text); $('#global-banner').hidden = true; };
 
 App.refreshUser = async () => {
@@ -65,6 +87,7 @@ App.enter = async () => {
 
     renderMe();
     renderBanner();
+    renderAppPromo();
     $('#auth').hidden = true;
     $('#blocked').hidden = true;
     $('#app').hidden = false;

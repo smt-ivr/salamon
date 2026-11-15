@@ -22,12 +22,14 @@ import v2Ads from './v2/ads.js';
 import v2Boot from './v2/boot.js';
 import v2Sw from './v2/sw.js';
 import v2LinkJs from './client-v2-link.js';
+import appPromoJs from './client-app-promo.js';
 
 import groupsHtml from './groups/groups.html';
 import groupsCss from './groups/groups.css';
 import groupsJs from './groups/groups.js';
 
 import controlHtml from './control.html';
+import appPageHtml from './app/app.html';
 import controlCss from './control.css';
 import controlJs from './client-control.js';
 
@@ -44,6 +46,7 @@ const PUBLIC_FILES = {
     '/salamon/client-user-chat.js': [userChatJs, JS],
     '/salamon/client-staff-link.js': [staffLinkJs, JS],
     '/salamon/client-v2-link.js': [v2LinkJs, JS],
+    '/salamon/client-app-promo.js': [appPromoJs, JS],
 };
 
 // הגרסה החדשה (/salamon/v2): קבצים נפרדים לגמרי מהאתר הוותיק
@@ -187,8 +190,12 @@ export default {
             return new Response(v2Html, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache', ...V2_HEADERS } });
         }
         // הורדת אפליקציית האנדרואיד (נבנית אוטומטית ב-GitHub Actions)
-        if (path === '/salamon/app' || path === '/salamon/app.apk') {
-            // דרך השרת, כדי לספור הורדות (מוצג במרכז השליטה ← אפליקציה)
+        // דף ההורדה של האפליקציה: מזהה אנדרואיד / אייפון / מחשב
+        if (path === '/salamon/app') {
+            return new Response(appPageHtml, { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' } });
+        }
+        // הקובץ עצמו: דרך השרת (סופר הורדות ומגיש מ-smti.uk, בלי github.com שחסום בחלק מהסינונים)
+        if (path === '/salamon/app/download' || path === '/salamon/app.apk') {
             return Response.redirect('https://smti.uk/salamon/api/app/download', 302);
         }
         if (url.pathname === '/salamon/v2/manifest.webmanifest') {
