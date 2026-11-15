@@ -1,490 +1,517 @@
 package uk.smti.salamon;
 
 import android.Manifest;
-import android.annotation.SuppressLint;
 import android.app.Activity;
-import android.app.DownloadManager;
-import android.content.ActivityNotFoundException;
+import android.app.KeyguardManager;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.PorterDuff;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.webkit.CookieManager;
-import android.webkit.JavascriptInterface;
-import android.webkit.PermissionRequest;
-import android.webkit.URLUtil;
-import android.webkit.ValueCallback;
-import android.webkit.WebChromeClient;
-import android.webkit.WebResourceError;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ProgressBar;
+import android.widget.SeekBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
-import androidx.webkit.WebViewCompat;
-import androidx.webkit.WebViewFeature;
+import org.json.JSONObject;
 
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.List;
 
+/**
+ * The app shell: checks the remote settings (maintenance, required update, website mode, user blocked),
+ * asks for the screen lock when required, and shows the tabs with a mini player.
+ */
 public class MainActivity extends Activity {
 
-    static final String HOME = "https://smti.uk/salamon/v2";
-    private static final String HOST = "smti.uk";
-
-    private static final int REQ_FILE = 1;
-    private static final int REQ_MIC = 2;
-    private static final int REQ_NOTIFY = 3;
-    private static final int REQ_STORAGE = 4;
+    private static final int REQ_LOCK = 11;
+    private static final int REQ_NOTIFY = 12;
 
     private static MainActivity current;
     private static boolean foreground;
 
-    private WebView web;
-    private ProgressBar progress;
-    private LinearLayout errorView;
-    private String bridgeJs = "";
-    private boolean documentStartScript;
+    private FrameLayout root;
+    private LinearLayout shell;
+    private FrameLayout content;
+    private LinearLayout tabBar;
+    private TextView headerTitle, headerSub, announce;
+    private LinearLayout playerBar;
+    private TextView playerTitle, playerTime, playerSpeed;
+    private ImageView playerBtn;
+    private SeekBar playerSeek;
 
-    private ValueCallback<Uri[]> fileCallback;
-    private PermissionRequest pendingMic;
-    private int pendingNotifyId;
-    private DownloadManager.Request pendingDownload;
-    private String pushToken = "";
+    private final List<Page> pages = new ArrayList<>();
+    private final List<String> pageIds = new ArrayList<>();
+    private final List<View> tabViews = new ArrayList<>();
+    private int currentTab = -1;
+    private boolean locked;
+    private boolean started;
+    private Intent pendingOpen;
 
-    public static boolean isInForeground() {
-        return foreground;
-    }
+    FeedPage feed;
+    ChatPage chat;
+    GroupsPage groups;
+    SettingsPage settings;
 
-    /** Firebase gave a new token: let the page know so it can register it with the server. */
-    public static void onPushToken(String token) {
-        MainActivity a = current;
-        if (a == null) return;
-        a.runOnUiThread(() -> {
-            a.pushToken = token == null ? "" : token;
-            a.web.evaluateJavascript("window.dispatchEvent(new Event('salamon-push-token'))", null);
-        });
+    /** Is this screen open right now? (then a push for it is not shown as a notification) */
+    public static boolean isShowing(String type, String groupId) {
+        MainActivity m = current;
+        if (m == null || !foreground || m.currentTab < 0 || m.locked) return false;
+        String id = m.pageIds.get(m.currentTab);
+        if ("chat".equals(type)) return "chat".equals(id);
+        if ("feed".equals(type)) return "feed".equals(id);
+        if ("group".equals(type)) return "groups".equals(id) && m.groups != null && m.groups.isOpen(groupId);
+        return false;
     }
 
     // ------------------------------------------------------------------ lifecycle
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    protected void onCreate(Bundle b) {
+        super.onCreate(b);
         current = this;
-        Notifier.createChannels(this);
-        bridgeJs = readAsset("bridge.js");
-        buildUi();
-        Push.getToken(this, t -> runOnUiThread(() -> {
-            pushToken = t == null ? "" : t;
-            // If the page is already logged in it registers the token now; otherwise on login.
-            if (!pushToken.isEmpty()) web.evaluateJavascript("window.dispatchEvent(new Event('salamon-push-token'))", null);
-        }));
+        Ui.init(this);
+        getWindow().setStatusBarColor(Ui.BG);
+        getWindow().setNavigationBarColor(Ui.CARD);
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+        if (Build.VERSION.SDK_INT >= 23 && !Ui.dark) getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
 
-        String start = startUrl(getIntent());
-        if (savedInstanceState != null && web.restoreState(savedInstanceState) != null && start == null) {
+        if (!Store.loggedIn()) {
+            startActivity(new Intent(this, LoginActivity.class));
+            finish();
             return;
         }
-        web.loadUrl(start != null ? start : HOME);
+        Api.onSessionLost = this::sessionLost;
+        Api.onAppBlocked = () -> showMessage("אין גישה לאפליקציה", "הגישה שלך לאפליקציה נחסמה. לפרטים אפשר לפנות לצוות עכשיו סלומון.", null, null);
+
+        root = new FrameLayout(this);
+        root.setBackgroundColor(Ui.BG);
+        setContentView(root);
+        pendingOpen = getIntent();
+
+        // Start with what we know (works offline), then refresh from the server.
+        applyConfig(Store.config(), false);
+        Push.getToken(this, t -> Sync.heartbeat(this, true, r -> {
+            if (r.ok) applyConfig(r.data.optJSONObject("config"), r.data.optBoolean("blocked"));
+            if (settings != null) settings.refresh();
+        }));
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        setIntent(intent);
-        String url = startUrl(intent);
-        String tag = intent.getStringExtra(Notifier.EXTRA_TAG);
-        if (url != null && !url.equals(web.getUrl())) {
-            web.loadUrl(url);
-        } else if (tag != null) {
-            // Same page is open: run the page's own click handler for that notification.
-            web.evaluateJavascript("window.__salamonNotificationClick&&window.__salamonNotificationClick("
-                    + jsString(tag) + ")", null);
-        }
-    }
-
-    /** A notification or a smti.uk/salamon link asked for a specific page. */
-    private String startUrl(Intent intent) {
-        if (intent == null) return null;
-        String u = intent.getStringExtra(Notifier.EXTRA_URL);
-        if (u == null && Intent.ACTION_VIEW.equals(intent.getAction()) && intent.getData() != null) {
-            u = intent.getData().toString();
-        }
-        return u != null && isInternal(Uri.parse(u)) ? u : null;
+        if (started) openFrom(intent);
+        else pendingOpen = intent;
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         foreground = true;
+        checkLock();
+        if (started && !locked && currentTab >= 0) pages.get(currentTab).onShow();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         foreground = false;
-        CookieManager.getInstance().flush();
-        // The WebView is deliberately NOT paused, so the site keeps checking for new
-        // messages and can notify while the app is in the background.
-    }
-
-    @Override
-    protected void onSaveInstanceState(Bundle out) {
-        super.onSaveInstanceState(out);
-        web.saveState(out);
+        if (!locked) Store.setLastUnlock(System.currentTimeMillis());
+        if (started && currentTab >= 0) pages.get(currentTab).onHide();
     }
 
     @Override
     protected void onDestroy() {
         if (current == this) current = null;
-        web.destroy();
+        Player.listener = null;
         super.onDestroy();
     }
 
     @Override
     public void onBackPressed() {
-        if (errorView.getVisibility() == View.VISIBLE) {
-            errorView.setVisibility(View.GONE);
+        if (started && currentTab >= 0 && pages.get(currentTab).onBack()) return;
+        if (started && currentTab > 0) {
+            selectTab(0);
+            return;
         }
-        if (web.canGoBack()) {
-            web.goBack();
-        } else {
-            // Keep running in the background (for notifications) instead of closing.
-            moveTaskToBack(true);
-        }
+        moveTaskToBack(true);
     }
 
-    // ------------------------------------------------------------------ UI
+    // ------------------------------------------------------------------ remote settings
 
-    @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
-    private void buildUi() {
-        FrameLayout root = new FrameLayout(this);
-
-        web = new WebView(this);
-        WebSettings s = web.getSettings();
-        s.setJavaScriptEnabled(true);
-        s.setDomStorageEnabled(true);
-        s.setDatabaseEnabled(true);
-        s.setMediaPlaybackRequiresUserGesture(false);
-        s.setAllowFileAccess(false);
-        s.setAllowContentAccess(false);
-        s.setSupportMultipleWindows(false);
-        s.setUserAgentString(s.getUserAgentString() + " SalamonApp/" + BuildConfig.VERSION_NAME);
-        CookieManager.getInstance().setAcceptCookie(true);
-        CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
-
-        web.addJavascriptInterface(new Bridge(), "SalamonNative");
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
-            WebViewCompat.addDocumentStartJavaScript(web, bridgeJs, Collections.singleton("https://" + HOST));
-            documentStartScript = true;
+    /** Decides what to show from the server's settings. */
+    private void applyConfig(JSONObject cfg, boolean blocked) {
+        if (cfg == null) cfg = new JSONObject();
+        if (blocked) {
+            showMessage("אין גישה לאפליקציה", "הגישה שלך לאפליקציה נחסמה. לפרטים אפשר לפנות לצוות עכשיו סלומון.", null, null);
+            return;
         }
+        if (cfg.optBoolean("maintenance")) {
+            showMessage("האפליקציה בתחזוקה", cfg.optString("maintenanceMessage", "נחזור בקרוב."), "נסו שוב", v -> recreate());
+            return;
+        }
+        if (cfg.optBoolean("mustUpdate")) {
+            showMessage("צריך לעדכן את האפליקציה", cfg.optString("updateMessage", "יצאה גרסה חדשה. כדי להמשיך יש לעדכן."), "עדכון עכשיו", v -> {
+                Button bt = (Button) v;
+                bt.setEnabled(false);
+                Updater.start(this, (pct, status) -> {
+                    bt.setText(status);
+                    if (pct < 0) bt.setEnabled(true);
+                });
+            });
+            return;
+        }
+        if ("web".equals(cfg.optString("mode"))) {
+            startActivity(new Intent(this, WebActivity.class).putExtra(WebActivity.EXTRA_URL, cfg.optString("webUrl", "https://smti.uk/salamon")));
+            finish();
+            return;
+        }
+        if (!started) buildShell(cfg);
+        else updateHeader(cfg);
+    }
 
-        web.setWebViewClient(new Client());
-        web.setWebChromeClient(new Chrome());
-        web.setDownloadListener(this::onDownload);
-        root.addView(web, match());
-
-        progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
-        progress.setMax(100);
-        progress.setVisibility(View.GONE);
-        root.addView(progress, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(3), Gravity.TOP));
-
-        errorView = new LinearLayout(this);
-        errorView.setOrientation(LinearLayout.VERTICAL);
-        errorView.setGravity(Gravity.CENTER);
-        errorView.setPadding(dp(24), dp(24), dp(24), dp(24));
-        errorView.setBackgroundColor(getColor(R.color.bg));
-        TextView t = new TextView(this);
-        t.setText("אין חיבור לאינטרנט.\nבדקו את החיבור ונסו שוב.");
-        t.setTextSize(18);
-        t.setTextColor(Color.parseColor("#1B2430"));
+    private void showMessage(String title, String text, String action, View.OnClickListener onAction) {
+        started = false;
+        root.removeAllViews();
+        LinearLayout col = new LinearLayout(this);
+        col.setOrientation(LinearLayout.VERTICAL);
+        col.setGravity(Gravity.CENTER);
+        int p = Ui.dp(this, 28);
+        col.setPadding(p, p, p, p);
+        ImageView logo = new ImageView(this);
+        logo.setImageResource(R.mipmap.ic_launcher);
+        col.addView(logo, new LinearLayout.LayoutParams(Ui.dp(this, 84), Ui.dp(this, 84)));
+        TextView t = Ui.text(this, title, 22, Ui.TEXT, 700);
         t.setGravity(Gravity.CENTER);
-        errorView.addView(t);
-        Button retry = new Button(this);
-        retry.setText("נסו שוב");
-        retry.setOnClickListener(v -> {
-            errorView.setVisibility(View.GONE);
-            web.reload();
+        col.addView(t, Ui.wide(this, 18, 8));
+        TextView s = Ui.text(this, text, 16, Ui.TEXT2, 400);
+        s.setGravity(Gravity.CENTER);
+        col.addView(s, Ui.wide(this, 0, 20));
+        if (action != null) {
+            Button bt = Ui.button(this, action, true);
+            bt.setOnClickListener(onAction);
+            col.addView(bt, Ui.wide());
+        }
+        root.addView(col, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    private void sessionLost() {
+        Store.clearSession();
+        startActivity(new Intent(this, LoginActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK));
+        finish();
+    }
+
+    // ------------------------------------------------------------------ screen lock
+
+    private boolean lockRequired() {
+        JSONObject cfg = Store.config();
+        return cfg.optBoolean("requireLock") || Store.lockByUser();
+    }
+
+    private void checkLock() {
+        if (!Store.loggedIn() || !lockRequired()) {
+            locked = false;
+            return;
+        }
+        long after = Math.max(0, Store.config().optInt("lockAfterMinutes", 5)) * 60_000L;
+        if (System.currentTimeMillis() - Store.lastUnlock() < Math.max(after, 3000)) return;
+        KeyguardManager km = getSystemService(KeyguardManager.class);
+        if (km == null || !km.isDeviceSecure()) {
+            // no lock on the phone: nothing to ask for
+            locked = false;
+            return;
+        }
+        Intent i = km.createConfirmDeviceCredentialIntent("עכשיו סלומון", "אישור כניסה לאפליקציה");
+        if (i == null) return;
+        locked = true;
+        if (shell != null) shell.setVisibility(View.INVISIBLE);
+        startActivityForResult(i, REQ_LOCK);
+    }
+
+    @Override
+    protected void onActivityResult(int code, int result, Intent data) {
+        super.onActivityResult(code, result, data);
+        if (code == REQ_LOCK) {
+            if (result == RESULT_OK) {
+                locked = false;
+                Store.setLastUnlock(System.currentTimeMillis());
+                if (shell != null) shell.setVisibility(View.VISIBLE);
+                if (started && currentTab >= 0) pages.get(currentTab).onShow();
+            } else {
+                moveTaskToBack(true);
+            }
+        }
+        if (feed != null) feed.onActivityResult(code, result, data);
+    }
+
+    // ------------------------------------------------------------------ shell
+
+    private void buildShell(JSONObject cfg) {
+        started = true;
+        root.removeAllViews();
+        shell = new LinearLayout(this);
+        shell.setOrientation(LinearLayout.VERTICAL);
+        root.addView(shell, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        if (locked) shell.setVisibility(View.INVISIBLE);
+
+        // header
+        LinearLayout header = new LinearLayout(this);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(Ui.dp(this, 18), Ui.dp(this, 14), Ui.dp(this, 18), Ui.dp(this, 10));
+        ImageView logo = new ImageView(this);
+        logo.setImageResource(R.mipmap.ic_launcher);
+        header.addView(logo, new LinearLayout.LayoutParams(Ui.dp(this, 40), Ui.dp(this, 40)));
+        LinearLayout titles = new LinearLayout(this);
+        titles.setOrientation(LinearLayout.VERTICAL);
+        titles.setPadding(Ui.dp(this, 12), 0, Ui.dp(this, 12), 0);
+        headerTitle = Ui.text(this, "עכשיו סלומון", 20, Ui.TEXT, 700);
+        headerSub = Ui.oneLine(Ui.muted(this, ""));
+        titles.addView(headerTitle);
+        titles.addView(headerSub);
+        header.addView(titles, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        shell.addView(header);
+
+        announce = Ui.text(this, "", 14, Ui.INFO, 500);
+        announce.setPadding(Ui.dp(this, 14), Ui.dp(this, 10), Ui.dp(this, 14), Ui.dp(this, 10));
+        announce.setBackground(Ui.round(Ui.INFO_SOFT, Ui.dp(this, 14)));
+        LinearLayout.LayoutParams alp = Ui.wide();
+        alp.setMargins(Ui.dp(this, 16), 0, Ui.dp(this, 16), Ui.dp(this, 8));
+        shell.addView(announce, alp);
+
+        content = new FrameLayout(this);
+        shell.addView(content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1));
+
+        buildPlayerBar();
+        shell.addView(playerBar);
+
+        tabBar = new LinearLayout(this);
+        tabBar.setBackgroundColor(Ui.CARD);
+        tabBar.setElevation(Ui.dp(this, 8));
+        tabBar.setPadding(Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6), Ui.dp(this, 6));
+        shell.addView(tabBar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(this, 66)));
+
+        JSONObject f = cfg.optJSONObject("features");
+        if (f == null) f = new JSONObject();
+        if (f.optBoolean("feed", true)) addTab("feed", "הודעות", R.drawable.ic_feed, feed = new FeedPage(this));
+        if (f.optBoolean("chat", true)) addTab("chat", "צ׳אט", R.drawable.ic_chat, chat = new ChatPage(this));
+        if (f.optBoolean("groups", true)) addTab("groups", "קבוצות", R.drawable.ic_groups, groups = new GroupsPage(this));
+        addTab("settings", "הגדרות", R.drawable.ic_settings, settings = new SettingsPage(this));
+
+        updateHeader(cfg);
+        selectTab(0);
+        askNotificationPermission();
+        if (pendingOpen != null) {
+            openFrom(pendingOpen);
+            pendingOpen = null;
+        }
+    }
+
+    private void updateHeader(JSONObject cfg) {
+        JSONObject u = Store.user();
+        String name = u.optString("name", "");
+        headerSub.setText(name.isEmpty() || "לא מזוהה".equals(name) ? u.optString("phone", "") : "שלום, " + name);
+        String text = cfg.optString("announcement", "");
+        if (cfg.optBoolean("shouldUpdate")) text = (text.isEmpty() ? "" : text + "\n") + "יש גרסה חדשה לאפליקציה. אפשר לעדכן בהגדרות.";
+        announce.setText(text);
+        announce.setVisibility(text.isEmpty() ? View.GONE : View.VISIBLE);
+    }
+
+    private void addTab(String id, String label, int icon, Page page) {
+        int index = pages.size();
+        pages.add(page);
+        pageIds.add(id);
+        LinearLayout t = new LinearLayout(this);
+        t.setOrientation(LinearLayout.VERTICAL);
+        t.setGravity(Gravity.CENTER);
+        t.setBackground(Ui.ripple(null));
+        ImageView ic = new ImageView(this);
+        ic.setImageResource(icon);
+        FrameLayout pill = new FrameLayout(this);
+        pill.addView(ic, new FrameLayout.LayoutParams(Ui.dp(this, 22), Ui.dp(this, 22), Gravity.CENTER));
+        TextView badge = Ui.chip(this, "", Color.WHITE, Ui.BAD);
+        badge.setTextSize(10);
+        badge.setVisibility(View.GONE);
+        badge.setTag("badge");
+        pill.addView(badge, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.END));
+        t.addView(pill, new LinearLayout.LayoutParams(Ui.dp(this, 58), Ui.dp(this, 30)));
+        TextView l = Ui.text(this, label, 12, Ui.TEXT3, 500);
+        l.setGravity(Gravity.CENTER);
+        t.addView(l);
+        t.setOnClickListener(v -> selectTab(index));
+        tabBar.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1));
+        tabViews.add(t);
+    }
+
+    public void selectTab(int index) {
+        if (index < 0 || index >= pages.size()) return;
+        if (currentTab == index) return;
+        if (currentTab >= 0) pages.get(currentTab).onHide();
+        currentTab = index;
+        content.removeAllViews();
+        content.addView(pages.get(index).view(), new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        for (int i = 0; i < tabViews.size(); i++) {
+            LinearLayout t = (LinearLayout) tabViews.get(i);
+            FrameLayout pill = (FrameLayout) t.getChildAt(0);
+            ImageView ic = (ImageView) pill.getChildAt(0);
+            TextView l = (TextView) t.getChildAt(1);
+            boolean on = i == index;
+            pill.setBackground(on ? Ui.round(Ui.ACCENT_SOFT, Ui.dp(this, 16)) : null);
+            ic.setColorFilter(on ? Ui.ACCENT : Ui.TEXT3, PorterDuff.Mode.SRC_IN);
+            l.setTextColor(on ? Ui.ACCENT : Ui.TEXT3);
+            l.setTypeface(Ui.font(on ? 700 : 500));
+        }
+        if (!locked) pages.get(index).onShow();
+    }
+
+    public void selectTab(String id) {
+        selectTab(pageIds.indexOf(id));
+    }
+
+    /** Small red number on a tab (0 hides it). */
+    public void setBadge(String id, int n) {
+        int i = pageIds.indexOf(id);
+        if (i < 0) return;
+        TextView badge = tabViews.get(i).findViewWithTag("badge");
+        badge.setText(n > 99 ? "99+" : String.valueOf(n));
+        badge.setVisibility(n > 0 ? View.VISIBLE : View.GONE);
+    }
+
+    /** From a notification: open the right tab (and group / message). */
+    private void openFrom(Intent intent) {
+        if (intent == null) return;
+        String type = intent.getStringExtra(Notifier.EXTRA_TYPE);
+        if (type == null) return;
+        switch (type) {
+            case "feed":
+                selectTab("feed");
+                break;
+            case "chat":
+                selectTab("chat");
+                break;
+            case "group":
+                selectTab("groups");
+                String g = intent.getStringExtra(Notifier.EXTRA_GROUP);
+                if (groups != null && g != null) groups.openGroup(g, null);
+                break;
+            default:
+                break;
+        }
+        intent.removeExtra(Notifier.EXTRA_TYPE);
+    }
+
+    private void askNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIFY);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int code, String[] perms, int[] res) {
+        super.onRequestPermissionsResult(code, perms, res);
+        if (feed != null) feed.onPermission(code, res);
+        if (settings != null) settings.refresh();
+    }
+
+    // ------------------------------------------------------------------ mini player
+
+    private void buildPlayerBar() {
+        playerBar = new LinearLayout(this);
+        playerBar.setOrientation(LinearLayout.VERTICAL);
+        playerBar.setBackground(Ui.round(Ui.dark ? Ui.c("#17223a") : Ui.NAVY, Ui.dp(this, 18)));
+        playerBar.setPadding(Ui.dp(this, 14), Ui.dp(this, 10), Ui.dp(this, 14), Ui.dp(this, 6));
+        playerBar.setElevation(Ui.dp(this, 6));
+        LinearLayout.LayoutParams lp = Ui.wide();
+        lp.setMargins(Ui.dp(this, 12), Ui.dp(this, 6), Ui.dp(this, 12), Ui.dp(this, 8));
+        playerBar.setLayoutParams(lp);
+
+        LinearLayout row = new LinearLayout(this);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        playerBtn = new ImageView(this);
+        playerBtn.setImageResource(R.drawable.ic_play);
+        playerBtn.setColorFilter(Ui.NAVY, PorterDuff.Mode.SRC_IN);
+        playerBtn.setBackground(Ui.circle(Color.WHITE));
+        int pp = Ui.dp(this, 8);
+        playerBtn.setPadding(pp, pp, pp, pp);
+        playerBtn.setOnClickListener(v -> Player.toggle());
+        row.addView(playerBtn, new LinearLayout.LayoutParams(Ui.dp(this, 42), Ui.dp(this, 42)));
+
+        LinearLayout texts = new LinearLayout(this);
+        texts.setOrientation(LinearLayout.VERTICAL);
+        texts.setPadding(Ui.dp(this, 12), 0, Ui.dp(this, 8), 0);
+        playerTitle = Ui.oneLine(Ui.text(this, "", 15, Color.WHITE, 700));
+        playerTime = Ui.text(this, "", 12.5f, Ui.c("#B9C6DE"), 400);
+        texts.addView(playerTitle);
+        texts.addView(playerTime);
+        row.addView(texts, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+
+        ImageView back10 = iconBtn(R.drawable.ic_replay10, v -> Player.seekBy(-10000));
+        ImageView fwd10 = iconBtn(R.drawable.ic_forward10, v -> Player.seekBy(10000));
+        playerSpeed = Ui.text(this, "1×", 13, Color.WHITE, 700);
+        playerSpeed.setGravity(Gravity.CENTER);
+        playerSpeed.setBackground(Ui.round(0x33FFFFFF, Ui.dp(this, 10)));
+        playerSpeed.setOnClickListener(v -> Player.cycleSpeed());
+        ImageView close = iconBtn(R.drawable.ic_close, v -> Player.stop());
+        row.addView(back10);
+        row.addView(fwd10);
+        row.addView(playerSpeed, new LinearLayout.LayoutParams(Ui.dp(this, 44), Ui.dp(this, 30)));
+        row.addView(close);
+        playerBar.addView(row);
+
+        playerSeek = new SeekBar(this);
+        playerSeek.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);
+        playerSeek.getProgressDrawable().setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN);
+        playerSeek.getThumb().setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN);
+        playerSeek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            public void onProgressChanged(SeekBar s, int p, boolean user) {
+                if (user) Player.seekTo(p);
+            }
+
+            public void onStartTrackingTouch(SeekBar s) {
+            }
+
+            public void onStopTrackingTouch(SeekBar s) {
+            }
         });
-        errorView.addView(retry);
-        errorView.setVisibility(View.GONE);
-        root.addView(errorView, match());
-
-        setContentView(root);
+        playerBar.addView(playerSeek);
+        playerBar.setVisibility(View.GONE);
+        Player.listener = this::updatePlayer;
     }
 
-    // ------------------------------------------------------------------ JS bridge
-
-    private class Bridge {
-        @JavascriptInterface
-        public void notify(String title, String body, String tag) {
-            Notifier.show(MainActivity.this, title, body, tag, null);
-        }
-
-        @JavascriptInterface
-        public void cancel(String tag) {
-            Notifier.cancel(MainActivity.this, tag);
-        }
-
-        @JavascriptInterface
-        public String permission() {
-            if (Notifier.allowed(MainActivity.this)) return "granted";
-            if (Build.VERSION.SDK_INT >= 33 && getSharedPreferences("app", MODE_PRIVATE).getBoolean("notify_denied", false)
-                    && !shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS)) {
-                return "denied";
-            }
-            return Build.VERSION.SDK_INT >= 33 ? "default" : "denied";
-        }
-
-        @JavascriptInterface
-        public void requestPermission(int id) {
-            runOnUiThread(() -> {
-                if (Notifier.allowed(MainActivity.this) || Build.VERSION.SDK_INT < 33) {
-                    if (!Notifier.allowed(MainActivity.this)) openNotificationSettings();
-                    resolveNotify(id);
-                    return;
-                }
-                pendingNotifyId = id;
-                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, REQ_NOTIFY);
-            });
-        }
-
-        @JavascriptInterface
-        public String pushToken() {
-            return pushToken;
-        }
-
-        @JavascriptInterface
-        public String version() {
-            return BuildConfig.VERSION_NAME;
-        }
+    private ImageView iconBtn(int icon, View.OnClickListener l) {
+        ImageView b = new ImageView(this);
+        b.setImageResource(icon);
+        b.setColorFilter(Color.WHITE, PorterDuff.Mode.SRC_IN);
+        int p = Ui.dp(this, 7);
+        b.setPadding(p, p, p, p);
+        b.setBackground(Ui.ripple(null));
+        b.setOnClickListener(l);
+        b.setLayoutParams(new LinearLayout.LayoutParams(Ui.dp(this, 38), Ui.dp(this, 38)));
+        return b;
     }
 
-    private void resolveNotify(int id) {
-        String p = Notifier.allowed(this) ? "granted" : "denied";
-        web.evaluateJavascript("window.__salamonPermission&&window.__salamonPermission(" + id + ",'" + p + "')", null);
-    }
-
-    private void openNotificationSettings() {
-        try {
-            Intent i = new Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                    .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, getPackageName());
-            startActivity(i);
-        } catch (Exception ignored) {
-        }
-    }
-
-    // ------------------------------------------------------------------ navigation
-
-    private static boolean isInternal(Uri u) {
-        String scheme = u.getScheme();
-        return HOST.equalsIgnoreCase(u.getHost()) && ("https".equals(scheme) || "http".equals(scheme))
-                && u.getPath() != null && u.getPath().startsWith("/salamon");
-    }
-
-    /** Pages outside Salamon (Google sign-in, external links) open in the phone's browser. */
-    private boolean openOutside(Uri u) {
-        if (isInternal(u)) return false;
-        String scheme = u.getScheme() == null ? "" : u.getScheme();
-        if (scheme.equals("about") || scheme.equals("data") || scheme.equals("blob") || scheme.equals("javascript")) {
-            return false;
-        }
-        try {
-            Intent i = scheme.equals("intent")
-                    ? Intent.parseUri(u.toString(), Intent.URI_INTENT_SCHEME)
-                    : new Intent(Intent.ACTION_VIEW, u);
-            i.addCategory(Intent.CATEGORY_BROWSABLE);
-            i.setComponent(null);
-            i.setSelector(null);
-            startActivity(i);
-        } catch (ActivityNotFoundException | java.net.URISyntaxException e) {
-            Toast.makeText(this, "לא נמצאה אפליקציה לפתיחת הקישור", Toast.LENGTH_SHORT).show();
-        }
-        return true;
-    }
-
-    private class Client extends WebViewClient {
-        @Override
-        public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-            if (!request.isForMainFrame()) return false;
-            return openOutside(request.getUrl());
-        }
-
-        @Override
-        public void onPageStarted(WebView view, String url, Bitmap favicon) {
-            progress.setVisibility(View.VISIBLE);
-            // Older WebViews without document-start scripts: inject as early as we can.
-            if (!documentStartScript && isInternal(Uri.parse(url))) view.evaluateJavascript(bridgeJs, null);
-        }
-
-        @Override
-        public void onPageFinished(WebView view, String url) {
-            progress.setVisibility(View.GONE);
-            if (!documentStartScript && isInternal(Uri.parse(url))) view.evaluateJavascript(bridgeJs, null);
-        }
-
-        @Override
-        public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
-            if (request.isForMainFrame()) {
-                errorView.setVisibility(View.VISIBLE);
-                progress.setVisibility(View.GONE);
-            }
-        }
-    }
-
-    private class Chrome extends WebChromeClient {
-        @Override
-        public void onProgressChanged(WebView view, int p) {
-            progress.setProgress(p);
-            if (p >= 100) progress.setVisibility(View.GONE);
-        }
-
-        /** The page asked for the microphone (recording a voice message). */
-        @Override
-        public void onPermissionRequest(PermissionRequest request) {
-            runOnUiThread(() -> {
-                boolean wantsAudio = false;
-                for (String r : request.getResources()) {
-                    if (PermissionRequest.RESOURCE_AUDIO_CAPTURE.equals(r)) wantsAudio = true;
-                }
-                if (!wantsAudio || !HOST.equalsIgnoreCase(request.getOrigin().getHost())) {
-                    request.deny();
-                    return;
-                }
-                if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                    request.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
-                } else {
-                    if (pendingMic != null) pendingMic.deny();
-                    pendingMic = request;
-                    requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_MIC);
-                }
-            });
-        }
-
-        @Override
-        public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
-            if (fileCallback != null) fileCallback.onReceiveValue(null);
-            fileCallback = callback;
-            try {
-                Intent i = params.createIntent();
-                if (params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE) {
-                    i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-                }
-                startActivityForResult(i, REQ_FILE);
-                return true;
-            } catch (Exception e) {
-                fileCallback = null;
-                return false;
-            }
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String[] perms, int[] results) {
-        boolean ok = results.length > 0 && results[0] == PackageManager.PERMISSION_GRANTED;
-        if (requestCode == REQ_MIC && pendingMic != null) {
-            if (ok) pendingMic.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
-            else pendingMic.deny();
-            pendingMic = null;
-        } else if (requestCode == REQ_NOTIFY) {
-            if (!ok) getSharedPreferences("app", MODE_PRIVATE).edit().putBoolean("notify_denied", true).apply();
-            resolveNotify(pendingNotifyId);
-        } else if (requestCode == REQ_STORAGE && pendingDownload != null) {
-            if (ok) enqueue(pendingDownload);
-            else Toast.makeText(this, "אין הרשאה לשמור קבצים", Toast.LENGTH_SHORT).show();
-            pendingDownload = null;
-        }
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != REQ_FILE || fileCallback == null) return;
-        Uri[] result = null;
-        if (resultCode == RESULT_OK && data != null) {
-            if (data.getClipData() != null) {
-                int n = data.getClipData().getItemCount();
-                result = new Uri[n];
-                for (int k = 0; k < n; k++) result[k] = data.getClipData().getItemAt(k).getUri();
-            } else if (data.getData() != null) {
-                result = new Uri[]{data.getData()};
-            }
-        }
-        fileCallback.onReceiveValue(result);
-        fileCallback = null;
-    }
-
-    // ------------------------------------------------------------------ downloads
-
-    private void onDownload(String url, String userAgent, String disposition, String mime, long length) {
-        if (!url.startsWith("http")) {
-            Toast.makeText(this, "לא ניתן להוריד קובץ זה", Toast.LENGTH_SHORT).show();
+    private void updatePlayer() {
+        if (playerBar == null) return;
+        playerBar.setVisibility(Player.active() ? View.VISIBLE : View.GONE);
+        if (!Player.active()) {
+            if (feed != null) feed.playerChanged();
             return;
         }
-        String name = URLUtil.guessFileName(url, disposition, mime);
-        DownloadManager.Request r = new DownloadManager.Request(Uri.parse(url));
-        String cookies = CookieManager.getInstance().getCookie(url);
-        if (cookies != null) r.addRequestHeader("Cookie", cookies);
-        r.addRequestHeader("User-Agent", userAgent);
-        r.setTitle(name);
-        r.setMimeType(mime);
-        r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-        r.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name);
-        if (Build.VERSION.SDK_INT <= 28
-                && checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-            pendingDownload = r;
-            requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQ_STORAGE);
-            return;
-        }
-        enqueue(r);
-    }
-
-    private void enqueue(DownloadManager.Request r) {
-        try {
-            ((DownloadManager) getSystemService(DOWNLOAD_SERVICE)).enqueue(r);
-            Toast.makeText(this, "מוריד…", Toast.LENGTH_SHORT).show();
-        } catch (Exception e) {
-            Toast.makeText(this, "ההורדה נכשלה", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    // ------------------------------------------------------------------ utils
-
-    private String readAsset(String name) {
-        try (InputStream in = getAssets().open(name)) {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            byte[] buf = new byte[4096];
-            int n;
-            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
-            return out.toString("UTF-8");
-        } catch (Exception e) {
-            return "";
-        }
-    }
-
-    private static String jsString(String s) {
-        return "'" + s.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n") + "'";
-    }
-
-    private int dp(int v) {
-        return Math.round(v * getResources().getDisplayMetrics().density);
-    }
-
-    private static FrameLayout.LayoutParams match() {
-        return new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        playerTitle.setText(Player.title);
+        int d = Player.duration(), p = Player.position();
+        playerTime.setText(Player.preparing ? "טוען…" : Fmt.clock(p) + " / " + Fmt.clock(d));
+        playerBtn.setImageResource(Player.isPlaying() ? R.drawable.ic_pause : R.drawable.ic_play);
+        playerSeek.setMax(Math.max(1, d));
+        playerSeek.setProgress(p);
+        float s = Store.speed();
+        playerSpeed.setText((s == (int) s ? String.valueOf((int) s) : String.valueOf(s)) + "×");
+        if (feed != null) feed.playerChanged();
     }
 }

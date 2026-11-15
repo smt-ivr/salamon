@@ -357,6 +357,23 @@
                         <div id="app-days" style="display:flex;align-items:flex-end;gap:3px;height:120px;padding:12px 16px 4px;"></div>
                     </div>
                     <div class="card">
+                        <div class="card-head"><h3>שליטה מרחוק</h3><div class="tools"><button class="btn btn-primary btn-sm" data-action="app-config-save"><i class="fa-solid fa-floppy-disk"></i> שמירה</button></div></div>
+                        <div id="app-config" style="padding:4px 16px 16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px 22px"></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-head"><h3>שליחת התראה</h3></div>
+                        <div style="padding:4px 16px 16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;align-items:end">
+                            <label class="field"><span>כותרת</span><input class="input" id="app-push-title" placeholder="עכשיו סלומון"></label>
+                            <label class="field" style="grid-column:span 2"><span>תוכן</span><input class="input" id="app-push-body" placeholder="מה רוצים להגיד לכולם?"></label>
+                            <label class="field"><span>טלפון (ריק = לכל משתמשי האפליקציה)</span><input class="input" id="app-push-phone" inputmode="tel" style="direction:ltr"></label>
+                            <button class="btn btn-primary" data-action="app-push-send"><i class="fa-solid fa-paper-plane"></i> שליחה</button>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-head"><h3>מכשירים</h3><div class="tools"><span class="muted" id="app-versions"></span></div></div>
+                        <div class="table-wrap"><table class="tbl"><thead><tr><th>משתמש</th><th>מכשיר</th><th>גרסה</th><th>התראות</th><th>נראה לאחרונה</th><th>נרשם</th></tr></thead><tbody id="app-devices"></tbody></table></div>
+                    </div>
+                    <div class="card">
                         <div class="card-head"><h3>משתמשי האפליקציה</h3><div class="tools"><div class="search"><i class="fa-solid fa-magnifying-glass"></i><input class="input" id="app-search" placeholder="חיפוש שם או טלפון…"></div></div></div>
                         <div class="table-wrap"><table class="tbl"><thead><tr><th>משתמש</th><th>גרסה</th><th>פתיחות</th><th>נראה לאחרונה</th><th>התקין לראשונה</th><th>התראות</th><th>מצב</th><th></th></tr></thead><tbody id="app-body"></tbody></table></div>
                     </div>
