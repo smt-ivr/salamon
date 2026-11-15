@@ -102,6 +102,38 @@ public final class Updater {
         }).start();
     }
 
+    /** A proper update window: progress bar, status, and the Android install screen at the end. */
+    public static void showDialog(Activity a) {
+        android.widget.LinearLayout box = new android.widget.LinearLayout(a);
+        box.setOrientation(android.widget.LinearLayout.VERTICAL);
+        int p = Ui.dp(a, 22);
+        box.setPadding(p, Ui.dp(a, 8), p, 0);
+        android.widget.TextView status = Ui.text(a, "מכין את העדכון…", 15, Ui.TEXT2, 500);
+        box.addView(status);
+        android.widget.ProgressBar bar = new android.widget.ProgressBar(a, null, android.R.attr.progressBarStyleHorizontal);
+        bar.setMax(100);
+        bar.setIndeterminate(true);
+        box.addView(bar, Ui.wide(a, 12, 4));
+        android.widget.TextView note = Ui.muted(a, "העדכון לא נשמר בטלפון: הוא עובר ישר להתקנה. בסוף לוחצים \"עדכון\" במסך של אנדרואיד.");
+        box.addView(note, Ui.wide(a, 6, 0));
+        android.app.AlertDialog d = new android.app.AlertDialog.Builder(a)
+                .setTitle("עדכון האפליקציה")
+                .setView(box)
+                .setNegativeButton("סגירה", null)
+                .setCancelable(false)
+                .create();
+        d.show();
+        start(a, (pct, text) -> {
+            status.setText(text);
+            if (pct >= 0) {
+                bar.setIndeterminate(false);
+                bar.setProgress(pct);
+            }
+            if (pct < 0) bar.setIndeterminate(false);
+            if (pct >= 100) status.postDelayed(d::dismiss, 1500);
+        });
+    }
+
     /** Android asks the user to confirm the install; this shows that screen. */
     public static class InstallReceiver extends BroadcastReceiver {
         @Override
