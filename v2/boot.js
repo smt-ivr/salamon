@@ -87,7 +87,7 @@ App.enter = async () => {
 
     renderMe();
     renderBanner();
-    renderAppPromo();
+    // renderAppPromo(); — מושבת עד שהאפליקציה הייעודית (לא מבוססת v2) תהיה מוכנה
     $('#auth').hidden = true;
     $('#blocked').hidden = true;
     $('#app').hidden = false;
