@@ -29,7 +29,9 @@ public final class Ui {
 
     // colours (set by init() for light / dark)
     public static int BG, BG2, CARD, TEXT, TEXT2, TEXT3, LINE, ACCENT, ACCENT2, ACCENT_INK, ACCENT_SOFT,
-            GOOD, GOOD_SOFT, WARN, WARN_SOFT, BAD, BAD_SOFT, INFO, INFO_SOFT, BRAND, NAVY;
+            GOOD, GOOD_SOFT, WARN, WARN_SOFT, BAD, BAD_SOFT, INFO, INFO_SOFT, BRAND, NAVY,
+            // classic site (WhatsApp style)
+            HEADER, CHAT_BG, BUBBLE_IN, BUBBLE_OUT, PLAY_IN, PLAY_OUT, NAME_IN, NAME_OUT, META, TRACK;
     public static boolean dark;
 
     private Ui() {
@@ -53,15 +55,24 @@ public final class Ui {
         ACCENT_INK = Color.WHITE;
         BRAND = c("#ea580c");
         NAVY = c("#0b1f3a");
+        PLAY_IN = c("#0284c7");
+        PLAY_OUT = c("#16a34a");
         if (dark) {
-            BG = c("#0a0f1c"); BG2 = c("#0f1626"); CARD = c("#121a2c");
-            TEXT = c("#eef2fb"); TEXT2 = c("#b7c1d6"); TEXT3 = c("#7d89a3"); LINE = c("#222d45");
+            HEADER = c("#202c33"); CHAT_BG = c("#0b141a"); BUBBLE_IN = c("#202c33"); BUBBLE_OUT = c("#005c4b");
+            NAME_IN = c("#53bdeb"); NAME_OUT = c("#7ee0b0"); META = c("#8696a0"); TRACK = c("#3b4a54");
+        } else {
+            HEADER = c("#f0f2f5"); CHAT_BG = c("#efeae2"); BUBBLE_IN = Color.WHITE; BUBBLE_OUT = c("#dcf8c6");
+            NAME_IN = c("#0f766e"); NAME_OUT = c("#027eb5"); META = c("#667781"); TRACK = c("#cbd5e1");
+        }
+        if (dark) {
+            BG = c("#111b21"); BG2 = c("#182229"); CARD = c("#202c33");
+            TEXT = c("#e9edef"); TEXT2 = c("#d1d7db"); TEXT3 = c("#8696a0"); LINE = c("#2a3942");
             GOOD = c("#34d399"); WARN = c("#fbbf24"); BAD = c("#fb7185"); INFO = c("#60a5fa");
             GOOD_SOFT = c("#1A34D399"); WARN_SOFT = c("#24F59E0B"); BAD_SOFT = c("#24F43F5E"); INFO_SOFT = c("#293B82F6");
             ACCENT_SOFT = c("#2616A34A");
         } else {
-            BG = c("#f4f6fb"); BG2 = c("#eceff6"); CARD = Color.WHITE;
-            TEXT = c("#0d1324"); TEXT2 = c("#3c465c"); TEXT3 = c("#7a849a"); LINE = c("#e4e8f0");
+            BG = c("#f0f2f5"); BG2 = c("#e9edef"); CARD = Color.WHITE;
+            TEXT = c("#111b21"); TEXT2 = c("#3b4a54"); TEXT3 = c("#54656f"); LINE = c("#d1d7db");
             GOOD = c("#16a34a"); WARN = c("#c2760c"); BAD = c("#dc2645"); INFO = c("#2563eb");
             GOOD_SOFT = c("#e8f7ee"); WARN_SOFT = c("#fff4e2"); BAD_SOFT = c("#fdecef"); INFO_SOFT = c("#e9f0ff");
             ACCENT_SOFT = c("#2116A34A");

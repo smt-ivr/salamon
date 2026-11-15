@@ -1,13 +1,14 @@
 package uk.smti.salamon;
 
+import android.app.Activity;
 import android.view.View;
 
 /** One tab of the app. */
 public abstract class Page {
-    protected final MainActivity a;
+    protected final Activity a;
     private View view;
 
-    protected Page(MainActivity a) {
+    protected Page(Activity a) {
         this.a = a;
     }
 

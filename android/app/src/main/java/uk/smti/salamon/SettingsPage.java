@@ -22,7 +22,7 @@ public class SettingsPage extends Page {
 
     private LinearLayout col;
 
-    public SettingsPage(MainActivity a) {
+    public SettingsPage(android.app.Activity a) {
         super(a);
     }
 
