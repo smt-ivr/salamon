@@ -3571,10 +3571,122 @@ function exportSql() {
 
 async function loadApp() {
     $('#app-body').innerHTML = loadingRows(8, 4);
-    const r = await api('/admin/app');
+    $('#app-devices').innerHTML = loadingRows(6, 3);
+    const [r, cfg, dev] = await Promise.all([api('/admin/app'), api('/admin/app/config'), api('/admin/app/devices')]);
     if (!r.ok) { $('#app-body').innerHTML = emptyRow(8, r.error, 'fa-circle-exclamation'); return; }
     S.appData = r.data;
+    S.appConfig = cfg.ok ? cfg.data : null;
+    S.appDevices = dev.ok ? dev.data : { devices: [], versions: {} };
     renderApp();
+    renderAppConfig();
+    renderAppDevices();
+}
+
+// version names are "1.<build>"; compare by the build number
+function appBuild(v) { const m = /(\d+)\s*$/.exec(String(v || '')); return m ? Number(m[1]) : 0; }
+function appVersionBadge(v) {
+    const latest = S.appConfig && S.appConfig.latest ? S.appConfig.latest.version : '';
+    if (!v) return '—';
+    if (!latest) return esc(v);
+    return appBuild(v) >= appBuild(latest) ? `<span class="badge good">${esc(v)} · עדכנית</span>` : `<span class="badge warn">${esc(v)} · ישנה</span>`;
+}
+
+function renderAppConfig() {
+    const box = $('#app-config');
+    if (!S.appConfig) { box.innerHTML = '<p class="muted">לא ניתן לטעון את ההגדרות.</p>'; return; }
+    const c = S.appConfig.config, latest = S.appConfig.latest || {};
+    const f = c.features || {};
+    const chk = (id, on, label, hint = '') => `<label class="row" style="gap:8px;align-items:flex-start;cursor:pointer"><input type="checkbox" id="${id}" ${on ? 'checked' : ''} style="margin-top:4px"><span><b>${label}</b>${hint ? `<div class="muted" style="font-size:12px">${hint}</div>` : ''}</span></label>`;
+    box.innerHTML = `
+        <div>
+            <h4 style="margin:6px 0 8px">מה האפליקציה מציגה</h4>
+            <label class="row" style="gap:8px;margin-bottom:6px"><input type="radio" name="app-mode" value="native" ${c.mode !== 'web' ? 'checked' : ''}> <span><b>המסכים של האפליקציה</b> (מומלץ)</span></label>
+            <label class="row" style="gap:8px;margin-bottom:8px"><input type="radio" name="app-mode" value="web" ${c.mode === 'web' ? 'checked' : ''}> <span><b>לפתוח את האתר</b> בתוך האפליקציה</span></label>
+            <label class="field"><span>כתובת האתר (במצב "לפתוח את האתר")</span><input class="input" id="app-webUrl" value="${esc(c.webUrl || '')}" style="direction:ltr"></label>
+            <h4 style="margin:14px 0 8px">מסכים</h4>
+            ${chk('app-f-feed', f.feed !== false, 'הודעות קוליות')}
+            ${chk('app-f-record', f.record !== false, 'הקלטה ושליחה')}
+            ${chk('app-f-tzintuk', f.tzintuk !== false, 'צינתוק')}
+            ${chk('app-f-chat', f.chat !== false, "צ'אט עם הצוות")}
+            ${chk('app-f-groups', f.groups !== false, 'קבוצות')}
+        </div>
+        <div>
+            <h4 style="margin:6px 0 8px">גרסאות ועדכונים</h4>
+            <p class="muted" style="margin:0 0 8px">הגרסה האחרונה שפורסמה: <b>${esc(latest.version || 'לא ידוע')}</b>${latest.versionCode ? ` (בנייה ${latest.versionCode})` : ''}</p>
+            <label class="field"><span>גרסה מינימלית (מספר בנייה). מתחת לזה: חובה לעדכן</span><input class="input" id="app-minVersion" type="number" min="0" value="${Number(c.minVersion) || 0}"></label>
+            <label class="field"><span>גרסאות חסומות (מספרי בנייה, מופרדים בפסיק)</span><input class="input" id="app-blocked" value="${esc((c.blockedVersions || []).join(', '))}" style="direction:ltr"></label>
+            <label class="field"><span>גרסה מומלצת (מציג "יש עדכון" בלי לחייב)</span><input class="input" id="app-recommended" type="number" min="0" value="${Number(c.recommendedVersion) || 0}"></label>
+            <label class="field"><span>הודעה במסך "חובה לעדכן"</span><input class="input" id="app-updateMessage" value="${esc(c.updateMessage || '')}"></label>
+            <p class="muted" style="font-size:12px;margin:4px 0 0">המשתמשים מעדכנים מתוך האפליקציה בלחיצה אחת. אפליקציה ישנה מציגה "יש גרסה חדשה" גם בלי הגדרה כאן.</p>
+        </div>
+        <div>
+            <h4 style="margin:6px 0 8px">גישה ואבטחה</h4>
+            ${chk('app-requireLock', c.requireLock, 'לחייב נעילת מסך בכניסה', 'טביעת אצבע / קוד הטלפון. בטלפון בלי נעילת מסך לא נדרש.')}
+            <label class="field" style="margin-top:8px"><span>לבקש שוב אחרי (דקות בלי שימוש)</span><input class="input" id="app-lockAfter" type="number" min="0" max="1440" value="${Number(c.lockAfterMinutes) || 0}"></label>
+            <h4 style="margin:14px 0 8px">הודעות</h4>
+            <label class="field"><span>הודעה בראש האפליקציה (ריק = בלי)</span><input class="input" id="app-announcement" value="${esc(c.announcement || '')}"></label>
+            ${chk('app-maintenance', c.maintenance, 'מצב תחזוקה', 'האפליקציה מציגה הודעה ולא נכנסת.')}
+            <label class="field" style="margin-top:8px"><span>הודעת התחזוקה</span><input class="input" id="app-maintenanceMessage" value="${esc(c.maintenanceMessage || '')}"></label>
+        </div>`;
+}
+
+async function saveAppConfig() {
+    const val = id => ($('#' + id) || {}).value;
+    const on = id => !!($('#' + id) || {}).checked;
+    const config = {
+        mode: (document.querySelector('input[name="app-mode"]:checked') || {}).value || 'native',
+        webUrl: val('app-webUrl'),
+        minVersion: Number(val('app-minVersion')) || 0,
+        blockedVersions: String(val('app-blocked') || '').split(/[\s,]+/).map(Number).filter(n => n > 0),
+        recommendedVersion: Number(val('app-recommended')) || 0,
+        updateMessage: val('app-updateMessage'),
+        requireLock: on('app-requireLock'),
+        lockAfterMinutes: Number(val('app-lockAfter')) || 0,
+        announcement: val('app-announcement'),
+        maintenance: on('app-maintenance'),
+        maintenanceMessage: val('app-maintenanceMessage'),
+        features: { feed: on('app-f-feed'), record: on('app-f-record'), tzintuk: on('app-f-tzintuk'), chat: on('app-f-chat'), groups: on('app-f-groups') },
+    };
+    if (config.mode === 'web' && !/^https:\/\//.test(config.webUrl || '')) { toast('כתובת האתר צריכה להתחיל ב-https://', 'bad'); return; }
+    if (config.maintenance) {
+        const ok = await confirmDanger('מצב תחזוקה', 'כל משתמשי האפליקציה יראו הודעת תחזוקה ולא יוכלו להיכנס עד שתכבה את זה.', 'הפעלה');
+        if (!ok) return;
+    }
+    const r = await api('/admin/app/config', { config });
+    if (!r.ok) { toast(r.error, 'bad'); return; }
+    S.appConfig.config = r.data.config;
+    toast('נשמר. האפליקציה תתעדכן בפתיחה הבאה.');
+    renderAppConfig();
+}
+
+function renderAppDevices() {
+    const d = S.appDevices || { devices: [], versions: {} };
+    const names = Object.fromEntries((S.appData.users || []).map(u => [u.phone, u.name]));
+    const list = (d.devices || []).filter(x => x.kind === 'native');
+    const vers = Object.entries(d.versions || {}).sort((a, b) => appBuild(b[0]) - appBuild(a[0]));
+    $('#app-versions').textContent = vers.length ? 'גרסאות: ' + vers.map(([v, n]) => `${v} (${n})`).join(' · ') : '';
+    const flag = (on, label) => `<span class="badge ${on ? 'good' : ''}" style="margin-inline-end:4px">${label}${on ? '' : ' ✕'}</span>`;
+    $('#app-devices').innerHTML = list.length ? list.map(x => `<tr>
+        <td><b>${esc(names[x.phone] || x.phone)}</b><div class="muted" style="font-size:12px;direction:ltr;text-align:right">${esc(x.phone)}</div></td>
+        <td>${esc(x.device_model || '—')}<div class="muted" style="font-size:12px">${esc(x.os_version || '')}</div></td>
+        <td>${appVersionBadge(x.app_version)}</td>
+        <td class="nowrap">${flag(x.notify_feed !== 0, 'הודעות')}${flag(x.notify_chat !== 0, "צ'אט")}${flag(x.notify_groups !== 0, 'קבוצות')}</td>
+        <td>${x.last_seen_at ? relTime(x.last_seen_at) : '—'}</td>
+        <td>${x.created_at ? fmtDate(x.created_at) : '—'}</td>
+    </tr>`).join('') : emptyRow(6, d.pushConfigured === false ? 'ההתראות לא מוגדרות בשרת, ולכן מכשירים לא נרשמים. צריך להגדיר FCM_SERVICE_ACCOUNT.' : 'עדיין לא נרשמו מכשירים מהאפליקציה החדשה.', 'fa-mobile-screen-button');
+}
+
+async function sendAppPush() {
+    const title = $('#app-push-title').value.trim(), body = $('#app-push-body').value.trim(), phone = $('#app-push-phone').value.replace(/\D/g, '');
+    if (!body) { toast('נא לכתוב את תוכן ההתראה', 'bad'); return; }
+    if (!phone) {
+        const ok = await confirmDanger('התראה לכולם', `ההתראה תישלח לכל משתמשי האפליקציה: "${body}"`, 'שליחה');
+        if (!ok) return;
+    }
+    const r = await api('/admin/app/push', { title, body, phone });
+    if (!r.ok) { toast(r.error, 'bad'); return; }
+    toast(`נשלחה ל-${num(r.data.sent)} מכשירים`);
+    $('#app-push-body').value = '';
 }
 
 function renderApp() {
@@ -3603,7 +3715,7 @@ function renderAppUsers() {
     const list = (S.appData.users || []).filter(u => !q || u.phone.includes(q) || (u.name || '').toLowerCase().includes(q) || (u.email || '').toLowerCase().includes(q));
     $('#app-body').innerHTML = list.length ? list.map(u => `<tr>
         <td><b>${esc(u.name || u.phone)}</b><div class="muted" style="font-size:12px;direction:ltr;text-align:right">${esc(u.phone)}${u.email ? ' · ' + esc(u.email) : ''}</div></td>
-        <td>${esc(u.version || '—')}</td>
+        <td>${appVersionBadge(u.version)}</td>
         <td>${num(u.opens)}</td>
         <td>${u.lastSeen ? relTime(u.lastSeen) : '—'}</td>
         <td>${u.firstSeen ? fmtDate(u.firstSeen) : '—'}</td>
@@ -4230,6 +4342,8 @@ const ACTIONS = {
     'refresh-app': () => loadApp(),
     'app-block': el => setAppBlocked(el.dataset.phone, true),
     'app-unblock': el => setAppBlocked(el.dataset.phone, false),
+    'app-config-save': () => saveAppConfig(),
+    'app-push-send': () => sendAppPush(),
     'app-copy-link': () => navigator.clipboard?.writeText('https://smti.uk/salamon/app').then(() => toast('הקישור הועתק')).catch(() => toast('https://smti.uk/salamon/app', 'info')),
     'group-edit': el => openGroupDrawer(Number(el.dataset.id)),
     'group-save': () => saveGroup(),

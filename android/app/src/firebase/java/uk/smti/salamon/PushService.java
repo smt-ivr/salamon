@@ -5,29 +5,29 @@ import com.google.firebase.messaging.RemoteMessage;
 
 import java.util.Map;
 
-/**
- * Receives pushes from the Salamon server. The server sends data-only messages
- * (title, body, tag, url), so they are shown the same way whether the app is open or closed.
- */
+/** Notifications from the Salamon server. Data-only, so they look the same whether the app is open or closed. */
 public class PushService extends FirebaseMessagingService {
 
     @Override
     public void onMessageReceived(RemoteMessage msg) {
+        Store.init(this);
+        if (!Store.loggedIn()) return;
         Map<String, String> d = msg.getData();
         String title = d.get("title");
-        String body = d.get("body");
-        if (title == null && msg.getNotification() != null) {
-            title = msg.getNotification().getTitle();
-            body = msg.getNotification().getBody();
-        }
         if (title == null) return;
-        // While the app is on screen the page shows its own notifications; avoid doubles.
-        if (MainActivity.isInForeground()) return;
-        Notifier.show(this, title, body == null ? "" : body, d.get("tag"), d.get("url"));
+        String type = d.get("type");
+        // the screen the message belongs to is open right now: it updates itself, no notification
+        if (MainActivity.isShowing(type, d.get("groupId"))) return;
+        Notifier.show(this, type, title, d.get("body") == null ? "" : d.get("body"), d.get("tag"), d.get("groupId"), d.get("fileId"));
+        if ("feed".equals(type) && d.get("fileId") != null) {
+            try { Store.setMark("feed", Long.parseLong(d.get("fileId"))); } catch (Exception ignored) { }
+        }
     }
 
     @Override
     public void onNewToken(String token) {
-        MainActivity.onPushToken(token);
+        Store.init(this);
+        Store.setPushToken(token);
+        if (Store.loggedIn()) Sync.heartbeat(this, false, null);
     }
 }
