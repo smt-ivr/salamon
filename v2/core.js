@@ -455,3 +455,20 @@ App.appBlocked = (message) => {
     const a = card.querySelector('a'); if (a) a.hidden = true;
 };
 window.addEventListener('salamon-push-token', () => { App.store.del('v2.pushReg'); App.registerPush(); });
+
+// ---------- האפליקציה הישנה (שהציגה את האתר הזה) ----------
+// מי שפותח את האתר מתוך האפליקציה הישנה מקבל מסך עדכון לאפליקציה החדשה. האפליקציה החדשה לא מציגה את האתר בכלל.
+document.addEventListener('DOMContentLoaded', () => {
+    if (!window.SalamonApp) return;
+    const box = document.createElement('div');
+    box.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;'
+        + 'background:var(--bg,#f4f6fb);color:var(--text,#0d1324);font-family:inherit;text-align:center;direction:rtl';
+    box.innerHTML = '<div style="max-width:420px">'
+        + '<img src="https://smt-tel-manager.netlify.app/salamon-logo.png" alt="" style="width:96px;height:96px;border-radius:24px">'
+        + '<h1 style="font-size:24px;margin:18px 0 8px">יש אפליקציה חדשה</h1>'
+        + '<p style="font-size:16px;line-height:1.6;opacity:.85;margin:0 0 20px">האפליקציה עודכנה לגרסה חדשה לגמרי: התראות על כל הודעה, הקלטה, צ׳אט וקבוצות, וחיבור קבוע. '
+        + 'מורידים ומתקינים, והיא מתעדכנת על הקיימת.</p>'
+        + '<a href="/salamon/app/download" style="display:block;background:#16a34a;color:#fff;text-decoration:none;font-weight:700;font-size:18px;border-radius:14px;padding:16px">הורדת האפליקציה החדשה</a>'
+        + '<p style="font-size:14px;opacity:.7;margin:14px 0 0">אחרי ההורדה: פותחים את הקובץ מההתראה ולוחצים "עדכון".</p></div>';
+    document.body.appendChild(box);
+});
