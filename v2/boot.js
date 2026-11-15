@@ -44,7 +44,8 @@ function renderAppPromo() {
     const android = /Android/i.test(ua);
     const installed = window.SalamonApp || navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
     const closed = Number(App.store.get('v2.appPromoClosed', 0)) || 0;
-    if (installed || (!ios && !android) || Date.now() - closed < 14 * 86400000) { box.hidden = true; return; }
+    // Android only for now (on iPhone there is no app yet)
+    if (installed || !android || Date.now() - closed < 14 * 86400000) { box.hidden = true; return; }
     const text = android
         ? '<b>אפליקציית סלומון לאנדרואיד:</b> הקלטה, התראות ישירות לטלפון, וכניסה מהירה.'
         : '<b>סלומון במסך הבית של האייפון:</b> נפתח כמו אפליקציה, עם התראות.';
@@ -87,7 +88,7 @@ App.enter = async () => {
 
     renderMe();
     renderBanner();
-    // renderAppPromo(); — מושבת עד שהאפליקציה הייעודית (לא מבוססת v2) תהיה מוכנה
+    renderAppPromo();
     $('#auth').hidden = true;
     $('#blocked').hidden = true;
     $('#app').hidden = false;

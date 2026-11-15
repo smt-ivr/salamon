@@ -8,7 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const installed = /SalamonApp\//.test(ua) || navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
     let closed = 0;
     try { closed = Number(localStorage.getItem('appPromoClosed')) || 0; } catch (e) {}
-    if (installed || (!ios && !android) || Date.now() - closed < 14 * 86400000) return;
+    // Android only for now (on iPhone there is no app yet)
+    if (installed || !android || Date.now() - closed < 14 * 86400000) return;
 
     const bar = document.createElement('div');
     bar.setAttribute('role', 'region');
