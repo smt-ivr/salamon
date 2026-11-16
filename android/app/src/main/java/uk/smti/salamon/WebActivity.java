@@ -21,15 +21,23 @@ public class WebActivity extends Activity {
 
     public static final String EXTRA_URL = "url";
     public static final String EXTRA_ADMIN = "admin";
+    public static final String EXTRA_PHONE = "phone";
     private boolean admin;
 
     /** The control center inside the app, already signed in with the app's account (managers only). */
     public static void openAdmin(Activity a) {
+        openAdmin(a, null);
+    }
+
+    /** phone = open that customer's conversation in the support inbox. */
+    public static void openAdmin(Activity a, String phone) {
         if (!Sync.isAdmin()) {
             android.widget.Toast.makeText(a, "לחשבון הזה אין הרשאות ניהול", android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
-        a.startActivity(new Intent(a, WebActivity.class).putExtra(EXTRA_ADMIN, true));
+        Intent i = new Intent(a, WebActivity.class).putExtra(EXTRA_ADMIN, true).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        if (phone != null && !phone.isEmpty()) i.putExtra(EXTRA_PHONE, phone.replaceAll("\\D", ""));
+        a.startActivity(i);
     }
     private WebView web;
     private PermissionRequest pendingMic;
@@ -83,13 +91,26 @@ public class WebActivity extends Activity {
             String token = org.json.JSONObject.quote(Store.token());
             String boot = "<!doctype html><meta charset=utf-8><body style='font-family:sans-serif;text-align:center;padding-top:40vh;color:#667'>"
                     + "פותח את מרכז השליטה…<script>try{localStorage.setItem('userToken'," + token + ");}catch(e){}"
-                    + "location.replace('https://smti.uk/salamon/admin');</script>";
+                    + "location.replace('https://smti.uk/salamon/admin" + adminHash(getIntent()) + "');</script>";
             web.loadDataWithBaseURL("https://smti.uk/salamon/", boot, "text/html", "utf-8", null);
         } else {
             String url = getIntent().getStringExtra(EXTRA_URL);
             web.loadUrl(url == null ? "https://smti.uk/salamon" : url);
         }
         setContentView(web);
+    }
+
+    private static String adminHash(Intent i) {
+        String p = i.getStringExtra(EXTRA_PHONE);
+        return p == null || p.isEmpty() ? "" : "#chat/" + p;
+    }
+
+    /** Already open: a new notification moves straight to that conversation. */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        String hash = adminHash(intent);
+        if (admin && !hash.isEmpty() && web != null) web.evaluateJavascript("location.hash='" + hash + "'", null);
     }
 
     @Override
@@ -111,7 +132,8 @@ public class WebActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (web.canGoBack() && !web.getUrl().contains("/salamon/admin")) web.goBack();
+        String cur = web.getUrl();
+        if (web.canGoBack() && (cur == null || !cur.contains("/salamon/admin"))) web.goBack();
         else if (admin) finish();
         else if (web.canGoBack()) web.goBack();
         else moveTaskToBack(true);

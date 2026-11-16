@@ -36,6 +36,7 @@ public class App extends Application {
         Ui.init(this);
         Notifier.createChannels(this);
         installCrashReporter();
+        keepMainLoopAlive();
         sendPendingCrash();
         schedulePoll(this);
 
@@ -76,18 +77,57 @@ public class App extends Application {
     private void installCrashReporter() {
         Thread.UncaughtExceptionHandler previous = Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((t, e) -> {
-            try {
-                StringWriter sw = new StringWriter();
-                e.printStackTrace(new PrintWriter(sw));
-                getSharedPreferences("crash", MODE_PRIVATE).edit()
-                        .putString("stack", sw.toString())
-                        .putString("message", String.valueOf(e))
-                        .putString("screen", screen)
-                        .commit();
-            } catch (Throwable ignored) {
-            }
+            saveCrash(e, false);
             if (previous != null) previous.uncaughtException(t, e);
         });
+    }
+
+    /**
+     * Keeps the app alive after an unexpected error in a button / network answer: the error is reported to
+     * the control center (marked "prevented") and the app continues, instead of closing. Errors while a
+     * screen is being created still end the app (that screen could not be shown anyway) and are reported
+     * on the next open.
+     */
+    private void keepMainLoopAlive() {
+        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+            while (true) {
+                try {
+                    android.os.Looper.loop();
+                } catch (Throwable e) {
+                    if (fatalForScreen(e)) throw new RuntimeException(e);
+                    saveCrash(e, true);
+                    sendPendingCrash();
+                    try {
+                        android.widget.Toast.makeText(this, "משהו השתבש, נסו שוב", android.widget.Toast.LENGTH_SHORT).show();
+                    } catch (Throwable ignored) {
+                    }
+                }
+            }
+        });
+    }
+
+    private static boolean fatalForScreen(Throwable e) {
+        for (Throwable c = e; c != null; c = c.getCause()) {
+            for (StackTraceElement el : c.getStackTrace()) {
+                String m = el.getMethodName();
+                if ("performLaunchActivity".equals(m) || "handleLaunchActivity".equals(m) || "handleBindApplication".equals(m)
+                        || "performCreate".equals(m) || "handleRelaunchActivity".equals(m)) return true;
+            }
+        }
+        return false;
+    }
+
+    private void saveCrash(Throwable e, boolean prevented) {
+        try {
+            StringWriter sw = new StringWriter();
+            e.printStackTrace(new PrintWriter(sw));
+            getSharedPreferences("crash", MODE_PRIVATE).edit()
+                    .putString("stack", sw.toString())
+                    .putString("message", (prevented ? "[נמנעה קריסה] " : "") + e)
+                    .putString("screen", screen)
+                    .commit();
+        } catch (Throwable ignored) {
+        }
     }
 
     /** Sends the last crash (if any) to the server, where it shows in the control center. */

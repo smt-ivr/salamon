@@ -41,23 +41,12 @@ public class ChatPage extends Page {
         LinearLayout col = new LinearLayout(a);
         col.setOrientation(LinearLayout.VERTICAL);
 
-        LinearLayout head = new LinearLayout(a);
-        head.setGravity(Gravity.CENTER_VERTICAL);
-        head.setPadding(Ui.dp(a, 16), Ui.dp(a, 2), Ui.dp(a, 16), Ui.dp(a, 8));
-        head.addView(Ui.avatar(a, "צוות", 38));
-        LinearLayout t = new LinearLayout(a);
-        t.setOrientation(LinearLayout.VERTICAL);
-        t.setPadding(Ui.dp(a, 10), 0, 0, 0);
-        t.addView(Ui.text(a, "צוות עכשיו סלומון", 16, Ui.TEXT, 700));
-        typing = Ui.text(a, "בדרך כלל עונים תוך זמן קצר", 12.5f, Ui.TEXT3, 400);
-        t.addView(typing);
-        head.addView(t);
-        col.addView(head);
+        typing = a instanceof PageActivity && ((PageActivity) a).subtitle != null ? ((PageActivity) a).subtitle : Ui.text(a, "", 12.5f, Ui.TEXT3, 400);
 
         scroll = new ScrollView(a);
         list = new LinearLayout(a);
         list.setOrientation(LinearLayout.VERTICAL);
-        list.setPadding(Ui.dp(a, 12), Ui.dp(a, 4), Ui.dp(a, 12), Ui.dp(a, 8));
+        list.setPadding(Ui.dp(a, 8), Ui.dp(a, 6), Ui.dp(a, 8), Ui.dp(a, 8));
         empty = Ui.muted(a, "טוען…");
         empty.setGravity(Gravity.CENTER);
         empty.setPadding(0, Ui.dp(a, 40), 0, 0);
@@ -67,17 +56,7 @@ public class ChatPage extends Page {
 
         input = Ui.input(a, "כתבו הודעה…", InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         LinearLayout bar = Bubbles.inputBar(a, input, v -> send());
-        android.widget.ImageView attach = new android.widget.ImageView(a);
-        attach.setImageResource(R.drawable.ic_attach);
-        attach.setColorFilter(Ui.TEXT2, android.graphics.PorterDuff.Mode.SRC_IN);
-        int ap = Ui.dp(a, 11);
-        attach.setPadding(ap, ap, ap, ap);
-        attach.setBackground(Ui.ripple(null));
-        attach.setContentDescription("צירוף קובץ");
-        attach.setOnClickListener(v -> pickFile());
-        LinearLayout.LayoutParams alp = new LinearLayout.LayoutParams(Ui.dp(a, 46), Ui.dp(a, 46));
-        alp.setMarginEnd(Ui.dp(a, 4));
-        bar.addView(attach, 0, alp);
+        Bubbles.addFieldIcon(bar, R.drawable.ic_attach, "צירוף קובץ", v -> pickFile());
         uploading = Ui.text(a, "", 13, Ui.ACCENT, 500);
         uploading.setPadding(Ui.dp(a, 18), Ui.dp(a, 4), Ui.dp(a, 18), 0);
         uploading.setVisibility(View.GONE);
@@ -111,7 +90,7 @@ public class ChatPage extends Page {
             JSONArray arr = r.data.optJSONArray("messages");
             boolean adminTyping = r.data.optBoolean("adminTyping");
             typing.setText(adminTyping ? "מקליד/ה…" : "בדרך כלל עונים תוך זמן קצר");
-            typing.setTextColor(adminTyping ? Ui.ACCENT : Ui.TEXT3);
+            typing.setTextColor(adminTyping ? Ui.c("#00a884") : Ui.TEXT3);
             long newest = 0, newestAdmin = 0;
             int n = arr == null ? 0 : arr.length();
             for (int i = 0; i < n; i++) {
@@ -134,10 +113,13 @@ public class ChatPage extends Page {
         list.removeAllViews();
         int n = arr == null ? 0 : arr.length();
         if (n == 0) {
-            TextView hello = Ui.muted(a, "שלום! כתבו לנו כאן כל שאלה, והצוות יענה בהקדם.");
+            TextView hello = Ui.text(a, "👋 שלום! כתבו לנו כאן כל שאלה או שלחו קובץ, והצוות יענה בהקדם.", 13.5f, Ui.dark ? Ui.c("#ffd279") : Ui.c("#54656f"), 500);
             hello.setGravity(Gravity.CENTER);
-            hello.setPadding(Ui.dp(a, 20), Ui.dp(a, 40), Ui.dp(a, 20), 0);
-            list.addView(hello, Ui.wide());
+            hello.setPadding(Ui.dp(a, 16), Ui.dp(a, 10), Ui.dp(a, 16), Ui.dp(a, 10));
+            hello.setBackground(Ui.round(Ui.dark ? Ui.c("#182229") : Ui.c("#fff3c4"), Ui.dp(a, 10)));
+            LinearLayout.LayoutParams hp = Ui.wide(a, 24, 0);
+            hp.leftMargin = hp.rightMargin = Ui.dp(a, 24);
+            list.addView(hello, hp);
         }
         String lastDay = "";
         for (int i = 0; i < n; i++) {
@@ -146,7 +128,7 @@ public class ChatPage extends Page {
             String day = at.length() >= 10 ? at.substring(0, 10) : "";
             if (!day.equals(lastDay)) {
                 lastDay = day;
-                list.addView(Bubbles.bubble(a, false, null, 0, Fmt.when(at).replaceAll(" \\d+:\\d+$", "").replace("לפני", "היום · לפני"), "", null, null, null, true));
+                list.addView(Bubbles.bubble(a, false, null, 0, dayLabel(day), "", null, null, null, true));
             }
             boolean mine = "user".equals(m.optString("sender"));
             JSONObject file = m.optJSONObject("file");
@@ -161,6 +143,27 @@ public class ChatPage extends Page {
             list.addView(row);
         }
         scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
+    }
+
+    /** "היום" / "אתמול" / weekday / date, like WhatsApp's date chips. */
+    static String dayLabel(String ymd) {
+        try {
+            java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US);
+            java.util.Date d = f.parse(ymd);
+            String today = f.format(new java.util.Date());
+            String yest = f.format(new java.util.Date(System.currentTimeMillis() - 86400000L));
+            if (ymd.equals(today)) return "היום";
+            if (ymd.equals(yest)) return "אתמול";
+            if (System.currentTimeMillis() - d.getTime() < 6 * 86400000L) {
+                String[] days = {"יום ראשון", "יום שני", "יום שלישי", "יום רביעי", "יום חמישי", "יום שישי", "שבת"};
+                java.util.Calendar c = java.util.Calendar.getInstance();
+                c.setTime(d);
+                return days[c.get(java.util.Calendar.DAY_OF_WEEK) - 1];
+            }
+            return new java.text.SimpleDateFormat("dd.MM.yyyy", java.util.Locale.US).format(d);
+        } catch (Exception e) {
+            return ymd;
+        }
     }
 
     private static String fileLabel(JSONObject f) {

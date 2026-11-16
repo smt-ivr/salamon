@@ -238,4 +238,96 @@ public final class Ui {
         int bl = (int) (Color.blue(a) + (Color.blue(b) - Color.blue(a)) * t);
         return Color.rgb(r, g, bl);
     }
+
+    // ------------------------------------------------------------------ premium icons
+
+    /** Icon in a soft tinted circle with a fine ring, the icon in the deep tone (header buttons). */
+    public static android.widget.FrameLayout iconChip(Context ctx, int iconRes, int hue, int sizeDp) {
+        android.widget.FrameLayout f = new android.widget.FrameLayout(ctx);
+        GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{withAlpha(hue, dark ? 0.30f : 0.20f), withAlpha(hue, dark ? 0.14f : 0.07f)});
+        bg.setShape(GradientDrawable.OVAL);
+        bg.setStroke(Math.max(1, dp(ctx, 1)), withAlpha(hue, dark ? 0.40f : 0.22f));
+        f.setBackground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(withAlpha(hue, 0.25f)), bg, null));
+        android.widget.ImageView ic = new android.widget.ImageView(ctx);
+        ic.setImageResource(iconRes);
+        ic.setColorFilter(dark ? blend(hue, Color.WHITE, 0.25f) : blend(hue, Color.BLACK, 0.15f), android.graphics.PorterDuff.Mode.SRC_IN);
+        int icon = Math.round(sizeDp * 0.5f);
+        f.addView(ic, new android.widget.FrameLayout.LayoutParams(dp(ctx, icon), dp(ctx, icon), Gravity.CENTER));
+        return f;
+    }
+
+    /** Solid gradient tile with a white icon and a soft shadow (menus, settings rows). */
+    public static android.widget.FrameLayout iconTile(Context ctx, int iconRes, int hue, int sizeDp) {
+        android.widget.FrameLayout f = new android.widget.FrameLayout(ctx);
+        GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{blend(hue, Color.WHITE, 0.18f), blend(hue, Color.BLACK, 0.18f)});
+        bg.setCornerRadius(dp(ctx, sizeDp * 0.32f));
+        f.setBackground(bg);
+        f.setElevation(dp(ctx, 3));
+        android.widget.ImageView ic = new android.widget.ImageView(ctx);
+        ic.setImageResource(iconRes);
+        ic.setColorFilter(Color.WHITE, android.graphics.PorterDuff.Mode.SRC_IN);
+        int icon = Math.round(sizeDp * 0.54f);
+        f.addView(ic, new android.widget.FrameLayout.LayoutParams(dp(ctx, icon), dp(ctx, icon), Gravity.CENTER));
+        return f;
+    }
+
+    public static int withAlpha(int color, float a) {
+        return (Math.round(a * 255) << 24) | (color & 0x00FFFFFF);
+    }
+
+    // the app's icon palette
+    public static final int HUE_GREEN = 0xFF16A34A, HUE_BLUE = 0xFF0284C7, HUE_TEAL = 0xFF0D9488, HUE_AMBER = 0xFFD97706,
+            HUE_VIOLET = 0xFF7C3AED, HUE_ROSE = 0xFFE11D48, HUE_SLATE = 0xFF475569, HUE_GOLD = 0xFFB8860B, HUE_INDIGO = 0xFF4F46E5;
+
+    /** A row of a sheet / settings: tile + title + subtitle. */
+    public static LinearLayout iconRow(Context ctx, int iconRes, int hue, String title, String subtitle) {
+        LinearLayout row = new LinearLayout(ctx);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(ctx, 16), dp(ctx, 10), dp(ctx, 16), dp(ctx, 10));
+        row.setBackground(ripple(null));
+        row.addView(iconTile(ctx, iconRes, hue, 40), new LinearLayout.LayoutParams(dp(ctx, 40), dp(ctx, 40)));
+        LinearLayout t = new LinearLayout(ctx);
+        t.setOrientation(LinearLayout.VERTICAL);
+        t.setPadding(dp(ctx, 14), 0, 0, 0);
+        t.addView(text(ctx, title, 15.5f, TEXT, 600));
+        if (subtitle != null && !subtitle.isEmpty()) t.addView(text(ctx, subtitle, 12.5f, TEXT3, 400));
+        row.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
+        return row;
+    }
+
+    /** Bottom sheet with rounded top corners. */
+    public static android.app.Dialog sheet(android.app.Activity a, String title, android.view.View content) {
+        android.app.Dialog d = new android.app.Dialog(a);
+        d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        LinearLayout box = new LinearLayout(a);
+        box.setOrientation(LinearLayout.VERTICAL);
+        GradientDrawable bg = new GradientDrawable();
+        float r = dp(a, 22);
+        bg.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
+        bg.setColor(CARD);
+        box.setBackground(bg);
+        box.setPadding(0, dp(a, 10), 0, dp(a, 14));
+        android.view.View grip = new android.view.View(a);
+        grip.setBackground(round(LINE, dp(a, 3)));
+        LinearLayout.LayoutParams gp = new LinearLayout.LayoutParams(dp(a, 40), dp(a, 5));
+        gp.gravity = Gravity.CENTER_HORIZONTAL;
+        gp.bottomMargin = dp(a, 8);
+        box.addView(grip, gp);
+        if (title != null) {
+            TextView t = text(a, title, 17, TEXT, 700);
+            t.setPadding(dp(a, 20), dp(a, 4), dp(a, 20), dp(a, 8));
+            box.addView(t);
+        }
+        box.addView(content);
+        d.setContentView(box);
+        android.view.Window w = d.getWindow();
+        if (w != null) {
+            w.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(Color.TRANSPARENT));
+            w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            w.setGravity(Gravity.BOTTOM);
+            w.setWindowAnimations(android.R.style.Animation_InputMethod);
+        }
+        return d;
+    }
 }

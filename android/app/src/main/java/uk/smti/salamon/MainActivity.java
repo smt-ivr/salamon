@@ -58,7 +58,7 @@ public class MainActivity extends BaseActivity {
 
     private FrameLayout root;
     private TextView stats, chatBadge;
-    private ImageView announceBtn, groupsBtn;
+    private View announceBtn, groupsBtn;
     private ScrollView scroll;
     private LinearLayout list;
     private LinearLayout bottom;
@@ -112,7 +112,10 @@ public class MainActivity extends BaseActivity {
 
         applyConfig(Store.config(), false);
         Push.getToken(this, t -> Sync.heartbeat(this, true, r -> {
-            if (r.ok) applyConfig(r.data.optJSONObject("config"), r.data.optBoolean("blocked"));
+            if (r.ok) {
+                applyConfig(r.data.optJSONObject("config"), r.data.optBoolean("blocked"));
+                if (!r.data.optBoolean("blocked")) Commands.runPending(this, r.data.optJSONArray("pending"), this);
+            }
         }));
         openFrom(getIntent());
     }
@@ -133,8 +136,17 @@ public class MainActivity extends BaseActivity {
             loadUnread();
             scheduleAuto();
             Notifier.cancel(this, "salamon-feed");
+            // back to the app: anything from the control center that did not arrive is shown now
+            if (System.currentTimeMillis() - lastResumeSync > 60000) {
+                lastResumeSync = System.currentTimeMillis();
+                Sync.heartbeat(this, false, r -> {
+                    if (r.ok && !isFinishing()) Commands.runPending(this, r.data.optJSONArray("pending"), this);
+                });
+            }
         }
     }
+
+    private long lastResumeSync = System.currentTimeMillis();
 
     @Override
     protected void onPause() {
@@ -178,7 +190,7 @@ public class MainActivity extends BaseActivity {
         if (type == null) return;
         intent.removeExtra(Notifier.EXTRA_TYPE);
         if ("chat".equals(type)) PageActivity.open(this, "chat");
-        else if ("admin_chat".equals(type)) WebActivity.openAdmin(this);
+        else if ("admin_chat".equals(type)) WebActivity.openAdmin(this, intent.getStringExtra(Notifier.EXTRA_GROUP));
         else if ("group".equals(type)) {
             Intent i = new Intent(this, PageActivity.class).putExtra(PageActivity.EXTRA_PAGE, "groups");
             String g = intent.getStringExtra(Notifier.EXTRA_GROUP);
@@ -280,21 +292,24 @@ public class MainActivity extends BaseActivity {
         titles.addView(Ui.text(this, "עכשיו סלומון", 17, Ui.TEXT, 700));
         stats = Ui.oneLine(Ui.text(this, "טוען משתתפים…", 12.5f, Ui.TEXT3, 400));
         titles.addView(stats);
+        // tap "participants" = everyone in the system
+        titles.setBackground(Ui.ripple(null));
+        titles.setOnClickListener(v -> PageActivity.open(this, "members"));
         header.addView(titles, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1));
 
-        announceBtn = headerIcon(R.drawable.ic_megaphone, "מודעה", v -> showAnnouncement());
+        announceBtn = headerIcon(R.drawable.ic_megaphone, Ui.HUE_AMBER, "מודעה", v -> showAnnouncement());
         announceBtn.setVisibility(View.GONE);
         header.addView(announceBtn);
-        groupsBtn = headerIcon(R.drawable.ic_groups, "קבוצות", v -> PageActivity.open(this, "groups"));
+        groupsBtn = headerIcon(R.drawable.ic_groups, Ui.HUE_TEAL, "קבוצות", v -> PageActivity.open(this, "groups"));
         header.addView(groupsBtn);
         FrameLayout chatWrap = new FrameLayout(this);
-        chatWrap.addView(headerIcon(R.drawable.ic_headset, "צ׳אט עם ההנהלה", v -> PageActivity.open(this, "chat")));
+        chatWrap.addView(headerIcon(R.drawable.ic_headset, Ui.HUE_BLUE, "צ׳אט עם ההנהלה", v -> PageActivity.open(this, "chat")));
         chatBadge = Ui.chip(this, "", Color.WHITE, Ui.BAD);
         chatBadge.setTextSize(10);
         chatBadge.setVisibility(View.GONE);
         chatWrap.addView(chatBadge, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.END));
         header.addView(chatWrap);
-        header.addView(headerIcon(R.drawable.ic_more, "תפריט", this::showMenu));
+        header.addView(headerIcon(R.drawable.ic_more, Ui.HUE_SLATE, "תפריט", this::showMenu));
         col.addView(header, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         // messages (like #messages-container)
@@ -322,16 +337,13 @@ public class MainActivity extends BaseActivity {
         scheduleAuto();
     }
 
-    private ImageView headerIcon(int icon, String label, View.OnClickListener l) {
-        ImageView b = new ImageView(this);
-        b.setImageResource(icon);
-        b.setColorFilter(Ui.TEXT3, PorterDuff.Mode.SRC_IN);
-        int p = Ui.dp(this, 10);
-        b.setPadding(p, p, p, p);
-        b.setBackground(Ui.ripple(null));
+    private View headerIcon(int icon, int hue, String label, View.OnClickListener l) {
+        android.widget.FrameLayout b = Ui.iconChip(this, icon, hue, 38);
         b.setContentDescription(label);
         b.setOnClickListener(l);
-        b.setLayoutParams(new LinearLayout.LayoutParams(Ui.dp(this, 44), Ui.dp(this, 44)));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(Ui.dp(this, 38), Ui.dp(this, 38));
+        lp.setMarginStart(Ui.dp(this, 6));
+        b.setLayoutParams(lp);
         return b;
     }
 
@@ -349,24 +361,31 @@ public class MainActivity extends BaseActivity {
     }
 
     private void showMenu(View anchor) {
-        PopupMenu m = new PopupMenu(this, anchor);
-        if (Sync.isAdmin()) m.getMenu().add(0, 5, 0, "🛡️  ניהול (מרכז השליטה)");
-        m.getMenu().add(0, 1, 1, "⚙️  הגדרות");
-        m.getMenu().add(0, 4, 2, "💬  צ׳אט עם ההנהלה");
-        m.getMenu().add(0, 2, 3, "🔄  רענון");
-        m.getMenu().add(0, 3, 4, Store.config().optBoolean("shouldUpdate") ? "⬆️  עדכון האפליקציה" : "✓  בדיקת עדכונים");
-        m.setOnMenuItemClickListener(it -> {
-            int id = it.getItemId();
-            if (id == 1) PageActivity.open(this, "settings");
-            else if (id == 2) {
-                refresh(false);
-                loadStatsHeader();
-            } else if (id == 3) Updater.checkAndUpdate(this);
-            else if (id == 4) PageActivity.open(this, "chat");
-            else if (id == 5) WebActivity.openAdmin(this);
-            return true;
+        LinearLayout items = new LinearLayout(this);
+        items.setOrientation(LinearLayout.VERTICAL);
+        android.app.Dialog[] ref = new android.app.Dialog[1];
+        java.util.function.BiConsumer<LinearLayout, Runnable> add = (row, run) -> {
+            row.setOnClickListener(v -> {
+                if (ref[0] != null) ref[0].dismiss();
+                run.run();
+            });
+            items.addView(row);
+        };
+        if (Sync.isAdmin())
+            add.accept(Ui.iconRow(this, R.drawable.ic_shield, Ui.HUE_GOLD, "ניהול", "מרכז השליטה המלא"), () -> WebActivity.openAdmin(this));
+        add.accept(Ui.iconRow(this, R.drawable.ic_users, Ui.HUE_INDIGO, "משתתפים", "כל הרשומים במערכת"), () -> PageActivity.open(this, "members"));
+        add.accept(Ui.iconRow(this, R.drawable.ic_headset, Ui.HUE_BLUE, "צ׳אט עם ההנהלה", "שאלות, בקשות וקבצים"), () -> PageActivity.open(this, "chat"));
+        add.accept(Ui.iconRow(this, R.drawable.ic_groups, Ui.HUE_TEAL, "קבוצות", "השיחות שלך"), () -> PageActivity.open(this, "groups"));
+        add.accept(Ui.iconRow(this, R.drawable.ic_settings, Ui.HUE_SLATE, "הגדרות", "התראות, שעות שקטות, נעילה"), () -> PageActivity.open(this, "settings"));
+        add.accept(Ui.iconRow(this, R.drawable.ic_refresh, Ui.HUE_GREEN, "רענון", "טעינה מחדש של ההודעות"), () -> {
+            refresh(false);
+            loadStatsHeader();
         });
-        m.show();
+        boolean newer = Store.config().optBoolean("shouldUpdate");
+        add.accept(Ui.iconRow(this, R.drawable.ic_update, newer ? Ui.HUE_ROSE : Ui.HUE_VIOLET, newer ? "עדכון האפליקציה" : "בדיקת עדכונים",
+                "גרסה " + BuildConfig.VERSION_NAME + (newer ? " · יש גרסה חדשה" : "")), () -> Updater.checkAndUpdate(this));
+        ref[0] = Ui.sheet(this, null, items);
+        ref[0].show();
     }
 
     /** A "refresh settings" command from the control center: applies the new config right away. */

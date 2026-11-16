@@ -68,4 +68,19 @@ public final class Store {
     // ---------- player ----------
     public static float speed() { return p.getFloat("speed", 1f); }
     public static void setSpeed(float s) { p.edit().putFloat("speed", s).apply(); }
+
+    // notification preferences
+    public static boolean quietOn() { return p.getBoolean("quiet_on", false); }
+    public static void setQuietOn(boolean on) { p.edit().putBoolean("quiet_on", on).apply(); }
+    /** minutes from midnight */
+    public static int quietFrom() { return p.getInt("quiet_from", 22 * 60); }
+    public static int quietTo() { return p.getInt("quiet_to", 7 * 60); }
+    public static void setQuiet(int from, int to) { p.edit().putInt("quiet_from", from).putInt("quiet_to", to).apply(); }
+    public static long muteUntil() { return p.getLong("mute_until", 0); }
+    public static void setMuteUntil(long t) { p.edit().putLong("mute_until", t).apply(); }
+    /** sound | vibrate | silent */
+    public static String soundMode() { return p.getString("sound_mode", "sound"); }
+    public static void setSoundMode(String m) { p.edit().putString("sound_mode", m).apply(); }
+    public static boolean showPreview() { return p.getBoolean("show_preview", true); }
+    public static void setShowPreview(boolean on) { p.edit().putBoolean("show_preview", on).apply(); }
 }
