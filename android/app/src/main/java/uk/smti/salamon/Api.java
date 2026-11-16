@@ -112,6 +112,32 @@ public final class Api {
         });
     }
 
+    /** Any file to a multipart endpoint (chat attachments): the user's token + extra fields + "file". */
+    public static void uploadTo(String path, File file, String fileName, String mime, java.util.Map<String, String> fields, Callback cb) {
+        pool.execute(() -> {
+            String boundary = "----salamon" + System.currentTimeMillis();
+            try {
+                ByteArrayOutputStream buf = new ByteArrayOutputStream();
+                DataOutputStream out = new DataOutputStream(buf);
+                field(out, boundary, "userToken", Store.token());
+                if (fields != null) for (java.util.Map.Entry<String, String> e : fields.entrySet()) field(out, boundary, e.getKey(), e.getValue());
+                out.writeBytes("--" + boundary + "\r\n");
+                out.write(("Content-Disposition: form-data; name=\"file\"; filename=\"" + fileName.replace("\"", "") + "\"\r\n").getBytes(StandardCharsets.UTF_8));
+                out.writeBytes("Content-Type: " + mime + "\r\n\r\n");
+                try (InputStream in = new FileInputStream(file)) {
+                    byte[] b = new byte[8192];
+                    int n;
+                    while ((n = in.read(b)) > 0) out.write(b, 0, n);
+                }
+                out.writeBytes("\r\n--" + boundary + "--\r\n");
+                out.flush();
+                deliver(cb, request("POST", path, buf.toByteArray(), "multipart/form-data; boundary=" + boundary));
+            } catch (Exception e) {
+                deliver(cb, new Result(false, 0, null, "ההעלאה נכשלה"));
+            }
+        });
+    }
+
     private static void field(DataOutputStream out, String boundary, String name, String value) throws Exception {
         out.writeBytes("--" + boundary + "\r\n");
         out.writeBytes("Content-Disposition: form-data; name=\"" + name + "\"\r\n\r\n");

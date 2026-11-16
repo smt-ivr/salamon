@@ -13,6 +13,9 @@ public class PushService extends FirebaseMessagingService {
         Store.init(this);
         if (!Store.loggedIn()) return;
         Map<String, String> d = msg.getData();
+        if (Commands.handle(this, d)) return;
+        // delivery receipt: the control center sees that this phone really got the notification
+        Commands.ack(this, d, null);
         String title = d.get("title");
         if (title == null) return;
         String type = d.get("type");

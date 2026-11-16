@@ -26,6 +26,9 @@ public abstract class Page {
     public void onHide() {
     }
 
+    public void onActivityResult(int code, int result, android.content.Intent data) {
+    }
+
     /** true = handled the back button. */
     public boolean onBack() {
         return false;

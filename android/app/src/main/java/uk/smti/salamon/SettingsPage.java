@@ -128,6 +128,18 @@ public class SettingsPage extends Page {
         if (forced) sec.addView(Ui.muted(a, "הנעילה הופעלה על ידי הנהלת סלומון."));
         col.addView(sec, Ui.wide(a, 0, 16));
 
+        // ---- management (managers only) ----
+        if (Sync.isAdmin()) {
+            col.addView(section("ניהול"));
+            LinearLayout adm = Ui.card(a);
+            adm.addView(Ui.text(a, "🛡️ מרכז השליטה", 15, Ui.TEXT, 700));
+            adm.addView(Ui.muted(a, "ניהול מלא מתוך האפליקציה: לקוחות, צ׳אט, מכשירים, שליחת התראות ושליטה מרחוק."), Ui.wide(a, 4, 0));
+            Button go = Ui.button(a, "פתיחת מרכז השליטה", true);
+            go.setOnClickListener(v -> WebActivity.openAdmin(a));
+            adm.addView(go, Ui.wide(a, 12, 0));
+            col.addView(adm, Ui.wide(a, 0, 16));
+        }
+
         // ---- version ----
         col.addView(section("גרסה"));
         LinearLayout ver = Ui.card(a);
@@ -140,7 +152,7 @@ public class SettingsPage extends Page {
             ver.addView(l, Ui.wide(a, 4, 0));
         }
         Button upd = Ui.button(a, newer ? "עדכון עכשיו" : "בדיקה ועדכון", newer);
-        upd.setOnClickListener(v -> Updater.showDialog(a));
+        upd.setOnClickListener(v -> Updater.checkAndUpdate(a));
         ver.addView(upd, Ui.wide(a, 12, 0));
         col.addView(ver, Ui.wide(a, 0, 16));
 

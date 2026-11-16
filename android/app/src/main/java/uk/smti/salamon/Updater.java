@@ -102,6 +102,41 @@ public final class Updater {
         }).start();
     }
 
+    /**
+     * The update button: first asks the server which version is current. Up to date = just says so
+     * (nothing is downloaded); otherwise offers the new version and installs it inside the app.
+     */
+    public static void checkAndUpdate(Activity a) {
+        android.app.ProgressDialog wait = new android.app.ProgressDialog(a);
+        wait.setMessage("בודק אם יש גרסה חדשה…");
+        wait.setCancelable(true);
+        wait.show();
+        Api.get("/app/info", r -> {
+            try { wait.dismiss(); } catch (Exception ignored) { }
+            if (a.isFinishing()) return;
+            int latest = r.data.optInt("versionCode", 0);
+            String name = r.data.optString("version", "");
+            if (!r.ok || latest == 0) {
+                Toast.makeText(a, "לא הצלחתי לבדוק כרגע. נסו שוב בעוד רגע.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (latest <= BuildConfig.VERSION_CODE) {
+                new android.app.AlertDialog.Builder(a)
+                        .setTitle("האפליקציה מעודכנת ✓")
+                        .setMessage("מותקנת הגרסה האחרונה (" + BuildConfig.VERSION_NAME + "). אין צורך להוריד שוב.")
+                        .setPositiveButton("מצוין", null)
+                        .show();
+                return;
+            }
+            new android.app.AlertDialog.Builder(a)
+                    .setTitle("יש גרסה חדשה" + (name.isEmpty() ? "" : " · " + name))
+                    .setMessage("הגרסה שלך: " + BuildConfig.VERSION_NAME + ". העדכון מותקן מתוך האפליקציה, בלי לחפש קבצים.")
+                    .setPositiveButton("לעדכן עכשיו", (d, w) -> showDialog(a))
+                    .setNegativeButton("אחר כך", null)
+                    .show();
+        });
+    }
+
     /** A proper update window: progress bar, status, and the Android install screen at the end. */
     public static void showDialog(Activity a) {
         android.widget.LinearLayout box = new android.widget.LinearLayout(a);

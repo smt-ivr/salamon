@@ -3736,9 +3736,49 @@ function renderAppDevices() {
         <td>${esc(x.device_model || '—')}<div class="muted" style="font-size:12px">${esc(x.os_version || '')}</div></td>
         <td>${appVersionBadge(x.app_version)}</td>
         <td class="nowrap">${flag(x.notify_feed !== 0, 'הודעות')}${flag(x.notify_chat !== 0, "צ'אט")}${flag(x.notify_groups !== 0, 'קבוצות')}</td>
-        <td>${x.last_seen_at ? relTime(x.last_seen_at) : '—'}</td>
-        <td>${x.created_at ? fmtDate(x.created_at) : '—'}</td>
-    </tr>`).join('') : emptyRow(6, d.pushConfigured === false ? 'ההתראות לא מוגדרות בשרת, ולכן מכשירים לא נרשמים. צריך להגדיר FCM_SERVICE_ACCOUNT.' : 'עדיין לא נרשמו מכשירים מהאפליקציה החדשה.', 'fa-mobile-screen-button');
+        <td>${appDeliveryCell(x)}</td>
+        <td>${x.last_seen_at ? relTime(x.last_seen_at) : '—'}<div class="muted" style="font-size:12px">נרשם ${x.created_at ? fmtDate(x.created_at) : '—'}</div></td>
+        <td class="nowrap">${x.device_id ? `
+            <button class="btn btn-sm" title="שולח התראת בדיקה ובודק שהטלפון קיבל אותה" data-action="app-cmd" data-device="${esc(x.device_id)}" data-cmd="ping"><i class="fa-solid fa-bell"></i> בדיקה</button>
+            <button class="btn btn-sm btn-ghost" title="הפעלה מחדש של האפליקציה" data-action="app-cmd" data-device="${esc(x.device_id)}" data-cmd="restart"><i class="fa-solid fa-rotate-right"></i></button>
+            <button class="btn btn-sm btn-ghost" title="רענון הגדרות" data-action="app-cmd" data-device="${esc(x.device_id)}" data-cmd="refresh"><i class="fa-solid fa-arrows-rotate"></i></button>
+            <button class="btn btn-sm btn-ghost" title="בקשת עדכון גרסה" data-action="app-cmd" data-device="${esc(x.device_id)}" data-cmd="update"><i class="fa-solid fa-circle-up"></i></button>
+            <button class="btn btn-sm btn-ghost" title="ניתוק המכשיר מהחשבון" style="color:var(--bad)" data-action="app-cmd" data-device="${esc(x.device_id)}" data-cmd="logout"><i class="fa-solid fa-right-from-bracket"></i></button>` : '<span class="muted" style="font-size:12px">גרסה ישנה</span>'}</td>
+    </tr>`).join('') : emptyRow(7, d.pushConfigured === false ? 'ההתראות לא מוגדרות בשרת, ולכן מכשירים לא נרשמים. צריך להגדיר FCM_SERVICE_ACCOUNT.' : 'עדיין לא נרשמו מכשירים מהאפליקציה החדשה.', 'fa-mobile-screen-button');
+}
+
+// did the phone really get its notifications? (the app confirms every push it receives)
+function appDeliveryCell(x) {
+    const parts = [];
+    if (x.cmd_sent_at) {
+        const label = { ping: 'בדיקת התראה', restart: 'הפעלה מחדש', refresh: 'רענון הגדרות', logout: 'ניתוק', update: 'בקשת עדכון' }[x.cmd_name] || x.cmd_name;
+        parts.push(x.cmd_ack_at
+            ? `<span class="badge good">${esc(label)}: התקבל ✓</span><div class="muted" style="font-size:12px">${relTime(x.cmd_ack_at)}</div>`
+            : `<span class="badge warn">${esc(label)}: ממתין…</span><div class="muted" style="font-size:12px">נשלח ${relTime(x.cmd_sent_at)}</div>`);
+    }
+    if (x.last_ack_at) parts.push(`<div style="font-size:12px">התקבלה לאחרונה: <b>${relTime(x.last_ack_at)}</b>${x.last_ack_title ? `<div class="muted">${esc(String(x.last_ack_title).slice(0, 40))}</div>` : ''}</div>`);
+    else if (x.last_push_at) parts.push(`<div style="font-size:12px;color:var(--bad)">נשלחה ${relTime(x.last_push_at)}, לא אושרה קבלה</div>`);
+    if (!parts.length) parts.push('<span class="muted" style="font-size:12px">—</span>');
+    return parts.join('');
+}
+
+let appCmdTimer = null;
+async function appCommand(deviceId, command) {
+    if (command === 'logout' && !(await confirmDanger('ניתוק המכשיר', 'המשתמש ינותק מהאפליקציה במכשיר הזה ויצטרך להתחבר מחדש.', 'ניתוק'))) return;
+    const r = await api('/admin/app/command', { deviceId, command });
+    if (!r.ok) { toast(r.error, 'bad'); return; }
+    toast(r.data.sent ? `${r.data.label}: נשלח, ממתין לאישור מהטלפון…` : 'השליחה למכשיר נכשלה', r.data.sent ? undefined : 'bad');
+    // a few quick refreshes to show "received ✓" as soon as the phone answers
+    let n = 0;
+    clearInterval(appCmdTimer);
+    const tick = async () => {
+        const d = await api('/admin/app/devices', {});
+        if (d.ok) { S.appDevices = d.data; renderAppDevices(); }
+        const dev = d.ok && (d.data.devices || []).find(x => x.device_id === deviceId);
+        if (++n >= 10 || (dev && dev.cmd_ack_at)) clearInterval(appCmdTimer);
+    };
+    tick();
+    appCmdTimer = setInterval(tick, 3000);
 }
 
 function renderAppCrashes() {
@@ -4424,6 +4464,7 @@ const ACTIONS = {
     'mail-app-template': () => openAppLaunchTemplate(),
     'app-feed-check': () => runFeedCheck(),
     'app-push-send': () => sendAppPush(),
+    'app-cmd': el => appCommand(el.dataset.device, el.dataset.cmd),
     'app-copy-link': () => navigator.clipboard?.writeText('https://smti.uk/salamon/app').then(() => toast('הקישור הועתק')).catch(() => toast('https://smti.uk/salamon/app', 'info')),
     'group-edit': el => openGroupDrawer(Number(el.dataset.id)),
     'group-save': () => saveGroup(),

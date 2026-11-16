@@ -24,7 +24,7 @@ public final class Sync {
         return d;
     }
 
-    public static void heartbeat(Context ctx, boolean open, Api.Callback cb) {
+    public static JSONObject body(Context ctx, boolean open) {
         JSONObject b = new JSONObject();
         try {
             b.put("open", open);
@@ -33,24 +33,37 @@ public final class Sync {
             b.put("notify", new JSONObject().put("feed", Store.notify("feed")).put("chat", Store.notify("chat")).put("groups", Store.notify("groups")));
         } catch (Exception ignored) {
         }
-        Api.post("/app/heartbeat", b, r -> {
-            if (r.ok) {
-                JSONObject c = r.data.optJSONObject("config");
-                if (c != null) Store.setConfig(c);
-                JSONObject u = r.data.optJSONObject("user");
-                if (u != null && open) {
-                    JSONObject saved = Store.user();
-                    try {
-                        for (java.util.Iterator<String> it = u.keys(); it.hasNext(); ) {
-                            String k = it.next();
-                            if (!u.isNull(k)) saved.put(k, u.get(k));
-                        }
-                    } catch (Exception ignored) {
-                    }
-                    Store.setUser(saved);
+        return b;
+    }
+
+    /** Saves the config and the user's details (permissions, admin) from a heartbeat answer. */
+    public static void apply(Api.Result r) {
+        if (r == null || !r.ok || r.data == null) return;
+        JSONObject c = r.data.optJSONObject("config");
+        if (c != null) Store.setConfig(c);
+        JSONObject u = r.data.optJSONObject("user");
+        if (u != null) {
+            JSONObject saved = Store.user();
+            try {
+                for (java.util.Iterator<String> it = u.keys(); it.hasNext(); ) {
+                    String k = it.next();
+                    if (!u.isNull(k)) saved.put(k, u.get(k));
                 }
+            } catch (Exception ignored) {
             }
+            Store.setUser(saved);
+        }
+    }
+
+    public static void heartbeat(Context ctx, boolean open, Api.Callback cb) {
+        Api.post("/app/heartbeat", body(ctx, open), r -> {
+            apply(r);
             if (cb != null) cb.done(r);
         });
+    }
+
+    public static boolean isAdmin() {
+        JSONObject u = Store.user();
+        return u.optBoolean("isAdmin") || u.optBoolean("isSuperAdmin");
     }
 }
