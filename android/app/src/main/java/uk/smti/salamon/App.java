@@ -21,6 +21,12 @@ public class App extends Application {
     /** Name of the screen on top (for crash reports). */
     public static String screen = "";
     private static int started;
+    /** The activity on screen right now (for remote commands), or null. */
+    public static java.lang.ref.WeakReference<Activity> top = new java.lang.ref.WeakReference<>(null);
+
+    public static boolean visible() { return started > 0; }
+
+    public static Activity topActivity() { return started > 0 ? top.get() : null; }
     private static long backgroundSince = 0;
 
     @Override
@@ -46,7 +52,7 @@ public class App extends Application {
                 if (--started == 0) backgroundSince = System.currentTimeMillis();
             }
 
-            public void onActivityResumed(Activity a) { screen = a.getClass().getSimpleName(); }
+            public void onActivityResumed(Activity a) { screen = a.getClass().getSimpleName(); top = new java.lang.ref.WeakReference<>(a); }
             public void onActivityCreated(Activity a, Bundle b) { }
             public void onActivityPaused(Activity a) { }
             public void onActivitySaveInstanceState(Activity a, Bundle b) { }

@@ -20,6 +20,17 @@ import android.webkit.WebViewClient;
 public class WebActivity extends Activity {
 
     public static final String EXTRA_URL = "url";
+    public static final String EXTRA_ADMIN = "admin";
+    private boolean admin;
+
+    /** The control center inside the app, already signed in with the app's account (managers only). */
+    public static void openAdmin(Activity a) {
+        if (!Sync.isAdmin()) {
+            android.widget.Toast.makeText(a, "לחשבון הזה אין הרשאות ניהול", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        a.startActivity(new Intent(a, WebActivity.class).putExtra(EXTRA_ADMIN, true));
+    }
     private WebView web;
     private PermissionRequest pendingMic;
     private ValueCallback<Uri[]> fileCb;
@@ -65,8 +76,19 @@ public class WebActivity extends Activity {
                 try { startActivityForResult(p.createIntent(), 2); return true; } catch (Exception e) { fileCb = null; return false; }
             }
         });
-        String url = getIntent().getStringExtra(EXTRA_URL);
-        web.loadUrl(url == null ? "https://smti.uk/salamon" : url);
+        admin = getIntent().getBooleanExtra(EXTRA_ADMIN, false);
+        if (admin) {
+            getWindow().setStatusBarColor(Ui.HEADER);
+            // the control center signs in from the site account saved in the browser: hand it the app's account
+            String token = org.json.JSONObject.quote(Store.token());
+            String boot = "<!doctype html><meta charset=utf-8><body style='font-family:sans-serif;text-align:center;padding-top:40vh;color:#667'>"
+                    + "פותח את מרכז השליטה…<script>try{localStorage.setItem('userToken'," + token + ");}catch(e){}"
+                    + "location.replace('https://smti.uk/salamon/admin');</script>";
+            web.loadDataWithBaseURL("https://smti.uk/salamon/", boot, "text/html", "utf-8", null);
+        } else {
+            String url = getIntent().getStringExtra(EXTRA_URL);
+            web.loadUrl(url == null ? "https://smti.uk/salamon" : url);
+        }
         setContentView(web);
     }
 
@@ -89,7 +111,9 @@ public class WebActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (web.canGoBack()) web.goBack();
+        if (web.canGoBack() && !web.getUrl().contains("/salamon/admin")) web.goBack();
+        else if (admin) finish();
+        else if (web.canGoBack()) web.goBack();
         else moveTaskToBack(true);
     }
 }

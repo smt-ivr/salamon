@@ -116,6 +116,12 @@ public class PageActivity extends BaseActivity {
     }
 
     @Override
+    protected void onActivityResult(int code, int result, Intent data) {
+        super.onActivityResult(code, result, data);
+        page.onActivityResult(code, result, data);
+    }
+
+    @Override
     public void onRequestPermissionsResult(int code, String[] perms, int[] res) {
         super.onRequestPermissionsResult(code, perms, res);
         if (page instanceof SettingsPage) ((SettingsPage) page).refresh();

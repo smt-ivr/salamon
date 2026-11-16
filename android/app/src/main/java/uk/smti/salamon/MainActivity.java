@@ -178,6 +178,7 @@ public class MainActivity extends BaseActivity {
         if (type == null) return;
         intent.removeExtra(Notifier.EXTRA_TYPE);
         if ("chat".equals(type)) PageActivity.open(this, "chat");
+        else if ("admin_chat".equals(type)) WebActivity.openAdmin(this);
         else if ("group".equals(type)) {
             Intent i = new Intent(this, PageActivity.class).putExtra(PageActivity.EXTRA_PAGE, "groups");
             String g = intent.getStringExtra(Notifier.EXTRA_GROUP);
@@ -349,18 +350,30 @@ public class MainActivity extends BaseActivity {
 
     private void showMenu(View anchor) {
         PopupMenu m = new PopupMenu(this, anchor);
-        m.getMenu().add(0, 1, 0, "הגדרות");
-        m.getMenu().add(0, 2, 1, "רענון");
-        if (Store.config().optBoolean("shouldUpdate")) m.getMenu().add(0, 3, 2, "עדכון האפליקציה");
+        if (Sync.isAdmin()) m.getMenu().add(0, 5, 0, "🛡️  ניהול (מרכז השליטה)");
+        m.getMenu().add(0, 1, 1, "⚙️  הגדרות");
+        m.getMenu().add(0, 4, 2, "💬  צ׳אט עם ההנהלה");
+        m.getMenu().add(0, 2, 3, "🔄  רענון");
+        m.getMenu().add(0, 3, 4, Store.config().optBoolean("shouldUpdate") ? "⬆️  עדכון האפליקציה" : "✓  בדיקת עדכונים");
         m.setOnMenuItemClickListener(it -> {
-            if (it.getItemId() == 1) PageActivity.open(this, "settings");
-            else if (it.getItemId() == 2) {
+            int id = it.getItemId();
+            if (id == 1) PageActivity.open(this, "settings");
+            else if (id == 2) {
                 refresh(false);
                 loadStatsHeader();
-            } else if (it.getItemId() == 3) Updater.showDialog(this);
+            } else if (id == 3) Updater.checkAndUpdate(this);
+            else if (id == 4) PageActivity.open(this, "chat");
+            else if (id == 5) WebActivity.openAdmin(this);
             return true;
         });
         m.show();
+    }
+
+    /** A "refresh settings" command from the control center: applies the new config right away. */
+    public void reloadFromRemote() {
+        applyConfig(Store.config(), false);
+        refresh(true);
+        loadStatsHeader();
     }
 
     private void askNotificationPermission() {

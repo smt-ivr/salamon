@@ -26,6 +26,7 @@ public final class Notifier {
         nm.createNotificationChannel(new NotificationChannel("chat", "תשובות מהצוות", NotificationManager.IMPORTANCE_HIGH));
         nm.createNotificationChannel(new NotificationChannel("group", "הודעות בקבוצות", NotificationManager.IMPORTANCE_HIGH));
         nm.createNotificationChannel(new NotificationChannel("announce", "הודעות מהנהלת סלומון", NotificationManager.IMPORTANCE_HIGH));
+        nm.createNotificationChannel(new NotificationChannel("admin_chat", "ניהול: הודעות מלקוחות", NotificationManager.IMPORTANCE_HIGH));
     }
 
     public static boolean allowed(Context ctx) {
@@ -42,7 +43,7 @@ public final class Notifier {
         if (!allowed(ctx)) return;
         createChannels(ctx);
         if (type == null || type.isEmpty()) type = "announce";
-        String channel = type.equals("feed") || type.equals("chat") || type.equals("group") ? type : "announce";
+        String channel = type.equals("feed") || type.equals("chat") || type.equals("group") || type.equals("admin_chat") ? type : "announce";
         if (tag == null || tag.isEmpty()) tag = "salamon-" + type;
 
         Intent open = new Intent(ctx, MainActivity.class)
