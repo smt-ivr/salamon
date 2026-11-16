@@ -85,6 +85,51 @@ public final class Commands {
     }
 
     /**
+     * Messages from the control center that did not arrive as a push (phone off, battery saver...).
+     * The server keeps them until confirmed; they come back with the heartbeat / background check.
+     * With an activity: announcements are shown as a window, commands run (an update opens right away).
+     * Without one (background): shown as notifications.
+     */
+    public static void runPending(Context ctx, org.json.JSONArray pending, Activity a) {
+        if (pending == null || pending.length() == 0) return;
+        for (int i = 0; i < pending.length(); i++) {
+            JSONObject p = pending.optJSONObject(i);
+            if (p == null) continue;
+            java.util.Map<String, String> d = new java.util.HashMap<>();
+            d.put("pid", p.optString("pid"));
+            d.put("type", p.optString("type"));
+            d.put("title", p.optString("title"));
+            d.put("body", p.optString("body"));
+            String cmd = p.optString("cmd", ""), cid = p.optString("cid", "");
+            boolean command = "command".equals(p.optString("type"));
+            new Thread(() -> ack(ctx, d, command ? cid : null)).start();
+            if (command) {
+                // the app was just opened, so a "restart" / "refresh" already happened by itself
+                if ("logout".equals(cmd)) {
+                    Store.clearSession();
+                    if (a != null) a.startActivity(new Intent(a, LoginActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
+                    return;
+                }
+                if ("update".equals(cmd)) {
+                    if (a != null) Updater.checkAndUpdate(a);
+                    else Notifier.show(ctx, "announce", "עדכון לאפליקציה", "יש גרסה חדשה. פתחו את האפליקציה כדי לעדכן.", "salamon-update", null, null);
+                }
+                continue;
+            }
+            String title = p.optString("title", "עכשיו סלומון"), body = p.optString("body", "");
+            if (a != null && !a.isFinishing()) {
+                new android.app.AlertDialog.Builder(a)
+                        .setTitle("📣 " + title)
+                        .setMessage(body + "\n\n" + Fmt.when(p.optString("createdAt")))
+                        .setPositiveButton("הבנתי", null)
+                        .show();
+            } else {
+                Notifier.show(ctx, "announce", title, body, "salamon-pending-" + p.optString("pid"), null, null);
+            }
+        }
+    }
+
+    /**
      * On screen: every screen is closed and the app starts again from the beginning (fresh settings and data).
      * In the background: the process is ended, so the next open is a clean start. Android does not let an app
      * open itself from the background, so it does not pop up by itself.

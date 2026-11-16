@@ -20,6 +20,8 @@ public class PageActivity extends BaseActivity {
     public static final String EXTRA_GROUP = "group";
 
     private Page page;
+    /** Status line under the title (the chat shows "typing…" here). */
+    public TextView subtitle;
     private static PageActivity current;
     private static boolean foreground;
     private String kind;
@@ -48,12 +50,14 @@ public class PageActivity extends BaseActivity {
         switch (kind) {
             case "chat": page = new ChatPage(this); title = "צ׳אט עם ההנהלה"; break;
             case "groups": page = new GroupsPage(this); title = "קבוצות"; break;
+            case "members": page = new MembersPage(this); title = "משתתפים"; break;
             default: page = new SettingsPage(this); title = "הגדרות"; break;
         }
 
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
-        col.setBackgroundColor("settings".equals(kind) ? Ui.BG : Ui.CHAT_BG);
+        if ("settings".equals(kind) || "members".equals(kind)) col.setBackgroundColor(Ui.BG);
+        else col.setBackground(Bubbles.wallpaper(this));
 
         LinearLayout bar = new LinearLayout(this);
         bar.setGravity(Gravity.CENTER_VERTICAL);
@@ -70,8 +74,20 @@ public class PageActivity extends BaseActivity {
         back.setContentDescription("חזרה");
         back.setOnClickListener(v -> onBackPressed());
         bar.addView(back, new LinearLayout.LayoutParams(Ui.dp(this, 48), Ui.dp(this, 48)));
-        TextView t = Ui.text(this, title, 18, Ui.TEXT, 700);
-        bar.addView(t);
+        if ("chat".equals(kind)) {
+            // like a WhatsApp conversation header: picture, name, status line
+            bar.addView(Ui.avatar(this, "צוות סלומון", 40));
+            LinearLayout tt = new LinearLayout(this);
+            tt.setOrientation(LinearLayout.VERTICAL);
+            tt.setPadding(Ui.dp(this, 10), 0, 0, 0);
+            tt.addView(Ui.text(this, "צוות עכשיו סלומון", 16.5f, Ui.TEXT, 700));
+            subtitle = Ui.text(this, "בדרך כלל עונים תוך זמן קצר", 12.5f, Ui.TEXT3, 400);
+            tt.addView(subtitle);
+            bar.addView(tt);
+        } else {
+            TextView t = Ui.text(this, title, 18, Ui.TEXT, 700);
+            bar.addView(t);
+        }
         col.addView(bar, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Ui.dp(this, 58)));
 
         FrameLayout content = new FrameLayout(this);

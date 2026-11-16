@@ -3733,7 +3733,7 @@ function renderAppDevices() {
     const flag = (on, label) => `<span class="badge ${on ? 'good' : ''}" style="margin-inline-end:4px">${label}${on ? '' : ' ✕'}</span>`;
     $('#app-devices').innerHTML = list.length ? list.map(x => `<tr>
         <td><b>${esc(names[x.phone] || x.phone)}</b><div class="muted" style="font-size:12px;direction:ltr;text-align:right">${esc(x.phone)}</div></td>
-        <td>${esc(x.device_model || '—')}<div class="muted" style="font-size:12px">${esc(x.os_version || '')}</div></td>
+        <td>${esc(x.device_model || '—')}<div class="muted" style="font-size:12px">${esc(x.os_version || '')}</div>${appDeviceDetails(x)}</td>
         <td>${appVersionBadge(x.app_version)}</td>
         <td class="nowrap">${flag(x.notify_feed !== 0, 'הודעות')}${flag(x.notify_chat !== 0, "צ'אט")}${flag(x.notify_groups !== 0, 'קבוצות')}</td>
         <td>${appDeliveryCell(x)}</td>
@@ -3747,6 +3747,42 @@ function renderAppDevices() {
     </tr>`).join('') : emptyRow(7, d.pushConfigured === false ? 'ההתראות לא מוגדרות בשרת, ולכן מכשירים לא נרשמים. צריך להגדיר FCM_SERVICE_ACCOUNT.' : 'עדיין לא נרשמו מכשירים מהאפליקציה החדשה.', 'fa-mobile-screen-button');
 }
 
+// full device details reported by the app (battery, network, permissions...)
+function appDeviceDetails(x) {
+    let i = null;
+    try { i = x.device_info ? JSON.parse(x.device_info) : null; } catch (e) {}
+    if (!i) return '';
+    const yes = (v, good = true) => v === undefined ? '—' : `<span class="badge ${v === good ? 'good' : 'warn'}">${v ? 'כן' : 'לא'}</span>`;
+    const ts = v => v ? new Date(Number(v)).toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+    const net = { wifi: 'WiFi', cellular: 'סלולרי', none: 'אין חיבור', other: 'אחר' }[i.network] || '—';
+    const rows = [
+        ['יצרן ודגם', `${esc(i.manufacturer || '')} ${esc(i.model || '')}`],
+        ['אנדרואיד', `${esc(i.android || '')} (API ${esc(i.sdk || '')})`],
+        ['סוללה', i.battery !== undefined ? `${i.battery}%${i.charging ? ' ⚡ בטעינה' : ''}` : '—'],
+        ['חיסכון בסוללה על האפליקציה', i.batteryOptimized === undefined ? '—' : (i.batteryOptimized ? '<span class="badge warn">מופעל: עלול לעכב התראות</span>' : '<span class="badge good">כבוי ✓</span>')],
+        ['מצב חיסכון כללי', yes(i.powerSave, false)],
+        ['חיבור', net],
+        ['התראות מורשות', yes(i.notifications)],
+        ['רשום להתראות (FCM)', yes(i.pushToken)],
+        ['הרשאת עדכון מתוך האפליקציה', yes(i.canInstall)],
+        ['נעילת מסך בטלפון', yes(i.screenLock)],
+        ['נעילה באפליקציה', yes(i.appLock)],
+        ['מסך', `${esc(i.screen || '—')}${i.dpi ? ` · ${i.dpi}dpi` : ''}`],
+        ['זיכרון', i.ramMb ? `${(i.ramMb / 1024).toFixed(1)}GB RAM` : '—'],
+        ['אחסון פנוי', i.storageFreeMb !== undefined ? `${(i.storageFreeMb / 1024).toFixed(1)} מתוך ${(i.storageTotalMb / 1024).toFixed(0)}GB` : '—'],
+        ['שפה ואזור זמן', `${esc(i.language || '')} · ${esc(i.timezone || '')}`],
+        ['מיקום (לפי רשת)', `${esc(i.city || '')} ${esc(i.country || '')}`],
+        ['כתובת IP', `<span style="direction:ltr;display:inline-block">${esc(i.ip || '—')}</span>`],
+        ['הותקנה', ts(i.installedAt)],
+        ['עודכנה', ts(i.updatedAt)],
+        ['פתיחות האפליקציה', x.opens != null ? num(x.opens) : '—'],
+        ['הודעות שממתינות למכשיר', x.pending ? `<span class="badge warn">${num(x.pending)} יוצגו כשיפתח</span>` : '0'],
+        ['דווח לאחרונה', i.reportedAt ? relTime(i.reportedAt) : '—'],
+    ];
+    return `<details style="margin-top:4px"><summary style="cursor:pointer;font-size:12px;color:var(--accent)">כל הפרטים</summary>
+        <table style="font-size:12px;margin-top:6px;border-collapse:collapse">${rows.map(([k, v]) => `<tr><td class="muted" style="padding:2px 0 2px 10px;white-space:nowrap">${k}</td><td style="padding:2px 0">${v}</td></tr>`).join('')}</table></details>`;
+}
+
 // did the phone really get its notifications? (the app confirms every push it receives)
 function appDeliveryCell(x) {
     const parts = [];
@@ -3758,6 +3794,7 @@ function appDeliveryCell(x) {
     }
     if (x.last_ack_at) parts.push(`<div style="font-size:12px">התקבלה לאחרונה: <b>${relTime(x.last_ack_at)}</b>${x.last_ack_title ? `<div class="muted">${esc(String(x.last_ack_title).slice(0, 40))}</div>` : ''}</div>`);
     else if (x.last_push_at) parts.push(`<div style="font-size:12px;color:var(--bad)">נשלחה ${relTime(x.last_push_at)}, לא אושרה קבלה</div>`);
+    if (x.pending) parts.push(`<div style="font-size:12px;margin-top:2px"><span class="badge warn">${num(x.pending)} ממתינות</span> <span class="muted">יוצגו כשיפתח</span></div>`);
     if (!parts.length) parts.push('<span class="muted" style="font-size:12px">—</span>');
     return parts.join('');
 }

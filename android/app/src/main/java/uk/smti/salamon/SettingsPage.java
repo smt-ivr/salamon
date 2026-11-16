@@ -109,6 +109,114 @@ public class SettingsPage extends Page {
         n.addView(btns, Ui.wide(a, 12, 0));
         col.addView(n, Ui.wide(a, 0, 16));
 
+        // ---- when and how ----
+        col.addView(section("מתי ואיך"));
+        LinearLayout when = Ui.card(a);
+        when.setPadding(0, Ui.dp(a, 6), 0, Ui.dp(a, 6));
+
+        // mute for a while
+        long mute = Store.muteUntil();
+        boolean muted = mute > System.currentTimeMillis();
+        LinearLayout muteRow = Ui.iconRow(a, R.drawable.ic_bell, muted ? Ui.HUE_ROSE : Ui.HUE_AMBER, muted ? "ההתראות מושתקות" : "השתקה זמנית",
+                muted ? "עד " + new java.text.SimpleDateFormat("HH:mm", java.util.Locale.US).format(new java.util.Date(mute)) + " · לחצו לביטול" : "לשעה, ל-8 שעות או עד הבוקר");
+        muteRow.setOnClickListener(v -> {
+            if (Store.muteUntil() > System.currentTimeMillis()) {
+                Store.setMuteUntil(0);
+                fill();
+                return;
+            }
+            String[] opts = {"שעה", "8 שעות", "עד הבוקר (07:00)", "24 שעות"};
+            new AlertDialog.Builder(a).setTitle("להשתיק התראות ל…").setItems(opts, (d, which) -> {
+                long now = System.currentTimeMillis(), until;
+                if (which == 0) until = now + 3600_000L;
+                else if (which == 1) until = now + 8 * 3600_000L;
+                else if (which == 3) until = now + 24 * 3600_000L;
+                else {
+                    java.util.Calendar c = java.util.Calendar.getInstance();
+                    c.set(java.util.Calendar.HOUR_OF_DAY, 7);
+                    c.set(java.util.Calendar.MINUTE, 0);
+                    c.set(java.util.Calendar.SECOND, 0);
+                    if (c.getTimeInMillis() <= now) c.add(java.util.Calendar.DAY_OF_MONTH, 1);
+                    until = c.getTimeInMillis();
+                }
+                Store.setMuteUntil(until);
+                fill();
+            }).show();
+        });
+        when.addView(muteRow);
+
+        // quiet hours
+        LinearLayout quiet = Ui.iconRow(a, R.drawable.ic_moon, Ui.HUE_INDIGO, "שעות שקטות",
+                Store.quietOn() ? "פעיל · " + hhmm(Store.quietFrom()) + " עד " + hhmm(Store.quietTo()) + " (בלי צליל)" : "כבוי · ההתראות מגיעות בכל שעה");
+        Switch qs = new Switch(a);
+        qs.setChecked(Store.quietOn());
+        qs.setOnCheckedChangeListener((b, on) -> {
+            Store.setQuietOn(on);
+            fill();
+        });
+        quiet.addView(qs);
+        when.addView(quiet);
+        if (Store.quietOn()) {
+            LinearLayout times = new LinearLayout(a);
+            times.setPadding(Ui.dp(a, 70), 0, Ui.dp(a, 16), Ui.dp(a, 8));
+            Button from = Ui.button(a, "מ-" + hhmm(Store.quietFrom()), false);
+            Button to = Ui.button(a, "עד " + hhmm(Store.quietTo()), false);
+            from.setTextSize(14);
+            to.setTextSize(14);
+            from.setOnClickListener(v -> pickTime(Store.quietFrom(), m -> { Store.setQuiet(m, Store.quietTo()); fill(); }));
+            to.setOnClickListener(v -> pickTime(Store.quietTo(), m -> { Store.setQuiet(Store.quietFrom(), m); fill(); }));
+            times.addView(from, new LinearLayout.LayoutParams(0, Ui.dp(a, 42), 1));
+            times.addView(new View(a), new LinearLayout.LayoutParams(Ui.dp(a, 8), 1));
+            times.addView(to, new LinearLayout.LayoutParams(0, Ui.dp(a, 42), 1));
+            when.addView(times);
+        }
+
+        // sound
+        String mode = Store.soundMode();
+        String modeLabel = "vibrate".equals(mode) ? "רטט בלבד" : "silent".equals(mode) ? "שקט (בלי צליל ורטט)" : "צליל ורטט";
+        LinearLayout soundRow = Ui.iconRow(a, R.drawable.ic_megaphone, Ui.HUE_VIOLET, "צליל ההתראות", modeLabel);
+        soundRow.setOnClickListener(v -> {
+            String[] keys = {"sound", "vibrate", "silent"};
+            String[] labels = {"צליל ורטט", "רטט בלבד", "שקט (בלי צליל ורטט)"};
+            int cur = java.util.Arrays.asList(keys).indexOf(Store.soundMode());
+            new AlertDialog.Builder(a).setTitle("צליל ההתראות").setSingleChoiceItems(labels, Math.max(0, cur), (d, which) -> {
+                Store.setSoundMode(keys[which]);
+                d.dismiss();
+                fill();
+            }).show();
+        });
+        when.addView(soundRow);
+
+        // preview
+        LinearLayout prev = Ui.iconRow(a, R.drawable.ic_lock, Ui.HUE_SLATE, "הצגת תוכן ההודעה",
+                Store.showPreview() ? "רואים בהתראה מה נכתב" : "מוצג רק \"הודעה חדשה\" (פרטיות)");
+        Switch ps = new Switch(a);
+        ps.setChecked(Store.showPreview());
+        ps.setOnCheckedChangeListener((b, on) -> {
+            Store.setShowPreview(on);
+            fill();
+        });
+        prev.addView(ps);
+        when.addView(prev);
+
+        // battery saver (the most common reason notifications are late)
+        try {
+            android.os.PowerManager pm = (android.os.PowerManager) a.getSystemService(android.content.Context.POWER_SERVICE);
+            if (!pm.isIgnoringBatteryOptimizations(a.getPackageName())) {
+                LinearLayout bat = Ui.iconRow(a, R.drawable.ic_bolt, Ui.HUE_ROSE, "חיסכון בסוללה מעכב התראות",
+                        "לחצו כדי לאשר לאפליקציה לקבל התראות תמיד בזמן");
+                bat.setOnClickListener(v -> {
+                    try {
+                        a.startActivity(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, android.net.Uri.parse("package:" + a.getPackageName())));
+                    } catch (Exception e) {
+                        try { a.startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)); } catch (Exception ignored) { }
+                    }
+                });
+                when.addView(bat);
+            }
+        } catch (Exception ignored) { }
+        col.addView(when, Ui.wide(a, 0, 16));
+
         // ---- security ----
         col.addView(section("אבטחה"));
         LinearLayout sec = Ui.card(a);
@@ -194,6 +302,14 @@ public class SettingsPage extends Page {
             Sync.heartbeat(a, false, null);
         });
         return s;
+    }
+
+    private static String hhmm(int minutes) {
+        return String.format(java.util.Locale.US, "%02d:%02d", minutes / 60, minutes % 60);
+    }
+
+    private void pickTime(int minutes, java.util.function.IntConsumer done) {
+        new android.app.TimePickerDialog(a, (tp, h, m) -> done.accept(h * 60 + m), minutes / 60, minutes % 60, true).show();
     }
 
     private void logout() {

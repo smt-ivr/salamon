@@ -21,7 +21,8 @@ public class PushService extends FirebaseMessagingService {
         String type = d.get("type");
         // the screen the message belongs to is open right now: it updates itself, no notification
         if (MainActivity.isShowing(type, d.get("groupId"))) return;
-        Notifier.show(this, type, title, d.get("body") == null ? "" : d.get("body"), d.get("tag"), d.get("groupId"), d.get("fileId"));
+        Notifier.show(this, type, title, d.get("body") == null ? "" : d.get("body"), d.get("tag"),
+                "admin_chat".equals(type) ? d.get("phone") : d.get("groupId"), d.get("fileId"));
         if ("feed".equals(type) && d.get("fileId") != null) {
             try { Store.setMark("feed", Long.parseLong(d.get("fileId"))); } catch (Exception ignored) { }
         }

@@ -21,8 +21,14 @@ public class PollJob extends JobService {
         new Thread(() -> {
             try {
                 boolean pushWorks = Store.config().optBoolean("pushConfigured") && !Store.pushToken().isEmpty();
-                Api.Result r = Api.postNow("/app/poll", new JSONObject());
+                JSONObject pb = new JSONObject();
+                try { pb.put("pushToken", Store.pushToken()); } catch (Exception ignored) { }
+                Api.Result r = Api.postNow("/app/poll", pb);
                 if (r.ok) {
+                    org.json.JSONArray pending = r.data.optJSONArray("pending");
+                    if (pending != null && pending.length() > 0) {
+                        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> Commands.runPending(this, pending, App.topActivity()));
+                    }
                     long feed = r.data.optLong("feedNewest");
                     long chatLast = r.data.optLong("chatLast"), groupsLast = r.data.optLong("groupsLast");
                     int chatUnread = r.data.optInt("chatUnread"), groupsUnread = r.data.optInt("groupsUnread");

@@ -49,7 +49,7 @@ public final class Player {
             mp.setOnPreparedListener(p -> {
                 preparing = false;
                 applySpeed();
-                p.start();
+                try { p.start(); } catch (Exception e) { stop(); return; }
                 h.post(tick);
                 notifyChanged();
             });
@@ -69,23 +69,27 @@ public final class Player {
 
     public static void toggle() {
         if (mp == null || preparing) return;
-        if (mp.isPlaying()) mp.pause();
-        else {
-            mp.start();
-            h.post(tick);
+        try {
+            if (mp.isPlaying()) mp.pause();
+            else {
+                mp.start();
+                h.post(tick);
+            }
+        } catch (Exception e) {
+            stop();
         }
         notifyChanged();
     }
 
     public static void seekBy(int ms) {
         if (mp == null || preparing) return;
-        mp.seekTo(Math.max(0, Math.min(duration(), position() + ms)));
+        try { mp.seekTo(Math.max(0, Math.min(duration(), position() + ms))); } catch (Exception ignored) { }
         notifyChanged();
     }
 
     public static void seekTo(int ms) {
         if (mp == null || preparing) return;
-        mp.seekTo(ms);
+        try { mp.seekTo(ms); } catch (Exception ignored) { }
         notifyChanged();
     }
 
